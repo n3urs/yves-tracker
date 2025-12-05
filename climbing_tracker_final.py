@@ -5,6 +5,9 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import json
 
+import warnings
+warnings.filterwarnings('ignore')  # Suppress pandas/matplotlib warnings on Streamlit Cloud
+
 # ==================== CONFIG ====================
 CSV_FILE = "climbing_log.csv"
 SAVED_1RM_FILE = "1rm_reference.json"
