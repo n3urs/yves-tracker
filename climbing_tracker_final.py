@@ -115,9 +115,6 @@ EXERCISE_PLAN = {
 st.set_page_config(page_title="Yves Tracker", layout="wide", initial_sidebar_state="collapsed")
 st.title("🧗 Yves Arm-Lifting Tracker")
 
-# Detect device type - FIXED LINE
-is_mobile = "mobile" in st.query_params and st.query_params["mobile"].lower() == "true"
-
 # ==================== Load or create CSV ====================
 if not os.path.exists(CSV_FILE):
     df_template = pd.DataFrame(columns=[
@@ -274,40 +271,25 @@ st.sidebar.write(f"**Total weight: {actual_load:.1f} kg**")
 # ==================== MAIN: LOG FORM ====================
 st.header("📝 Log Today's Session")
 
-# Responsive layout based on device
-if is_mobile or st.session_state.get("is_mobile", False):
-    # Mobile: Stack vertically
-    st.subheader("Load Details")
+# Desktop layout (3 columns per row)
+col1, col2, col3 = st.columns(3)
+with col1:
     actual_load = st.number_input("Actual Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load, step=0.5)
+with col2:
     reps = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1)
+with col3:
     sets = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1)
-    
-    st.subheader("Effort & Notes")
+
+col4, col5, col6 = st.columns(3)
+with col4:
     rpe = st.slider("RPE (Rate of Perceived Exertion)", min_value=1, max_value=10, value=7)
+with col5:
     quick_note = st.selectbox("Quick note:", ["None"] + list(QUICK_NOTES.keys()), key="quick_note_select")
     quick_note_text = QUICK_NOTES.get(quick_note, "") if quick_note != "None" else ""
+with col6:
     notes = st.text_input("Custom notes (optional)", placeholder="e.g., felt strong, hand pain, etc.")
-    full_notes = f"{quick_note_text} {notes}".strip()
-else:
-    # Desktop: 3 columns per row
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        actual_load = st.number_input("Actual Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load, step=0.5)
-    with col2:
-        reps = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1)
-    with col3:
-        sets = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1)
-    
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        rpe = st.slider("RPE (Rate of Perceived Exertion)", min_value=1, max_value=10, value=7)
-    with col5:
-        quick_note = st.selectbox("Quick note:", ["None"] + list(QUICK_NOTES.keys()), key="quick_note_select")
-        quick_note_text = QUICK_NOTES.get(quick_note, "") if quick_note != "None" else ""
-    with col6:
-        notes = st.text_input("Custom notes (optional)", placeholder="e.g., felt strong, hand pain, etc.")
-    
-    full_notes = f"{quick_note_text} {notes}".strip()
+
+full_notes = f"{quick_note_text} {notes}".strip()
 
 # ==================== SAVE BUTTON ====================
 if st.button("✅ Save Workout", key="save_btn", use_container_width=True):
@@ -351,33 +333,18 @@ if len(df_fresh) > 0:
         axis=1
     )
     
-    # Metrics (responsive)
-    if is_mobile or st.session_state.get("is_mobile", False):
-        col_metric1, col_metric2 = st.columns(2)
-        with col_metric1:
-            st.metric("Best Load", f"{df_filtered['Actual_Load_kg'].max():.1f} kg")
-        with col_metric2:
-            st.metric("Avg RPE (Recent 5)", f"{df_filtered.tail(5)['RPE'].mean():.1f} / 10")
-        
-        col_metric3, col_metric4 = st.columns(2)
-        with col_metric3:
-            total_volume = (df_filtered["Actual_Load_kg"] * df_filtered["Reps_Per_Set"] * df_filtered["Sets_Completed"]).sum()
-            st.metric("Total Volume", f"{total_volume:.0f} kg")
-        with col_metric4:
-            sessions_count = len(df_filtered)
-            st.metric("Sessions", sessions_count)
-    else:
-        col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
-        with col_metric1:
-            st.metric("Best Actual Load", f"{df_filtered['Actual_Load_kg'].max():.1f} kg")
-        with col_metric2:
-            st.metric("Avg RPE (Recent 5)", f"{df_filtered.tail(5)['RPE'].mean():.1f} / 10")
-        with col_metric3:
-            total_volume = (df_filtered["Actual_Load_kg"] * df_filtered["Reps_Per_Set"] * df_filtered["Sets_Completed"]).sum()
-            st.metric("Total Volume", f"{total_volume:.0f} kg")
-        with col_metric4:
-            sessions_count = len(df_filtered)
-            st.metric("Sessions Logged", sessions_count)
+    # Metrics
+    col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
+    with col_metric1:
+        st.metric("Best Actual Load", f"{df_filtered['Actual_Load_kg'].max():.1f} kg")
+    with col_metric2:
+        st.metric("Avg RPE (Recent 5)", f"{df_filtered.tail(5)['RPE'].mean():.1f} / 10")
+    with col_metric3:
+        total_volume = (df_filtered["Actual_Load_kg"] * df_filtered["Reps_Per_Set"] * df_filtered["Sets_Completed"]).sum()
+        st.metric("Total Volume", f"{total_volume:.0f} kg")
+    with col_metric4:
+        sessions_count = len(df_filtered)
+        st.metric("Sessions Logged", sessions_count)
     
     # Charts
     st.subheader("Load Over Time")
