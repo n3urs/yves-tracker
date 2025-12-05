@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime
 import matplotlib.pyplot as plt
 import json
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ==================== CONFIG ====================
-CSV_FILE = "climbing_log.csv"
-SAVED_1RM_FILE = "1rm_reference.json"
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]  # kg per side
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
 
@@ -115,18 +114,60 @@ EXERCISE_PLAN = {
 st.set_page_config(page_title="Yves Tracker", layout="wide", initial_sidebar_state="collapsed")
 st.title("🧗 Yves Arm-Lifting Tracker")
 
-# ==================== Load or create CSV ====================
-if not os.path.exists(CSV_FILE):
-    df_template = pd.DataFrame(columns=[
-        "Date", "Exercise", "1RM_Reference", "Target_Percentage",
-        "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
-        "Sets_Completed", "RPE", "Notes"
-    ])
-    df_template.to_csv(CSV_FILE, index=False)
+# ==================== Google Sheets Connection ====================
+@st.cache_resource
+def get_google_sheet():
+    """Connect to Google Sheets"""
+    try:
+        # Get credentials from Streamlit secrets
+        credentials_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
+        credentials = Credentials.from_service_account_info(
+            credentials_dict,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+        
+        # Connect to Google Sheets
+        client = gspread.authorize(credentials)
+        sheet_url = st.secrets["SHEET_URL"]
+        sheet = client.open_by_url(sheet_url)
+        return sheet.worksheet("Sheet1")  # Use first worksheet
+    except Exception as e:
+        st.error(f"Error connecting to Google Sheets: {e}")
+        return None
 
-# Load or create 1RM reference file
-if not os.path.exists(SAVED_1RM_FILE):
-    default_1rms = {
+def load_data_from_sheets(worksheet):
+    """Load all data from Google Sheet"""
+    try:
+        data = worksheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            return df
+        else:
+            # Return empty dataframe with correct columns
+            return pd.DataFrame(columns=[
+                "Date", "Exercise", "1RM_Reference", "Target_Percentage",
+                "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
+                "Sets_Completed", "RPE", "Notes"
+            ])
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
+
+def save_workout_to_sheets(worksheet, row_data):
+    """Append a new workout to the sheet"""
+    try:
+        worksheet.append_row(list(row_data.values()))
+        return True
+    except Exception as e:
+        st.error(f"Error saving workout: {e}")
+        return False
+
+# Connect to sheet
+worksheet = get_google_sheet()
+
+# Load 1RMs from session state (since we can't easily store in sheets)
+if "saved_1rms" not in st.session_state:
+    st.session_state.saved_1rms = {
         "20mm Edge (L)": 105,
         "20mm Edge (R)": 105,
         "Pinch (L)": 85,
@@ -134,13 +175,8 @@ if not os.path.exists(SAVED_1RM_FILE):
         "Wrist Roller (L)": 75,
         "Wrist Roller (R)": 75
     }
-    with open(SAVED_1RM_FILE, "w") as f:
-        json.dump(default_1rms, f, indent=2)
 
-with open(SAVED_1RM_FILE, "r") as f:
-    saved_1rms = json.load(f)
-
-df = pd.read_csv(CSV_FILE)
+saved_1rms = st.session_state.saved_1rms
 
 # ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
@@ -193,11 +229,6 @@ def estimate_1rm_epley(load_kg, reps):
         return load_kg
     return load_kg * (1 + reps / 30)
 
-def save_1rms(rms_dict):
-    """Save 1RMs to JSON file."""
-    with open(SAVED_1RM_FILE, "w") as f:
-        json.dump(rms_dict, f, indent=2)
-
 # ==================== SIDEBAR: 1RM MANAGER ====================
 st.sidebar.header("💾 1RM Manager")
 st.sidebar.subheader("Save your max lifts:")
@@ -215,7 +246,7 @@ for ex in exercise_list:
     )
 
 if st.sidebar.button("💾 Save All 1RMs", key="save_1rms_btn", use_container_width=True):
-    save_1rms(saved_1rms)
+    st.session_state.saved_1rms = saved_1rms
     st.sidebar.success("✅ 1RMs saved!")
 
 st.sidebar.markdown("---")
@@ -274,7 +305,7 @@ st.header("📝 Log Today's Session")
 # Desktop layout (3 columns per row)
 col1, col2, col3 = st.columns(3)
 with col1:
-    actual_load = st.number_input("Actual Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load, step=0.5)
+    actual_load_input = st.number_input("Actual Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load, step=0.5)
 with col2:
     reps = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1)
 with col3:
@@ -293,89 +324,101 @@ full_notes = f"{quick_note_text} {notes}".strip()
 
 # ==================== SAVE BUTTON ====================
 if st.button("✅ Save Workout", key="save_btn", use_container_width=True):
-    new_row = {
-        "Date": datetime.now().strftime("%Y-%m-%d"),
-        "Exercise": selected_exercise,
-        "1RM_Reference": current_1rm,
-        "Target_Percentage": target_pct,
-        "Prescribed_Load_kg": prescribed_load,
-        "Actual_Load_kg": actual_load,
-        "Reps_Per_Set": reps,
-        "Sets_Completed": sets,
-        "RPE": rpe,
-        "Notes": full_notes
-    }
-    
-    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    df.to_csv(CSV_FILE, index=False)
-    st.success(f"✅ Logged {selected_exercise}: {actual_load} kg x {reps} x {sets} @ RPE {rpe}")
-    st.rerun()
+    if worksheet:
+        new_row = {
+            "Date": datetime.now().strftime("%Y-%m-%d"),
+            "Exercise": selected_exercise,
+            "1RM_Reference": current_1rm,
+            "Target_Percentage": target_pct,
+            "Prescribed_Load_kg": prescribed_load,
+            "Actual_Load_kg": actual_load_input,
+            "Reps_Per_Set": reps,
+            "Sets_Completed": sets,
+            "RPE": rpe,
+            "Notes": full_notes
+        }
+        
+        if save_workout_to_sheets(worksheet, new_row):
+            st.success(f"✅ Logged {selected_exercise}: {actual_load_input} kg x {reps} x {sets} @ RPE {rpe}")
+            # Clear cache to reload fresh data
+            st.cache_resource.clear()
+    else:
+        st.error("Could not connect to Google Sheets. Check your secrets configuration.")
 
 # ==================== ANALYTICS ====================
 st.markdown("---")
 st.header("📈 Progress")
 
-# Always reload fresh data from CSV
-df_fresh = pd.read_csv(CSV_FILE)
-
-if len(df_fresh) > 0:
-    # Filter by exercise
-    exercise_options = df_fresh["Exercise"].unique().tolist()
-    selected_analysis_exercise = st.selectbox("View progress for:", exercise_options, key="analysis_exercise")
+# Load fresh data from sheets
+if worksheet:
+    df_fresh = load_data_from_sheets(worksheet)
     
-    df_filtered = df_fresh[df_fresh["Exercise"] == selected_analysis_exercise].copy()
-    df_filtered["Date"] = pd.to_datetime(df_filtered["Date"])
-    df_filtered = df_filtered.sort_values("Date").reset_index(drop=True)
+    if len(df_fresh) > 0:
+        # Filter by exercise
+        exercise_options = df_fresh["Exercise"].unique().tolist()
+        selected_analysis_exercise = st.selectbox("View progress for:", exercise_options, key="analysis_exercise")
+        
+        df_filtered = df_fresh[df_fresh["Exercise"] == selected_analysis_exercise].copy()
+        df_filtered["Date"] = pd.to_datetime(df_filtered["Date"])
+        df_filtered = df_filtered.sort_values("Date").reset_index(drop=True)
+        
+        # Convert numeric columns
+        numeric_cols = ["1RM_Reference", "Target_Percentage", "Prescribed_Load_kg", 
+                       "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE"]
+        for col in numeric_cols:
+            df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
+        
+        # Estimate 1RM from rep data
+        df_filtered["Estimated_1RM"] = df_filtered.apply(
+            lambda row: estimate_1rm_epley(row["Actual_Load_kg"], row["Reps_Per_Set"]),
+            axis=1
+        )
+        
+        # Metrics
+        col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
+        with col_metric1:
+            st.metric("Best Actual Load", f"{df_filtered['Actual_Load_kg'].max():.1f} kg")
+        with col_metric2:
+            st.metric("Avg RPE (Recent 5)", f"{df_filtered.tail(5)['RPE'].mean():.1f} / 10")
+        with col_metric3:
+            total_volume = (df_filtered["Actual_Load_kg"] * df_filtered["Reps_Per_Set"] * df_filtered["Sets_Completed"]).sum()
+            st.metric("Total Volume", f"{total_volume:.0f} kg")
+        with col_metric4:
+            sessions_count = len(df_filtered)
+            st.metric("Sessions Logged", sessions_count)
+        
+        # Charts
+        st.subheader("Load Over Time")
+        fig, ax = plt.subplots(figsize=(12, 4))
+        ax.plot(df_filtered["Date"], df_filtered["Actual_Load_kg"], marker="o", label="Actual Load", linewidth=2, markersize=6)
+        ax.plot(df_filtered["Date"], df_filtered["1RM_Reference"], marker="s", label="1RM Reference", linewidth=2, markersize=6, linestyle="--")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Load (kg)")
+        ax.set_title(f"{selected_analysis_exercise} Progress")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        st.subheader("RPE Trend")
+        fig2, ax2 = plt.subplots(figsize=(12, 4))
+        ax2.plot(df_filtered["Date"], df_filtered["RPE"], marker="o", color="orange", linewidth=2, markersize=6)
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel("RPE")
+        ax2.set_ylim([0, 10])
+        ax2.set_title(f"Perceived Effort Over Time")
+        ax2.grid(True, alpha=0.3)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        st.pyplot(fig2)
+        
+        # Data table (view only)
+        st.subheader("Workout Log")
+        display_cols = ["Date", "Exercise", "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE", "Notes"]
+        st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
     
-    # Estimate 1RM from rep data
-    df_filtered["Estimated_1RM"] = df_filtered.apply(
-        lambda row: estimate_1rm_epley(row["Actual_Load_kg"], row["Reps_Per_Set"]),
-        axis=1
-    )
-    
-    # Metrics
-    col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
-    with col_metric1:
-        st.metric("Best Actual Load", f"{df_filtered['Actual_Load_kg'].max():.1f} kg")
-    with col_metric2:
-        st.metric("Avg RPE (Recent 5)", f"{df_filtered.tail(5)['RPE'].mean():.1f} / 10")
-    with col_metric3:
-        total_volume = (df_filtered["Actual_Load_kg"] * df_filtered["Reps_Per_Set"] * df_filtered["Sets_Completed"]).sum()
-        st.metric("Total Volume", f"{total_volume:.0f} kg")
-    with col_metric4:
-        sessions_count = len(df_filtered)
-        st.metric("Sessions Logged", sessions_count)
-    
-    # Charts
-    st.subheader("Load Over Time")
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.plot(df_filtered["Date"], df_filtered["Actual_Load_kg"], marker="o", label="Actual Load", linewidth=2, markersize=6)
-    ax.plot(df_filtered["Date"], df_filtered["1RM_Reference"], marker="s", label="1RM Reference", linewidth=2, markersize=6, linestyle="--")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Load (kg)")
-    ax.set_title(f"{selected_analysis_exercise} Progress")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    st.pyplot(fig)
-    
-    st.subheader("RPE Trend")
-    fig2, ax2 = plt.subplots(figsize=(12, 4))
-    ax2.plot(df_filtered["Date"], df_filtered["RPE"], marker="o", color="orange", linewidth=2, markersize=6)
-    ax2.set_xlabel("Date")
-    ax2.set_ylabel("RPE")
-    ax2.set_ylim([0, 10])
-    ax2.set_title(f"Perceived Effort Over Time")
-    ax2.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    st.pyplot(fig2)
-    
-    # Data table (view only)
-    st.subheader("Workout Log")
-    display_cols = ["Date", "Exercise", "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE", "Notes"]
-    st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
-
+    else:
+        st.info("No workouts logged yet. Start by logging your first session above!")
 else:
-    st.info("No workouts logged yet. Start by logging your first session above!")
+    st.error("Could not connect to Google Sheets. Check your configuration.")
