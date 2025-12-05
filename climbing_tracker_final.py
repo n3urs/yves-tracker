@@ -10,6 +10,9 @@ from google.oauth2.service_account import Credentials
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]  # kg per side
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
 
+# List of users - ADD YOUR GYM STAFF NAMES HERE
+USER_LIST = ["Oscar", "Yves", "Isaac", "Ian", "Guest"]  # Customize this list!
+
 # Exercise plan data
 EXERCISE_PLAN = {
     "20mm Edge (L)": {
@@ -112,7 +115,13 @@ EXERCISE_PLAN = {
 
 # ==================== INIT ====================
 st.set_page_config(page_title="Yves Tracker", layout="wide", initial_sidebar_state="collapsed")
+
+# ==================== USER SELECTION ====================
 st.title("🧗 Yves Arm-Lifting Tracker")
+
+# User selector at the top
+selected_user = st.selectbox("👤 Select User:", USER_LIST, key="user_selector")
+st.markdown("---")
 
 # ==================== Google Sheets Connection ====================
 @st.cache_resource
@@ -135,17 +144,20 @@ def get_google_sheet():
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
 
-def load_data_from_sheets(worksheet):
-    """Load all data from Google Sheet"""
+def load_data_from_sheets(worksheet, user=None):
+    """Load all data from Google Sheet, optionally filtered by user"""
     try:
         data = worksheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
+            # Filter by user if specified
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
             return df
         else:
             # Return empty dataframe with correct columns
             return pd.DataFrame(columns=[
-                "Date", "Exercise", "1RM_Reference", "Target_Percentage",
+                "User", "Date", "Exercise", "1RM_Reference", "Target_Percentage",
                 "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
                 "Sets_Completed", "RPE", "Notes"
             ])
@@ -165,9 +177,13 @@ def save_workout_to_sheets(worksheet, row_data):
 # Connect to sheet
 worksheet = get_google_sheet()
 
-# Load 1RMs from session state (since we can't easily store in sheets)
+# Load 1RMs from session state - now per user
 if "saved_1rms" not in st.session_state:
-    st.session_state.saved_1rms = {
+    st.session_state.saved_1rms = {}
+
+# Initialize default 1RMs for current user if not exists
+if selected_user not in st.session_state.saved_1rms:
+    st.session_state.saved_1rms[selected_user] = {
         "20mm Edge (L)": 105,
         "20mm Edge (R)": 105,
         "Pinch (L)": 85,
@@ -176,7 +192,7 @@ if "saved_1rms" not in st.session_state:
         "Wrist Roller (R)": 75
     }
 
-saved_1rms = st.session_state.saved_1rms
+saved_1rms = st.session_state.saved_1rms[selected_user]
 
 # ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
@@ -230,7 +246,7 @@ def estimate_1rm_epley(load_kg, reps):
     return load_kg * (1 + reps / 30)
 
 # ==================== SIDEBAR: 1RM MANAGER ====================
-st.sidebar.header("💾 1RM Manager")
+st.sidebar.header(f"💾 {selected_user}'s 1RM Manager")
 st.sidebar.subheader("Save your max lifts:")
 
 exercise_list = ["20mm Edge (L)", "20mm Edge (R)", "Pinch (L)", "Pinch (R)", "Wrist Roller (L)", "Wrist Roller (R)"]
@@ -242,11 +258,11 @@ for ex in exercise_list:
         max_value=200,
         value=saved_1rms.get(ex, 105),
         step=1,
-        key=f"1rm_{ex}"
+        key=f"1rm_{ex}_{selected_user}"
     )
 
 if st.sidebar.button("💾 Save All 1RMs", key="save_1rms_btn", use_container_width=True):
-    st.session_state.saved_1rms = saved_1rms
+    st.session_state.saved_1rms[selected_user] = saved_1rms
     st.sidebar.success("✅ 1RMs saved!")
 
 st.sidebar.markdown("---")
@@ -326,6 +342,7 @@ full_notes = f"{quick_note_text} {notes}".strip()
 if st.button("✅ Save Workout", key="save_btn", use_container_width=True):
     if worksheet:
         new_row = {
+            "User": selected_user,  # Add user to the data
             "Date": datetime.now().strftime("%Y-%m-%d"),
             "Exercise": selected_exercise,
             "1RM_Reference": current_1rm,
@@ -347,11 +364,11 @@ if st.button("✅ Save Workout", key="save_btn", use_container_width=True):
 
 # ==================== ANALYTICS ====================
 st.markdown("---")
-st.header("📈 Progress")
+st.header(f"📈 {selected_user}'s Progress")
 
-# Load fresh data from sheets
+# Load fresh data from sheets - filtered by current user
 if worksheet:
-    df_fresh = load_data_from_sheets(worksheet)
+    df_fresh = load_data_from_sheets(worksheet, user=selected_user)
     
     if len(df_fresh) > 0:
         # Filter by exercise
@@ -419,6 +436,6 @@ if worksheet:
         st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
     
     else:
-        st.info("No workouts logged yet. Start by logging your first session above!")
+        st.info(f"No workouts logged yet for {selected_user}. Start by logging your first session above!")
 else:
     st.error("Could not connect to Google Sheets. Check your configuration.")
