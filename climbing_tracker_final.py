@@ -336,6 +336,18 @@ if len(df_fresh) > 0:
     plt.tight_layout()
     st.pyplot(fig)
     
+    st.subheader("RPE Trend")
+    fig2, ax2 = plt.subplots(figsize=(12, 4))
+    ax2.plot(df_filtered["Date"], df_filtered["RPE"], marker="o", color="orange", linewidth=2)
+    ax2.set_xlabel("Date")
+    ax2.set_ylabel("RPE")
+    ax2.set_ylim([0, 10])
+    ax2.set_title("Perceived Effort Over Time")
+    ax2.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    st.pyplot(fig2)
+    
     st.subheader("Workout Log")
     display_cols = ["Date", "Exercise", "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE", "Notes"]
     st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
