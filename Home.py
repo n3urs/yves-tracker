@@ -11,19 +11,19 @@ st.markdown("---")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.page_link("pages/1_📝_Log_Workout.py", label="📝 Log Workout", use_container_width=True)
+    st.page_link("pages/1_Log_Workout.py", label="📝 Log Workout", use_container_width=True)
     st.caption("Record your training session")
 
 with col2:
-    st.page_link("pages/2_📊_Progress.py", label="📊 View Progress", use_container_width=True)
+    st.page_link("pages/2_Progress.py", label="📊 View Progress", use_container_width=True)
     st.caption("Analyze your gains")
 
 with col3:
-    st.page_link("pages/3_🎯_Goals.py", label="🎯 Goals & Sharing", use_container_width=True)
+    st.page_link("pages/3_Goals.py", label="🎯 Goals & Sharing", use_container_width=True)
     st.caption("Set goals & share results")
 
 with col4:
-    st.page_link("pages/4_🏆_Leaderboard.py", label="🏆 Leaderboard", use_container_width=True)
+    st.page_link("pages/4_Leaderboard.py", label="🏆 Leaderboard", use_container_width=True)
     st.caption("Compete with your crew")
 
 st.markdown("---")
