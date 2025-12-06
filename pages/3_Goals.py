@@ -12,12 +12,20 @@ init_session_state()
 
 st.title("🎯 Goals & Sharing")
 
+# Load users dynamically from Google Sheets
+worksheet_temp = get_google_sheet()
+if worksheet_temp:
+    available_users = load_users_from_sheets(worksheet_temp)
+else:
+    available_users = USER_LIST.copy()
+
+
 # User selector in sidebar
 st.sidebar.header("👤 User")
 st.session_state.current_user = st.sidebar.selectbox(
     "Select User:",
-    USER_LIST,
-    index=USER_LIST.index(st.session_state.current_user),
+    available_users,
+    index=available_users.index(st.session_state.current_user),
     key="user_selector_goals"
 )
 
