@@ -15,7 +15,7 @@ USER_LIST = ["Oscar", "Yves", "Isaac", "Ian", "Guest"]  # Customize this list!
 
 # Exercise plan data
 EXERCISE_PLAN = {
-    "20mm Edge (L)": {
+    "20mm Edge": {
         "Schedule": "Monday & Thursday",
         "Frequency": "2x per week",
         "Sets": "3-4 sets",
@@ -31,23 +31,7 @@ EXERCISE_PLAN = {
             "• Avoid twisting or swinging the body"
         ]
     },
-    "20mm Edge (R)": {
-        "Schedule": "Monday & Thursday",
-        "Frequency": "2x per week",
-        "Sets": "3-4 sets",
-        "Reps": "3-5 reps per set",
-        "Rest": "3-5 min between sets",
-        "Intensity": "80-85% 1RM",
-        "Technique": [
-            "• Grip: Thumb over, fingers on edge (crimp grip)",
-            "• Dead hang first 2-3 seconds before pulling",
-            "• Keep shoulders packed (avoid shrugging)",
-            "• Pull elbows down and back (don't just hang)",
-            "• Focus on controlled descent (eccentric)",
-            "• Avoid twisting or swinging the body"
-        ]
-    },
-    "Pinch (L)": {
+    "Pinch": {
         "Schedule": "Tuesday & Saturday",
         "Frequency": "2x per week",
         "Sets": "3-4 sets",
@@ -63,39 +47,7 @@ EXERCISE_PLAN = {
             "• Start with lighter weight to build grip endurance"
         ]
     },
-    "Pinch (R)": {
-        "Schedule": "Tuesday & Saturday",
-        "Frequency": "2x per week",
-        "Sets": "3-4 sets",
-        "Reps": "5-8 reps per set",
-        "Rest": "2-3 min between sets",
-        "Intensity": "75-80% 1RM",
-        "Technique": [
-            "• Grip: Thumb against fingers (pinch hold)",
-            "• Hold weight plate between thumb and fingers",
-            "• Keep arm straight (don't bend elbow)",
-            "• Squeeze hard at the top for 2-3 seconds",
-            "• Lower slowly and controlled",
-            "• Start with lighter weight to build grip endurance"
-        ]
-    },
-    "Wrist Roller (L)": {
-        "Schedule": "Wednesday & Sunday",
-        "Frequency": "2x per week",
-        "Sets": "2-3 sets",
-        "Reps": "Full ROM (up and down)",
-        "Rest": "2 min between sets",
-        "Intensity": "50-60% 1RM",
-        "Technique": [
-            "• Hold roller with arms extended at shoulder height",
-            "• Roll wrist forward to wrap rope around roller",
-            "• Then roll backward to unwrap",
-            "• Keep movement slow and controlled",
-            "• Full range of motion (flex to extension)",
-            "• Can be used for warm-up or conditioning"
-        ]
-    },
-    "Wrist Roller (R)": {
+    "Wrist Roller": {
         "Schedule": "Wednesday & Sunday",
         "Frequency": "2x per week",
         "Sets": "2-3 sets",
@@ -157,7 +109,7 @@ def load_data_from_sheets(worksheet, user=None):
         else:
             # Return empty dataframe with correct columns
             return pd.DataFrame(columns=[
-                "User", "Date", "Exercise", "1RM_Reference", "Target_Percentage",
+                "User", "Date", "Exercise", "Arm", "1RM_Reference", "Target_Percentage",
                 "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
                 "Sets_Completed", "RPE", "Notes"
             ])
@@ -250,30 +202,37 @@ st.sidebar.header(f"💾 {selected_user}'s 1RM Manager")
 st.sidebar.subheader("Save your max lifts:")
 
 exercise_list = [
-    "20mm Edge (L)", 
-    "20mm Edge (R)", 
-    "Pinch (L)", 
-    "Pinch (R)", 
-    "Wrist Roller (L)", 
-    "Wrist Roller (R)",
+    "20mm Edge", 
+    "Pinch", 
+    "Wrist Roller",
     "─────────────────",  # Separator
-    "1RM Test: 20mm Edge (L)",
-    "1RM Test: 20mm Edge (R)",
-    "1RM Test: Pinch (L)",
-    "1RM Test: Pinch (R)",
-    "1RM Test: Wrist Roller (L)",
-    "1RM Test: Wrist Roller (R)"
+    "1RM Test: 20mm Edge",
+    "1RM Test: Pinch",
+    "1RM Test: Wrist Roller"
 ]
 
-for ex in ["20mm Edge (L)", "20mm Edge (R)", "Pinch (L)", "Pinch (R)", "Wrist Roller (L)", "Wrist Roller (R)"]:
-    saved_1rms[ex] = st.sidebar.number_input(
-        f"{ex} MVC-7 (kg)",
-        min_value=20,
-        max_value=200,
-        value=saved_1rms.get(ex, 105),
-        step=1,
-        key=f"1rm_{ex}_{selected_user}"
-    )
+base_exercises = ["20mm Edge", "Pinch", "Wrist Roller"]
+
+for ex in base_exercises:
+    col_left, col_right = st.sidebar.columns(2)
+    with col_left:
+        saved_1rms[f"{ex} (L)"] = st.sidebar.number_input(
+            f"{ex} (L) kg",
+            min_value=20,
+            max_value=200,
+            value=saved_1rms.get(f"{ex} (L)", 105 if "Edge" in ex else 85 if "Pinch" in ex else 75),
+            step=1,
+            key=f"1rm_{ex}_L_{selected_user}"
+        )
+    with col_right:
+        saved_1rms[f"{ex} (R)"] = st.sidebar.number_input(
+            f"{ex} (R) kg",
+            min_value=20,
+            max_value=200,
+            value=saved_1rms.get(f"{ex} (R)", 105 if "Edge" in ex else 85 if "Pinch" in ex else 75),
+            step=1,
+            key=f"1rm_{ex}_R_{selected_user}"
+        )
 
 if st.sidebar.button("💾 Save All 1RMs", key="save_1rms_btn", use_container_width=True):
     st.session_state.saved_1rms[selected_user] = saved_1rms
@@ -289,7 +248,6 @@ if st.sidebar.button("📖 View Plan", key="view_plan_btn", use_container_width=
 
 if st.session_state.get("show_plan", False):
     st.sidebar.markdown("---")
-    base_exercises = ["20mm Edge (L)", "20mm Edge (R)", "Pinch (L)", "Pinch (R)", "Wrist Roller (L)", "Wrist Roller (R)"]
     selected_plan_exercise = st.sidebar.selectbox("Choose exercise:", base_exercises, key="plan_select")
     plan = EXERCISE_PLAN[selected_plan_exercise]
     
@@ -314,7 +272,8 @@ selected_exercise = st.sidebar.selectbox("Exercise", exercise_list, key="exercis
 
 # Only show calculator for non-separator and non-1RM test exercises
 if selected_exercise != "─────────────────" and not selected_exercise.startswith("1RM Test:"):
-    current_1rm = saved_1rms.get(selected_exercise, 105)
+    current_1rm_L = saved_1rms.get(f"{selected_exercise} (L)", 105)
+    current_1rm_R = saved_1rms.get(f"{selected_exercise} (R)", 105)
 
     intensity_options = {"50% Warm-up": 0.50, "60% Warm-up": 0.60, "70% Warm-up": 0.70, "80% Work": 0.80, "Custom": None}
     intensity_label = st.sidebar.selectbox("Intensity", list(intensity_options.keys()), key="intensity_select")
@@ -324,63 +283,89 @@ if selected_exercise != "─────────────────" an
     else:
         target_pct = intensity_options[intensity_label]
 
-    prescribed_load = current_1rm * target_pct
+    prescribed_load_L = current_1rm_L * target_pct
+    prescribed_load_R = current_1rm_R * target_pct
 
     st.sidebar.markdown("---")
-    st.sidebar.subheader(f"📊 Target Load: **{prescribed_load:.1f} kg**")
-
-    plates_str, actual_load = calculate_plates(prescribed_load)
-    st.sidebar.write(f"**Plates:** {plates_str}")
-    st.sidebar.write(f"**Total weight: {actual_load:.1f} kg**")
+    st.sidebar.subheader(f"📊 Left Arm: **{prescribed_load_L:.1f} kg**")
+    plates_str_L, actual_load_L = calculate_plates(prescribed_load_L)
+    st.sidebar.write(f"**Plates:** {plates_str_L}")
+    
+    st.sidebar.subheader(f"📊 Right Arm: **{prescribed_load_R:.1f} kg**")
+    plates_str_R, actual_load_R = calculate_plates(prescribed_load_R)
+    st.sidebar.write(f"**Plates:** {plates_str_R}")
 else:
     if selected_exercise.startswith("1RM Test:"):
         st.sidebar.info("💡 For 1RM tests, enter the maximum weight you can lift for 1 rep.")
-    prescribed_load = 100.0  # Default for 1RM tests
-    current_1rm = 100.0
+    prescribed_load_L = 100.0  # Default for 1RM tests
+    prescribed_load_R = 100.0
+    current_1rm_L = 100.0
+    current_1rm_R = 100.0
     target_pct = 1.0
 
 # ==================== MAIN: LOG FORM ====================
 st.header("📝 Log Today's Session")
 
-# Desktop layout (3 columns per row)
-col1, col2, col3 = st.columns(3)
-with col1:
-    actual_load_input = st.number_input("Actual Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load, step=0.5)
-with col2:
-    reps = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1)
-with col3:
-    sets = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1)
+# Two columns for Left and Right
+col_left, col_right = st.columns(2)
 
-col4, col5, col6 = st.columns(3)
-with col4:
-    rpe = st.slider("RPE (Rate of Perceived Exertion)", min_value=1, max_value=10, value=7)
-with col5:
-    quick_note = st.selectbox("Quick note:", ["None"] + list(QUICK_NOTES.keys()), key="quick_note_select")
-    quick_note_text = QUICK_NOTES.get(quick_note, "") if quick_note != "None" else ""
-with col6:
-    notes = st.text_input("Custom notes (optional)", placeholder="e.g., felt strong, hand pain, etc.")
+with col_left:
+    st.subheader("👈 Left Arm")
+    actual_load_L = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_L, step=0.5, key="load_L")
+    reps_L = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_L")
+    sets_L = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_L")
+    rpe_L = st.slider("RPE", min_value=1, max_value=10, value=7, key="rpe_L")
 
+with col_right:
+    st.subheader("👉 Right Arm")
+    actual_load_R = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_R, step=0.5, key="load_R")
+    reps_R = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_R")
+    sets_R = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_R")
+    rpe_R = st.slider("RPE", min_value=1, max_value=10, value=7, key="rpe_R")
+
+# Shared notes at bottom
+quick_note = st.selectbox("Quick note:", ["None"] + list(QUICK_NOTES.keys()), key="quick_note_select")
+quick_note_text = QUICK_NOTES.get(quick_note, "") if quick_note != "None" else ""
+notes = st.text_input("Custom notes (optional)", placeholder="e.g., felt strong, hand pain, etc.")
 full_notes = f"{quick_note_text} {notes}".strip()
 
 # ==================== SAVE BUTTON ====================
-if st.button("✅ Save Workout", key="save_btn", use_container_width=True):
+if st.button("✅ Save Workout (Both Arms)", key="save_btn", use_container_width=True):
     if worksheet and selected_exercise != "─────────────────":
-        new_row = {
-            "User": selected_user,  # Add user to the data
+        # Save Left Arm
+        new_row_L = {
+            "User": selected_user,
             "Date": datetime.now().strftime("%Y-%m-%d"),
             "Exercise": selected_exercise,
-            "1RM_Reference": current_1rm,
+            "Arm": "L",
+            "1RM_Reference": current_1rm_L,
             "Target_Percentage": target_pct,
-            "Prescribed_Load_kg": prescribed_load,
-            "Actual_Load_kg": actual_load_input,
-            "Reps_Per_Set": reps,
-            "Sets_Completed": sets,
-            "RPE": rpe,
+            "Prescribed_Load_kg": prescribed_load_L,
+            "Actual_Load_kg": actual_load_L,
+            "Reps_Per_Set": reps_L,
+            "Sets_Completed": sets_L,
+            "RPE": rpe_L,
             "Notes": full_notes
         }
         
-        if save_workout_to_sheets(worksheet, new_row):
-            st.success(f"✅ Logged {selected_exercise}: {actual_load_input} kg x {reps} x {sets} @ RPE {rpe}")
+        # Save Right Arm
+        new_row_R = {
+            "User": selected_user,
+            "Date": datetime.now().strftime("%Y-%m-%d"),
+            "Exercise": selected_exercise,
+            "Arm": "R",
+            "1RM_Reference": current_1rm_R,
+            "Target_Percentage": target_pct,
+            "Prescribed_Load_kg": prescribed_load_R,
+            "Actual_Load_kg": actual_load_R,
+            "Reps_Per_Set": reps_R,
+            "Sets_Completed": sets_R,
+            "RPE": rpe_R,
+            "Notes": full_notes
+        }
+        
+        if save_workout_to_sheets(worksheet, new_row_L) and save_workout_to_sheets(worksheet, new_row_R):
+            st.success(f"✅ Logged {selected_exercise}: L: {actual_load_L}kg x{reps_L} x{sets_L} | R: {actual_load_R}kg x{reps_R} x{sets_R}")
             # Clear cache to reload fresh data
             st.cache_resource.clear()
     else:
@@ -400,46 +385,62 @@ if worksheet:
         selected_analysis_exercise = st.selectbox("View progress for:", exercise_options, key="analysis_exercise")
         
         df_filtered = df_fresh[df_fresh["Exercise"] == selected_analysis_exercise].copy()
-        df_filtered["Date"] = pd.to_datetime(df_filtered["Date"])
-        df_filtered = df_filtered.sort_values("Date").reset_index(drop=True)
         
-        # Convert numeric columns
-        numeric_cols = ["1RM_Reference", "Target_Percentage", "Prescribed_Load_kg", 
-                       "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE"]
-        for col in numeric_cols:
-            df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
+        # Separate Left and Right
+        df_left = df_filtered[df_filtered["Arm"] == "L"].copy()
+        df_right = df_filtered[df_filtered["Arm"] == "R"].copy()
         
-        # Estimate 1RM from rep data
-        df_filtered["Estimated_1RM"] = df_filtered.apply(
-            lambda row: estimate_1rm_epley(row["Actual_Load_kg"], row["Reps_Per_Set"]),
-            axis=1
-        )
+        for df_side in [df_left, df_right]:
+            if len(df_side) > 0:
+                df_side["Date"] = pd.to_datetime(df_side["Date"])
+                df_side.sort_values("Date", inplace=True)
+                df_side.reset_index(drop=True, inplace=True)
+                
+                # Convert numeric columns
+                numeric_cols = ["1RM_Reference", "Target_Percentage", "Prescribed_Load_kg", 
+                               "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE"]
+                for col in numeric_cols:
+                    df_side[col] = pd.to_numeric(df_side[col], errors='coerce')
+                
+                # Estimate 1RM from rep data
+                df_side["Estimated_1RM"] = df_side.apply(
+                    lambda row: estimate_1rm_epley(row["Actual_Load_kg"], row["Reps_Per_Set"]),
+                    axis=1
+                )
         
-        # Metrics
-        col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
-        with col_metric1:
-            st.metric("Best Actual Load", f"{df_filtered['Actual_Load_kg'].max():.1f} kg")
-        with col_metric2:
-            st.metric("Avg RPE (Recent 5)", f"{df_filtered.tail(5)['RPE'].mean():.1f} / 10")
-        with col_metric3:
-            total_volume = (df_filtered["Actual_Load_kg"] * df_filtered["Reps_Per_Set"] * df_filtered["Sets_Completed"]).sum()
-            st.metric("Total Volume", f"{total_volume:.0f} kg")
-        with col_metric4:
-            sessions_count = len(df_filtered)
-            st.metric("Sessions Logged", sessions_count)
+        # Metrics - Show both arms
+        if len(df_left) > 0 and len(df_right) > 0:
+            col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
+            with col_metric1:
+                st.metric("Best Load (L)", f"{df_left['Actual_Load_kg'].max():.1f} kg")
+            with col_metric2:
+                st.metric("Best Load (R)", f"{df_right['Actual_Load_kg'].max():.1f} kg")
+            with col_metric3:
+                vol_L = (df_left["Actual_Load_kg"] * df_left["Reps_Per_Set"] * df_left["Sets_Completed"]).sum()
+                vol_R = (df_right["Actual_Load_kg"] * df_right["Reps_Per_Set"] * df_right["Sets_Completed"]).sum()
+                st.metric("Total Volume", f"L: {vol_L:.0f} / R: {vol_R:.0f} kg")
+            with col_metric4:
+                st.metric("Sessions", f"{len(df_left)}")
         
-        # Charts
-        st.subheader("Load Over Time")
+        # Charts - Both arms on same graph
+        st.subheader("Load Over Time (Both Arms)")
         fig, ax = plt.subplots(figsize=(12, 4))
         
-        # Plot actual working loads
-        ax.plot(df_filtered["Date"], df_filtered["Actual_Load_kg"], 
-                marker="o", label="Actual Load", linewidth=2, markersize=6, color="blue")
+        # Plot Left Arm
+        if len(df_left) > 0:
+            ax.plot(df_left["Date"], df_left["Actual_Load_kg"], 
+                    marker="o", label="Left - Actual Load", linewidth=2, markersize=6, color="blue")
+            ax.plot(df_left["Date"], df_left["Estimated_1RM"], 
+                    marker="s", label="Left - Estimated 1RM", linewidth=2, markersize=6, 
+                    linestyle="--", color="lightblue")
         
-        # Plot estimated 1RM
-        ax.plot(df_filtered["Date"], df_filtered["Estimated_1RM"], 
-                marker="s", label="Estimated 1RM (Epley)", linewidth=2, markersize=6, 
-                linestyle="--", color="orange")
+        # Plot Right Arm
+        if len(df_right) > 0:
+            ax.plot(df_right["Date"], df_right["Actual_Load_kg"], 
+                    marker="o", label="Right - Actual Load", linewidth=2, markersize=6, color="green")
+            ax.plot(df_right["Date"], df_right["Estimated_1RM"], 
+                    marker="s", label="Right - Estimated 1RM", linewidth=2, markersize=6, 
+                    linestyle="--", color="lightgreen")
         
         # Get actual 1RM tests for this exercise (if any exist)
         base_exercise = selected_analysis_exercise.replace("1RM Test: ", "")
@@ -452,38 +453,51 @@ if worksheet:
             if len(df_tests) > 0:
                 df_tests["Date"] = pd.to_datetime(df_tests["Date"])
                 df_tests["Actual_Load_kg"] = pd.to_numeric(df_tests["Actual_Load_kg"], errors='coerce')
-                df_tests = df_tests.sort_values("Date")
                 
-                # Plot 1RM test results as stars
-                ax.scatter(df_tests["Date"], df_tests["Actual_Load_kg"], 
-                          marker="*", s=300, label="Actual 1RM Test", 
-                          color="red", zorder=5, edgecolors='black', linewidths=1)
+                # Plot tests for each arm
+                df_tests_L = df_tests[df_tests["Arm"] == "L"]
+                df_tests_R = df_tests[df_tests["Arm"] == "R"]
+                
+                if len(df_tests_L) > 0:
+                    ax.scatter(df_tests_L["Date"], df_tests_L["Actual_Load_kg"], 
+                              marker="*", s=300, label="Left - 1RM Test", 
+                              color="darkblue", zorder=5, edgecolors='black', linewidths=1)
+                
+                if len(df_tests_R) > 0:
+                    ax.scatter(df_tests_R["Date"], df_tests_R["Actual_Load_kg"], 
+                              marker="*", s=300, label="Right - 1RM Test", 
+                              color="darkgreen", zorder=5, edgecolors='black', linewidths=1)
         
         ax.set_xlabel("Date")
         ax.set_ylabel("Load (kg)")
-        ax.set_title(f"{selected_analysis_exercise} Progress")
+        ax.set_title(f"{selected_analysis_exercise} Progress (L vs R)")
         ax.legend()
         ax.grid(True, alpha=0.3)
         plt.xticks(rotation=45)
         plt.tight_layout()
         st.pyplot(fig)
         
-        st.subheader("RPE Trend")
+        # RPE Trend - Both arms
+        st.subheader("RPE Trend (Both Arms)")
         fig2, ax2 = plt.subplots(figsize=(12, 4))
-        ax2.plot(df_filtered["Date"], df_filtered["RPE"], marker="o", color="orange", linewidth=2, markersize=6)
+        if len(df_left) > 0:
+            ax2.plot(df_left["Date"], df_left["RPE"], marker="o", color="blue", linewidth=2, markersize=6, label="Left Arm")
+        if len(df_right) > 0:
+            ax2.plot(df_right["Date"], df_right["RPE"], marker="o", color="green", linewidth=2, markersize=6, label="Right Arm")
         ax2.set_xlabel("Date")
         ax2.set_ylabel("RPE")
         ax2.set_ylim([0, 10])
         ax2.set_title(f"Perceived Effort Over Time")
+        ax2.legend()
         ax2.grid(True, alpha=0.3)
         plt.xticks(rotation=45)
         plt.tight_layout()
         st.pyplot(fig2)
         
-        # Data table (view only)
+        # Data table - Both arms combined
         st.subheader("Workout Log")
-        display_cols = ["Date", "Exercise", "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE", "Notes"]
-        st.dataframe(df_filtered[display_cols], use_container_width=True, hide_index=True)
+        display_cols = ["Date", "Arm", "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE", "Notes"]
+        st.dataframe(df_filtered[display_cols].sort_values(["Date", "Arm"], ascending=[False, True]), use_container_width=True, hide_index=True)
     
     else:
         st.info(f"No workouts logged yet for {selected_user}. Start by logging your first session above!")
