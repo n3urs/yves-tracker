@@ -152,7 +152,7 @@ if worksheet:
         )
     else:
         st.info("No data yet to share. Log some workouts first!")
-        st.page_link("pages/1_📝_Log_Workout.py", label="📝 Log Your First Workout →", use_container_width=True)
+        st.page_link("pages/1_Log_Workout.py", label="📝 Log Your First Workout →", use_container_width=True)
 
 # ==================== TRAINING CONSISTENCY HEATMAP ====================
 if worksheet:
