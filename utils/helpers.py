@@ -124,6 +124,27 @@ def init_session_state():
     if "saved_1rms" not in st.session_state:
         st.session_state.saved_1rms = {}
 
+def load_users_from_sheets(worksheet):
+    """Load unique users from Google Sheets"""
+    try:
+        data = worksheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            if "User" in df.columns:
+                users = sorted(df["User"].unique().tolist())
+                return users if users else USER_LIST.copy()
+        return USER_LIST.copy()
+    except Exception as e:
+        st.error(f"Error loading users: {e}")
+        return USER_LIST.copy()
+
+def calculate_relative_strength(avg_load, bodyweight):
+    """Calculate relative strength: load / bodyweight"""
+    if bodyweight > 0:
+        return avg_load / bodyweight
+    return 0
+
+
 
 def calculate_plates(target_kg, pin_kg=1):
     """Find nearest achievable load with exact plate breakdown."""
