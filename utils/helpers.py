@@ -112,6 +112,19 @@ def save_workout_to_sheets(worksheet, row_data):
         return False
 
 # ==================== HELPER FUNCTIONS ====================
+
+def init_session_state():
+    """Initialize session state variables if they don't exist"""
+    if "current_user" not in st.session_state:
+        st.session_state.current_user = USER_LIST[0]
+    
+    if "bodyweights" not in st.session_state:
+        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
+    
+    if "saved_1rms" not in st.session_state:
+        st.session_state.saved_1rms = {}
+
+
 def calculate_plates(target_kg, pin_kg=1):
     """Find nearest achievable load with exact plate breakdown."""
     load_per_side = (target_kg - pin_kg) / 2
