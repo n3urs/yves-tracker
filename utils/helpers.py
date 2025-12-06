@@ -198,6 +198,7 @@ def get_bodyweight(user):
     
     return st.session_state.bodyweights.get(user, 78.0)
 
+
 def set_bodyweight(user, bodyweight):
     """Set user's bodyweight in session state"""
     if "bodyweights" not in st.session_state:
