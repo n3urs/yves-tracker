@@ -249,9 +249,23 @@ def estimate_1rm_epley(load_kg, reps):
 st.sidebar.header(f"💾 {selected_user}'s 1RM Manager")
 st.sidebar.subheader("Save your max lifts:")
 
-exercise_list = ["20mm Edge (L)", "20mm Edge (R)", "Pinch (L)", "Pinch (R)", "Wrist Roller (L)", "Wrist Roller (R)"]
+exercise_list = [
+    "20mm Edge (L)", 
+    "20mm Edge (R)", 
+    "Pinch (L)", 
+    "Pinch (R)", 
+    "Wrist Roller (L)", 
+    "Wrist Roller (R)",
+    "─────────────────",  # Separator
+    "1RM Test: 20mm Edge (L)",
+    "1RM Test: 20mm Edge (R)",
+    "1RM Test: Pinch (L)",
+    "1RM Test: Pinch (R)",
+    "1RM Test: Wrist Roller (L)",
+    "1RM Test: Wrist Roller (R)"
+]
 
-for ex in exercise_list:
+for ex in ["20mm Edge (L)", "20mm Edge (R)", "Pinch (L)", "Pinch (R)", "Wrist Roller (L)", "Wrist Roller (R)"]:
     saved_1rms[ex] = st.sidebar.number_input(
         f"{ex} MVC-7 (kg)",
         min_value=20,
@@ -275,7 +289,8 @@ if st.sidebar.button("📖 View Plan", key="view_plan_btn", use_container_width=
 
 if st.session_state.get("show_plan", False):
     st.sidebar.markdown("---")
-    selected_plan_exercise = st.sidebar.selectbox("Choose exercise:", exercise_list, key="plan_select")
+    base_exercises = ["20mm Edge (L)", "20mm Edge (R)", "Pinch (L)", "Pinch (R)", "Wrist Roller (L)", "Wrist Roller (R)"]
+    selected_plan_exercise = st.sidebar.selectbox("Choose exercise:", base_exercises, key="plan_select")
     plan = EXERCISE_PLAN[selected_plan_exercise]
     
     st.sidebar.subheader(f"📅 {selected_plan_exercise}")
@@ -296,24 +311,33 @@ if st.session_state.get("show_plan", False):
 st.sidebar.header("⚙️ Calculator")
 
 selected_exercise = st.sidebar.selectbox("Exercise", exercise_list, key="exercise_select")
-current_1rm = saved_1rms.get(selected_exercise, 105)
 
-intensity_options = {"50% Warm-up": 0.50, "60% Warm-up": 0.60, "70% Warm-up": 0.70, "80% Work": 0.80, "Custom": None}
-intensity_label = st.sidebar.selectbox("Intensity", list(intensity_options.keys()), key="intensity_select")
+# Only show calculator for non-separator and non-1RM test exercises
+if selected_exercise != "─────────────────" and not selected_exercise.startswith("1RM Test:"):
+    current_1rm = saved_1rms.get(selected_exercise, 105)
 
-if intensity_label == "Custom":
-    target_pct = st.sidebar.slider("Custom %", min_value=0.3, max_value=1.0, step=0.05, value=0.8)
+    intensity_options = {"50% Warm-up": 0.50, "60% Warm-up": 0.60, "70% Warm-up": 0.70, "80% Work": 0.80, "Custom": None}
+    intensity_label = st.sidebar.selectbox("Intensity", list(intensity_options.keys()), key="intensity_select")
+
+    if intensity_label == "Custom":
+        target_pct = st.sidebar.slider("Custom %", min_value=0.3, max_value=1.0, step=0.05, value=0.8)
+    else:
+        target_pct = intensity_options[intensity_label]
+
+    prescribed_load = current_1rm * target_pct
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader(f"📊 Target Load: **{prescribed_load:.1f} kg**")
+
+    plates_str, actual_load = calculate_plates(prescribed_load)
+    st.sidebar.write(f"**Plates:** {plates_str}")
+    st.sidebar.write(f"**Total weight: {actual_load:.1f} kg**")
 else:
-    target_pct = intensity_options[intensity_label]
-
-prescribed_load = current_1rm * target_pct
-
-st.sidebar.markdown("---")
-st.sidebar.subheader(f"📊 Target Load: **{prescribed_load:.1f} kg**")
-
-plates_str, actual_load = calculate_plates(prescribed_load)
-st.sidebar.write(f"**Plates:** {plates_str}")
-st.sidebar.write(f"**Total weight: {actual_load:.1f} kg**")
+    if selected_exercise.startswith("1RM Test:"):
+        st.sidebar.info("💡 For 1RM tests, enter the maximum weight you can lift for 1 rep.")
+    prescribed_load = 100.0  # Default for 1RM tests
+    current_1rm = 100.0
+    target_pct = 1.0
 
 # ==================== MAIN: LOG FORM ====================
 st.header("📝 Log Today's Session")
@@ -340,7 +364,7 @@ full_notes = f"{quick_note_text} {notes}".strip()
 
 # ==================== SAVE BUTTON ====================
 if st.button("✅ Save Workout", key="save_btn", use_container_width=True):
-    if worksheet:
+    if worksheet and selected_exercise != "─────────────────":
         new_row = {
             "User": selected_user,  # Add user to the data
             "Date": datetime.now().strftime("%Y-%m-%d"),
@@ -407,9 +431,34 @@ if worksheet:
         # Charts
         st.subheader("Load Over Time")
         fig, ax = plt.subplots(figsize=(12, 4))
-        ax.plot(df_filtered["Date"], df_filtered["Actual_Load_kg"], marker="o", label="Actual Load", linewidth=2, markersize=6)
-        # NEW CODE - Add this instead:
-        ax.plot(df_filtered["Date"], df_filtered["Estimated_1RM"], marker="s", label="Estimated 1RM (Epley)", linewidth=2, markersize=6, linestyle="--", color="orange")
+        
+        # Plot actual working loads
+        ax.plot(df_filtered["Date"], df_filtered["Actual_Load_kg"], 
+                marker="o", label="Actual Load", linewidth=2, markersize=6, color="blue")
+        
+        # Plot estimated 1RM
+        ax.plot(df_filtered["Date"], df_filtered["Estimated_1RM"], 
+                marker="s", label="Estimated 1RM (Epley)", linewidth=2, markersize=6, 
+                linestyle="--", color="orange")
+        
+        # Get actual 1RM tests for this exercise (if any exist)
+        base_exercise = selected_analysis_exercise.replace("1RM Test: ", "")
+        test_exercise_name = f"1RM Test: {base_exercise}"
+        
+        # Load ALL data to find 1RM tests
+        df_all = load_data_from_sheets(worksheet, user=selected_user)
+        if len(df_all) > 0:
+            df_tests = df_all[df_all["Exercise"] == test_exercise_name].copy()
+            if len(df_tests) > 0:
+                df_tests["Date"] = pd.to_datetime(df_tests["Date"])
+                df_tests["Actual_Load_kg"] = pd.to_numeric(df_tests["Actual_Load_kg"], errors='coerce')
+                df_tests = df_tests.sort_values("Date")
+                
+                # Plot 1RM test results as stars
+                ax.scatter(df_tests["Date"], df_tests["Actual_Load_kg"], 
+                          marker="*", s=300, label="Actual 1RM Test", 
+                          color="red", zorder=5, edgecolors='black', linewidths=1)
+        
         ax.set_xlabel("Date")
         ax.set_ylabel("Load (kg)")
         ax.set_title(f"{selected_analysis_exercise} Progress")
