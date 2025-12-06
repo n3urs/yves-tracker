@@ -168,6 +168,60 @@ def get_bodyweight(user):
         }
     return st.session_state.bodyweights.get(user, 70.0)
 
+def load_bodyweights_from_sheets(worksheet):
+    """Load bodyweights from a dedicated 'Bodyweights' sheet"""
+    try:
+        # Try to get the Bodyweights worksheet
+        try:
+            bw_sheet = worksheet.spreadsheet.worksheet("Bodyweights")
+        except:
+            # If it doesn't exist, create it
+            bw_sheet = worksheet.spreadsheet.add_worksheet(title="Bodyweights", rows=100, cols=2)
+            bw_sheet.append_row(["User", "Bodyweight_kg"])
+        
+        data = bw_sheet.get_all_records()
+        
+        if data:
+            bodyweights = {row["User"]: float(row["Bodyweight_kg"]) for row in data if row.get("Bodyweight_kg")}
+            return bodyweights
+        else:
+            return {}
+    except Exception as e:
+        st.warning(f"Could not load bodyweights: {e}")
+        return {}
+
+def save_bodyweight_to_sheets(worksheet, user, bodyweight):
+    """Save a user's bodyweight to Google Sheets"""
+    try:
+        try:
+            bw_sheet = worksheet.spreadsheet.worksheet("Bodyweights")
+        except:
+            bw_sheet = worksheet.spreadsheet.add_worksheet(title="Bodyweights", rows=100, cols=2)
+            bw_sheet.append_row(["User", "Bodyweight_kg"])
+        
+        # Get all current data
+        data = bw_sheet.get_all_records()
+        
+        # Check if user exists
+        user_exists = False
+        for i, row in enumerate(data):
+            if row.get("User") == user:
+                # Update existing row (i+2 because of header row and 0-indexing)
+                bw_sheet.update_cell(i + 2, 2, bodyweight)
+                user_exists = True
+                break
+        
+        # If user doesn't exist, add new row
+        if not user_exists:
+            bw_sheet.append_row([user, bodyweight])
+        
+        return True
+    except Exception as e:
+        st.error(f"Error saving bodyweight: {e}")
+        return False
+
+
+
 def set_bodyweight(user, weight):
     """Set user's bodyweight"""
     if "bodyweights" not in st.session_state:
