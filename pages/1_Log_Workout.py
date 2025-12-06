@@ -15,7 +15,7 @@ st.title("📝 Log Workout")
 spreadsheet = get_google_sheet()
 
 if spreadsheet:
-    workout_sheet = spreadsheet.worksheet("Sheet1")
+    workout_sheet = spreadsheet.sheadsheet("Sheet1")
     available_users = load_users_from_sheets(spreadsheet)
 else:
     workout_sheet = None
@@ -63,10 +63,10 @@ exercise = st.selectbox(
 )
 
 # Get 1RMs from sheet
-if worksheet:
+if sheadsheet:
     base_exercise = exercise.replace("1RM Test - ", "")
-    current_1rm_L = get_user_1rm(worksheet, selected_user, base_exercise, "L")
-    current_1rm_R = get_user_1rm(worksheet, selected_user, base_exercise, "R")
+    current_1rm_L = get_user_1rm(sheadsheet, selected_user, base_exercise, "L")
+    current_1rm_R = get_user_1rm(sheadsheet, selected_user, base_exercise, "R")
     
     # Show current 1RMs
     col_info_L, col_info_R = st.columns(2)
@@ -225,8 +225,8 @@ if worksheet:
         }
         
         # Save both workouts
-        success_L = save_workout_to_sheets(worksheet, workout_data_L)
-        success_R = save_workout_to_sheets(worksheet, workout_data_R)
+        success_L = save_workout_to_sheets(sheadsheet, workout_data_L)
+        success_R = save_workout_to_sheets(sheadsheet, workout_data_R)
         
         if success_L and success_R:
             # Clear quick notes after successful save
@@ -236,10 +236,10 @@ if worksheet:
             if "1RM Test" in exercise:
                 new_records = []
                 if actual_load_L > current_1rm_L:
-                    update_user_1rm(worksheet, selected_user, base_exercise, "L", actual_load_L)
+                    update_user_1rm(sheadsheet, selected_user, base_exercise, "L", actual_load_L)
                     new_records.append(f"Left: {actual_load_L}kg")
                 if actual_load_R > current_1rm_R:
-                    update_user_1rm(worksheet, selected_user, base_exercise, "R", actual_load_R)
+                    update_user_1rm(sheadsheet, selected_user, base_exercise, "R", actual_load_R)
                     new_records.append(f"Right: {actual_load_R}kg")
                 
                 if new_records:
