@@ -159,30 +159,18 @@ def estimate_1rm_epley(load_kg, reps):
 def get_bodyweight(user):
     """Get user's bodyweight from session state"""
     if "bodyweights" not in st.session_state:
-                # Load from Google Sheets first
-                worksheet = get_worksheet_connection()
-                if worksheet:
-                                saved_bodyweights = load_bodyweights_from_sheets(worksheet)
-                                if saved_bodyweights:
-                                                    st.session_state.bodyweights = saved_bodyweights
-                                                else:
-                                                                    # Initialize with defaults if no data in sheets
-            st.session_state.bodyweights = {
-                "Oscar": 70.0,
-                "Yves": 75.0,
-                "Isaac": 68.0,
-                "Ian": 80.0,
-                "Guest": 70.0
-            }
-                    else:
-                                            # If worksheet connection fails, use defaults
-                                            st.session_state.bodyweights = {
-                                                                "Oscar": 70.0,
-                                                                "Yves": 75.0,
-                                                                "Isaac": 68.0,
-                                                                "Ian": 80.0,
-                                                                "Guest": 70.0
-                                                            }
+        # Load bodyweights from Google Sheets
+        worksheet = get_worksheet_connection()
+        if worksheet:
+            loaded_bw = load_bodyweights_from_sheets(worksheet)
+            if loaded_bw:
+                st.session_state.bodyweights = loaded_bw
+            else:
+                # Use defaults if sheet is empty
+                st.session_state.bodyweights = {"Oscar": 70.0, "Ian": 80.0, "Guest": 70.0}
+        else:
+            # Use defaults if connection fails
+            st.session_state.bodyweights = {"Oscar": 70.0, "Ian": 80.0, "Guest": 70.0}
     return st.session_state.bodyweights.get(user, 70.0)
 
 def load_bodyweights_from_sheets(worksheet):
