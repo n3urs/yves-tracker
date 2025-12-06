@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+import numpy as np
 import json
 import gspread
 from google.oauth2.service_account import Credentials
@@ -145,6 +146,13 @@ if selected_user not in st.session_state.saved_1rms:
     }
 
 saved_1rms = st.session_state.saved_1rms[selected_user]
+
+# Initialize goals in session state
+if "goals" not in st.session_state:
+    st.session_state.goals = {}
+
+if selected_user not in st.session_state.goals:
+    st.session_state.goals[selected_user] = []
 
 # ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
@@ -292,6 +300,39 @@ def check_deload_needed(df_all):
         "message": f"Training load looks good! {weeks_trained} weeks of training, avg RPE {avg_rpe:.1f}"
     }
 
+def create_heatmap(df_all):
+    """Create training consistency heatmap (last 12 weeks)"""
+    if len(df_all) == 0:
+        return None
+    
+    # Get last 12 weeks
+    df_all["Date"] = pd.to_datetime(df_all["Date"])
+    twelve_weeks_ago = datetime.now() - timedelta(weeks=12)
+    df_recent = df_all[df_all["Date"] >= twelve_weeks_ago]
+    
+    if len(df_recent) == 0:
+        return None
+    
+    # Count sessions per day
+    session_counts = df_recent.groupby("Date").size().reset_index(name="Sessions")
+    
+    # Create date range for last 12 weeks
+    date_range = pd.date_range(end=datetime.now(), periods=84, freq='D')  # 12 weeks = 84 days
+    
+    # Create heatmap data (7 rows x 12 columns = 84 days)
+    heatmap_data = np.zeros((7, 12))  # 7 days, 12 weeks
+    
+    for i, date in enumerate(date_range):
+        week_idx = i // 7
+        day_idx = i % 7
+        
+        # Check if there's a session on this date
+        sessions = session_counts[session_counts["Date"] == date.date()]
+        if len(sessions) > 0:
+            heatmap_data[day_idx, week_idx] = sessions["Sessions"].values[0]
+    
+    return heatmap_data, date_range
+
 # ==================== SIDEBAR: 1RM MANAGER ====================
 st.sidebar.header(f"💾 {selected_user}'s 1RM Manager")
 st.sidebar.subheader("Save your max lifts:")
@@ -332,6 +373,78 @@ for ex in base_exercises:
 if st.sidebar.button("💾 Save All 1RMs", key="save_1rms_btn", use_container_width=True):
     st.session_state.saved_1rms[selected_user] = saved_1rms
     st.sidebar.success("✅ 1RMs saved!")
+
+st.sidebar.markdown("---")
+
+# ==================== SIDEBAR: GOAL TRACKER ====================
+st.sidebar.header("🎯 Goal Tracker")
+
+# Add new goal form
+with st.sidebar.expander("➕ Add New Goal"):
+    goal_exercise = st.selectbox("Exercise", base_exercises, key="goal_exercise")
+    goal_arm = st.selectbox("Arm", ["Left", "Right", "Both"], key="goal_arm")
+    goal_weight = st.number_input("Target Weight (kg)", min_value=20, max_value=200, value=60, step=5, key="goal_weight")
+    goal_date = st.date_input("Target Date", value=datetime.now() + timedelta(weeks=8), key="goal_date")
+    
+    if st.button("Add Goal", key="add_goal_btn"):
+        new_goal = {
+            "exercise": goal_exercise,
+            "arm": goal_arm,
+            "target_weight": goal_weight,
+            "target_date": goal_date.strftime("%Y-%m-%d"),
+            "created_date": datetime.now().strftime("%Y-%m-%d")
+        }
+        st.session_state.goals[selected_user].append(new_goal)
+        st.sidebar.success("🎉 Goal added!")
+
+# Display active goals
+if len(st.session_state.goals[selected_user]) > 0:
+    st.sidebar.subheader("Active Goals:")
+    for idx, goal in enumerate(st.session_state.goals[selected_user]):
+        with st.sidebar.container():
+            st.write(f"**{goal['exercise']} ({goal['arm']})**")
+            st.write(f"🎯 Target: {goal['target_weight']}kg by {goal['target_date']}")
+            
+            # Calculate progress
+            if worksheet:
+                df_user = load_data_from_sheets(worksheet, user=selected_user)
+                if len(df_user) > 0:
+                    df_user["Date"] = pd.to_datetime(df_user["Date"])
+                    df_user["Actual_Load_kg"] = pd.to_numeric(df_user["Actual_Load_kg"], errors='coerce')
+                    
+                    # Filter for this exercise
+                    df_exercise = df_user[df_user["Exercise"] == goal['exercise']]
+                    
+                    if len(df_exercise) > 0:
+                        # Get current max for the arm
+                        if goal['arm'] == "Both":
+                            current_max = df_exercise['Actual_Load_kg'].max()
+                        else:
+                            arm_letter = "L" if goal['arm'] == "Left" else "R"
+                            df_arm = df_exercise[df_exercise["Arm"] == arm_letter]
+                            current_max = df_arm['Actual_Load_kg'].max() if len(df_arm) > 0 else 0
+                        
+                        # Calculate progress percentage
+                        progress = (current_max / goal['target_weight']) * 100
+                        progress = min(progress, 100)  # Cap at 100%
+                        
+                        st.progress(progress / 100, text=f"{progress:.0f}% complete ({current_max:.1f}kg / {goal['target_weight']}kg)")
+                        
+                        # Days remaining
+                        days_left = (datetime.strptime(goal['target_date'], "%Y-%m-%d") - datetime.now()).days
+                        if days_left > 0:
+                            st.caption(f"⏰ {days_left} days remaining")
+                        else:
+                            st.caption("🏁 Goal date passed")
+            
+            # Delete goal button
+            if st.button(f"🗑️ Delete", key=f"delete_goal_{idx}"):
+                st.session_state.goals[selected_user].pop(idx)
+                st.rerun()
+            
+            st.markdown("---")
+else:
+    st.sidebar.info("No goals set yet. Add one above!")
 
 st.sidebar.markdown("---")
 
@@ -668,5 +781,57 @@ if worksheet:
     
     else:
         st.info(f"No workouts logged yet for {selected_user}. Start by logging your first session above!")
+    
+    # ==================== TRAINING CONSISTENCY HEATMAP ====================
+    st.markdown("---")
+    st.subheader("📅 Training Consistency (Last 12 Weeks)")
+    
+    heatmap_result = create_heatmap(df_fresh)
+    if heatmap_result:
+        heatmap_data, date_range = heatmap_result
+        
+        fig3, ax3 = plt.subplots(figsize=(14, 3))
+        
+        # Create heatmap
+        im = ax3.imshow(heatmap_data, cmap='Greens', aspect='auto', vmin=0, vmax=3)
+        
+        # Set ticks
+        ax3.set_yticks(np.arange(7))
+        ax3.set_yticklabels(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+        ax3.set_xticks(np.arange(12))
+        ax3.set_xticklabels([f'W{i+1}' for i in range(12)])
+        
+        # Add colorbar
+        cbar = plt.colorbar(im, ax=ax3, orientation='horizontal', pad=0.1)
+        cbar.set_label('Sessions per day', rotation=0)
+        
+        ax3.set_title("Training Frequency Heatmap (Green = More Sessions)")
+        plt.tight_layout()
+        st.pyplot(fig3)
+        
+        # Training streak
+        df_fresh_sorted = df_fresh.sort_values("Date")
+        df_fresh_sorted["Date"] = pd.to_datetime(df_fresh_sorted["Date"])
+        unique_dates = df_fresh_sorted["Date"].dt.date.unique()
+        
+        # Calculate current streak
+        current_streak = 0
+        today = datetime.now().date()
+        
+        if len(unique_dates) > 0 and unique_dates[-1] == today:
+            current_streak = 1
+            for i in range(len(unique_dates) - 2, -1, -1):
+                if (unique_dates[i+1] - unique_dates[i]).days == 1:
+                    current_streak += 1
+                else:
+                    break
+        
+        if current_streak > 0:
+            st.success(f"🔥 **Current Streak: {current_streak} days!** Keep it up!")
+        else:
+            st.info("💪 Start a new training streak today!")
+    else:
+        st.info("Not enough data yet for heatmap. Keep logging workouts!")
+    
 else:
     st.error("Could not connect to Google Sheets. Check your configuration.")
