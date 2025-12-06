@@ -158,10 +158,32 @@ if worksheet:
     
     # Quick note buttons
     st.markdown("**Quick Notes:**")
+    
+    # Initialize quick notes in session state
+    if "quick_note_append" not in st.session_state:
+        st.session_state.quick_note_append = ""
+    
     quick_cols = st.columns(len(QUICK_NOTES))
     for idx, (emoji_label, note_text) in enumerate(QUICK_NOTES.items()):
         if quick_cols[idx].button(emoji_label, key=f"quick_{note_text}"):
-            st.session_state.notes_input = notes + " " + note_text if notes else note_text
+            # Append to quick_note_append instead
+            if st.session_state.quick_note_append:
+                st.session_state.quick_note_append += " " + note_text
+            else:
+                st.session_state.quick_note_append = note_text
+            st.rerun()
+    
+    # Combine manual notes with quick notes
+    if st.session_state.quick_note_append:
+        final_notes = (notes + " " + st.session_state.quick_note_append).strip()
+        st.info(f"📝 Notes to save: {final_notes}")
+    else:
+        final_notes = notes
+    
+    # Clear quick notes button
+    if st.session_state.quick_note_append:
+        if st.button("🗑️ Clear quick notes"):
+            st.session_state.quick_note_append = ""
             st.rerun()
     
     # Submit button
@@ -180,7 +202,7 @@ if worksheet:
             "Reps_Per_Set": reps_per_set,
             "Sets_Completed": sets_completed,
             "RPE": rpe,
-            "Notes": notes
+            "Notes": final_notes
         }
         
         # Log RIGHT arm
@@ -196,7 +218,7 @@ if worksheet:
             "Reps_Per_Set": reps_per_set,
             "Sets_Completed": sets_completed,
             "RPE": rpe,
-            "Notes": notes
+            "Notes": final_notes
         }
         
         # Save both workouts
@@ -204,6 +226,9 @@ if worksheet:
         success_R = save_workout_to_sheets(worksheet, workout_data_R)
         
         if success_L and success_R:
+            # Clear quick notes after successful save
+            st.session_state.quick_note_append = ""
+            
             # If this was a 1RM test, check for new records
             if "1RM Test" in exercise:
                 new_records = []
