@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import json
@@ -204,6 +203,114 @@ def init_session_state():
     if st.session_state.current_user not in st.session_state.goals:
         st.session_state.goals[st.session_state.current_user] = []
 
+def analyze_progression(df_filtered, exercise_name):
+    """Analyze recent sessions and suggest progression"""
+    suggestions = []
+    
+    if len(df_filtered) < 3:
+        return suggestions
+    
+    recent = df_filtered.tail(3).copy()
+    
+    for arm in ["L", "R"]:
+        arm_data = recent[recent["Arm"] == arm]
+        
+        if len(arm_data) < 3:
+            continue
+        
+        avg_rpe = arm_data["RPE"].mean()
+        current_load = arm_data["Actual_Load_kg"].iloc[-1]
+        
+        if avg_rpe <= 6.0:
+            increase = 2.5 if current_load < 60 else 5.0
+            new_load = current_load + increase
+            suggestions.append({
+                "type": "increase",
+                "arm": arm,
+                "message": f"💪 **{arm} Arm**: RPE averaging {avg_rpe:.1f} (too easy!) → Increase from {current_load:.1f}kg to {new_load:.1f}kg",
+                "color": "success"
+            })
+        elif avg_rpe >= 8.5:
+            suggestions.append({
+                "type": "caution",
+                "arm": arm,
+                "message": f"⚠️ **{arm} Arm**: RPE averaging {avg_rpe:.1f} (very hard) → Stay at {current_load:.1f}kg or reduce slightly",
+                "color": "warning"
+            })
+        else:
+            suggestions.append({
+                "type": "maintain",
+                "arm": arm,
+                "message": f"✅ **{arm} Arm**: RPE {avg_rpe:.1f} is perfect! Keep training at {current_load:.1f}kg",
+                "color": "info"
+            })
+    
+    return suggestions
+
+def check_deload_needed(df_all):
+    """Check if user needs a deload week"""
+    if len(df_all) == 0:
+        return None
+    
+    df_all["Date"] = pd.to_datetime(df_all["Date"])
+    df_all = df_all.sort_values("Date")
+    
+    six_weeks_ago = datetime.now() - timedelta(weeks=6)
+    recent_data = df_all[df_all["Date"] >= six_weeks_ago]
+    
+    if len(recent_data) == 0:
+        return None
+    
+    recent_data["Week"] = recent_data["Date"].dt.isocalendar().week
+    weeks_trained = recent_data["Week"].nunique()
+    
+    recent_data["RPE"] = pd.to_numeric(recent_data["RPE"], errors='coerce')
+    avg_rpe = recent_data["RPE"].mean()
+    
+    if weeks_trained >= 4:
+        if avg_rpe >= 8.0:
+            return {
+                "needed": True,
+                "reason": f"You've trained hard for {weeks_trained} weeks with avg RPE {avg_rpe:.1f}",
+                "recommendation": "Consider a deload week: 60-70% intensity, same reps/sets, focus on form"
+            }
+        elif weeks_trained >= 6:
+            return {
+                "needed": True,
+                "reason": f"You've been training consistently for {weeks_trained} weeks",
+                "recommendation": "Time for a planned deload: 60-70% intensity to allow recovery and adaptation"
+            }
+    
+    return {
+        "needed": False,
+        "message": f"Training load looks good! {weeks_trained} weeks of training, avg RPE {avg_rpe:.1f}"
+    }
+
+def create_heatmap(df_all):
+    """Create training consistency heatmap (last 12 weeks)"""
+    if len(df_all) == 0:
+        return None
+    
+    df_all["Date"] = pd.to_datetime(df_all["Date"])
+    twelve_weeks_ago = datetime.now() - timedelta(weeks=12)
+    df_recent = df_all[df_all["Date"] >= twelve_weeks_ago]
+    
+    if len(df_recent) == 0:
+        return None
+    
+    session_counts = df_recent.groupby("Date").size().reset_index(name="Sessions")
+    date_range = pd.date_range(end=datetime.now(), periods=84, freq='D')
+    heatmap_data = np.zeros((7, 12))
+    
+    for i, date in enumerate(date_range):
+        week_idx = i // 7
+        day_idx = i % 7
+        sessions = session_counts[session_counts["Date"] == date.date()]
+        if len(sessions) > 0:
+            heatmap_data[day_idx, week_idx] = sessions["Sessions"].values[0]
+    
+    return heatmap_data, date_range
+
 def generate_workout_summary_image(df_data, username, days_back):
     """Generate a beautiful social media-ready workout summary"""
     cutoff_date = datetime.now() - timedelta(days=days_back)
@@ -276,7 +383,7 @@ def generate_workout_summary_image(df_data, username, days_back):
              ha='center', va='center', fontsize=24, fontweight='bold', color='#ffd700')
     
     pr_start_y = prs_y - 0.06
-    for i, (exercise, weight) in enumerate(prs.items()):
+    for i, (exercise, weight) in enumerate(list(prs.items())[:4]):
         y_pos = pr_start_y - (i * 0.05)
         fig.text(0.2, y_pos, f"• {exercise}:", 
                  ha='left', va='center', fontsize=16, color='white')
