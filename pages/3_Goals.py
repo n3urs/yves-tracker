@@ -43,16 +43,21 @@ with st.expander("➕ Add New Goal"):
     goal_date = st.date_input("Target Date", value=datetime.now() + timedelta(weeks=8), key="goal_date")
     
     if st.button("Add Goal", key="add_goal_btn"):
-        new_goal = {
-            "exercise": goal_exercise,
-            "arm": goal_arm,
-            "target_weight": goal_weight,
-            "target_date": goal_date.strftime("%Y-%m-%d"),
-            "created_date": datetime.now().strftime("%Y-%m-%d")
-        }
-        st.session_state.goals[selected_user].append(new_goal)
-        st.success("🎉 Goal added!")
-        st.rerun()
+    new_goal = {
+        "exercise": goal_exercise,
+        "arm": goal_arm,
+        "target_weight": goal_weight,
+        "target_date": goal_date.strftime("%Y-%m-%d"),
+        "created_date": datetime.now().strftime("%Y-%m-%d")
+    }
+    st.session_state.goals[selected_user].append(new_goal)
+    
+    # Save to Google Sheets
+    if worksheet:
+        save_goals_to_sheets(worksheet, selected_user, st.session_state.goals[selected_user])
+    
+    st.success("🎉 Goal added and saved!")
+    st.rerun()
 
 # Display active goals
 if len(st.session_state.goals[selected_user]) > 0:
