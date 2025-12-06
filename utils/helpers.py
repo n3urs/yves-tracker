@@ -143,22 +143,43 @@ def load_users_from_sheets(worksheet):
 # ==================== HELPER FUNCTIONS ====================
 
 def get_user_1rm(worksheet, user, exercise, arm):
-    """Get user's 1RM from UserProfile sheet"""
+    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
-        # Try to get the UserProfile sheet
+        # First try to get from UserProfile sheet
         profile_sheet = worksheet.spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
         
         for record in records:
             if record.get("User") == user:
                 key = f"{exercise}_{arm}_1RM"
-                return record.get(key, 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
-        
-        # If user not found, return default
-        return 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75
+                value = record.get(key, None)
+                if value and value > 0:
+                    return value
     except:
-        # If sheet doesn't exist, return default
-        return 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75
+        pass
+    
+    # Fall back to workout history - find max weight from 1RM tests or regular workouts
+    try:
+        df = load_data_from_sheets(worksheet, user=user)
+        if len(df) > 0:
+            # Filter for this exercise and arm
+            df_filtered = df[
+                (df['Exercise'].str.contains(exercise, na=False)) & 
+                (df['Arm'] == arm)
+            ]
+            
+            if len(df_filtered) > 0:
+                # Convert to numeric and find max
+                df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
+                max_weight = df_filtered['Actual_Load_kg'].max()
+                if pd.notna(max_weight) and max_weight > 0:
+                    return max_weight
+    except Exception as e:
+        st.warning(f"Could not load 1RM from history: {e}")
+    
+    # If nothing found, return defaults
+    return 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75
+
 
 def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
     """Update user's 1RM in UserProfile sheet"""
