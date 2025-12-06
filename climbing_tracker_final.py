@@ -306,22 +306,39 @@ else:
 # ==================== MAIN: LOG FORM ====================
 st.header("📝 Log Today's Session")
 
-# Two columns for Left and Right
-col_left, col_right = st.columns(2)
+# Checkbox for same weight both arms
+same_weight = st.checkbox("✅ Same weight both arms", value=True, key="same_weight_check")
 
-with col_left:
-    st.subheader("👈 Left Arm")
-    actual_load_L = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_L, step=0.5, key="load_L")
-    reps_L = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_L")
-    sets_L = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_L")
-    rpe_L = st.slider("RPE", min_value=1, max_value=10, value=7, key="rpe_L")
-
-with col_right:
-    st.subheader("👉 Right Arm")
-    actual_load_R = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_R, step=0.5, key="load_R")
-    reps_R = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_R")
-    sets_R = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_R")
-    rpe_R = st.slider("RPE", min_value=1, max_value=10, value=7, key="rpe_R")
+if same_weight:
+    # Single column layout when same weight
+    st.subheader("Both Arms")
+    actual_load = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_L, step=0.5, key="load_both")
+    reps = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_both")
+    sets = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_both")
+    rpe = st.slider("RPE (Rate of Perceived Exertion)", min_value=1, max_value=10, value=7, key="rpe_both")
+    
+    # Use same values for both arms
+    actual_load_L = actual_load_R = actual_load
+    reps_L = reps_R = reps
+    sets_L = sets_R = sets
+    rpe_L = rpe_R = rpe
+else:
+    # Two columns for Left and Right
+    col_left, col_right = st.columns(2)
+    
+    with col_left:
+        st.subheader("👈 Left Arm")
+        actual_load_L = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_L, step=0.5, key="load_L")
+        reps_L = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_L")
+        sets_L = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_L")
+        rpe_L = st.slider("RPE", min_value=1, max_value=10, value=7, key="rpe_L")
+    
+    with col_right:
+        st.subheader("👉 Right Arm")
+        actual_load_R = st.number_input("Load (kg)", min_value=10.0, max_value=200.0, value=prescribed_load_R, step=0.5, key="load_R")
+        reps_R = st.number_input("Reps", min_value=1, max_value=20, value=4, step=1, key="reps_R")
+        sets_R = st.number_input("Sets", min_value=1, max_value=10, value=4, step=1, key="sets_R")
+        rpe_R = st.slider("RPE", min_value=1, max_value=10, value=7, key="rpe_R")
 
 # Shared notes at bottom
 quick_note = st.selectbox("Quick note:", ["None"] + list(QUICK_NOTES.keys()), key="quick_note_select")
@@ -462,25 +479,27 @@ if worksheet:
                 else:
                     st.caption("No 1RM tests logged yet")
             
-            # Charts - Both arms on same graph (NO 1RM test markers)
+            # Charts - Both arms on same graph with different markers to avoid overlap
             st.subheader("Load Over Time (Both Arms)")
             fig, ax = plt.subplots(figsize=(12, 4))
             
-            # Plot Left Arm
+            # Plot Left Arm - CIRCLES
             if len(df_left) > 0:
                 ax.plot(df_left["Date"], df_left["Actual_Load_kg"], 
-                        marker="o", label="Left - Actual Load", linewidth=2, markersize=8, color="blue")
+                        marker="o", label="Left - Actual Load", linewidth=2, markersize=10, 
+                        color="blue", alpha=0.8, markeredgewidth=2, markeredgecolor='darkblue')
                 ax.plot(df_left["Date"], df_left["Estimated_1RM"], 
-                        marker="s", label="Left - Estimated 1RM", linewidth=2, markersize=6, 
-                        linestyle="--", color="lightblue")
+                        marker="s", label="Left - Estimated 1RM", linewidth=2, markersize=7, 
+                        linestyle="--", color="lightblue", alpha=0.7)
             
-            # Plot Right Arm
+            # Plot Right Arm - TRIANGLES
             if len(df_right) > 0:
                 ax.plot(df_right["Date"], df_right["Actual_Load_kg"], 
-                        marker="o", label="Right - Actual Load", linewidth=2, markersize=8, color="green")
+                        marker="^", label="Right - Actual Load", linewidth=2, markersize=10, 
+                        color="green", alpha=0.8, markeredgewidth=2, markeredgecolor='darkgreen')
                 ax.plot(df_right["Date"], df_right["Estimated_1RM"], 
-                        marker="s", label="Right - Estimated 1RM", linewidth=2, markersize=6, 
-                        linestyle="--", color="lightgreen")
+                        marker="s", label="Right - Estimated 1RM", linewidth=2, markersize=7, 
+                        linestyle="--", color="lightgreen", alpha=0.7)
             
             ax.set_xlabel("Date")
             ax.set_ylabel("Load (kg)")
@@ -495,9 +514,9 @@ if worksheet:
             st.subheader("RPE Trend (Both Arms)")
             fig2, ax2 = plt.subplots(figsize=(12, 4))
             if len(df_left) > 0:
-                ax2.plot(df_left["Date"], df_left["RPE"], marker="o", color="blue", linewidth=2, markersize=6, label="Left Arm")
+                ax2.plot(df_left["Date"], df_left["RPE"], marker="o", color="blue", linewidth=2, markersize=8, label="Left Arm", alpha=0.8)
             if len(df_right) > 0:
-                ax2.plot(df_right["Date"], df_right["RPE"], marker="o", color="green", linewidth=2, markersize=6, label="Right Arm")
+                ax2.plot(df_right["Date"], df_right["RPE"], marker="^", color="green", linewidth=2, markersize=8, label="Right Arm", alpha=0.8)
             ax2.set_xlabel("Date")
             ax2.set_ylabel("RPE")
             ax2.set_ylim([0, 10])
