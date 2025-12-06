@@ -102,7 +102,13 @@ if len(st.session_state.goals[selected_user]) > 0:
             with col_delete:
                 if st.button(f"🗑️", key=f"delete_goal_{idx}"):
                     st.session_state.goals[selected_user].pop(idx)
+    
+    # Save to Google Sheets
+                    if worksheet:
+                        save_goals_to_sheets(worksheet, selected_user, st.session_state.goals[selected_user])
+    
                     st.rerun()
+
             
             st.markdown("---")
 else:
