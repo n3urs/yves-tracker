@@ -178,7 +178,7 @@ if worksheet:
             st.info(f"No training workouts logged yet for {selected_user}. Only 1RM tests found.")
     else:
         st.info(f"No workouts logged yet for {selected_user}. Start by logging your first session!")
-        st.page_link("pages/1_📝_Log_Workout.py", label="📝 Log Your First Workout →", use_container_width=True)
+        st.page_link("pages/1_Log_Workout.py", label="📝 Log Your First Workout →", use_container_width=True)
 else:
     st.error("Could not connect to Google Sheets. Check your configuration.")
 
