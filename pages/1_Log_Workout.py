@@ -47,39 +47,6 @@ if new_bw != current_bw:
     set_bodyweight(selected_user, new_bw)
     st.sidebar.success(f"✅ Bodyweight updated to {new_bw}kg")
 
-# 1RM Manager in sidebar
-st.sidebar.markdown("---")
-st.sidebar.subheader("💾 1RM Manager")
-saved_1rms = st.session_state.saved_1rms.get(selected_user, {})
-base_exercises = ["20mm Edge", "Pinch", "Wrist Roller"]
-
-for ex in base_exercises:
-    col_left, col_right = st.sidebar.columns(2)
-    
-    with col_left:
-        saved_1rms[f"{ex} (L)"] = st.sidebar.number_input(
-            f"{ex} (L) kg",
-            min_value=20,
-            max_value=200,
-            value=saved_1rms.get(f"{ex} (L)", 105 if "Edge" in ex else 85 if "Pinch" in ex else 75),
-            step=1,
-            key=f"1rm_{ex}_L_{selected_user}"
-        )
-    
-    with col_right:
-        saved_1rms[f"{ex} (R)"] = st.sidebar.number_input(
-            f"{ex} (R) kg",
-            min_value=20,
-            max_value=200,
-            value=saved_1rms.get(f"{ex} (R)", 105 if "Edge" in ex else 85 if "Pinch" in ex else 75),
-            step=1,
-            key=f"1rm_{ex}_R_{selected_user}"
-        )
-
-if st.sidebar.button("💾 Save All 1RMs", key="save_1rms_btn", use_container_width=True):
-    st.session_state.saved_1rms[selected_user] = saved_1rms
-    st.sidebar.success("✅ 1RMs saved!")
-
 # ==================== MAIN WORKOUT FORM ====================
 
 st.markdown("---")
@@ -98,21 +65,16 @@ with col1:
 with col2:
     arm = st.selectbox("Arm:", ["L", "R"], key="arm_select")
 
-# Load and display
+# Get 1RM from sheet
 if worksheet:
-    col_ref, col_target = st.columns(2)
+    base_exercise = exercise.replace("1RM Test - ", "")
+    current_1rm = get_user_1rm(worksheet, selected_user, base_exercise, arm)
     
-    with col_ref:
-        ref_1rm = st.number_input(
-            "Reference 1RM (kg):",
-            min_value=20,
-            max_value=200,
-            value=saved_1rms.get(f"{exercise.replace('1RM Test - ', '')} ({arm})", 105),
-            step=1,
-            key="ref_1rm_input"
-        )
+    # Show current 1RM
+    st.info(f"📊 Current 1RM for {base_exercise} ({arm}): **{current_1rm} kg**")
     
-    with col_target:
+    # Target percentage (only if not 1RM test)
+    if "1RM Test" not in exercise:
         target_pct = st.slider(
             "Target % of 1RM:",
             min_value=50,
@@ -121,13 +83,23 @@ if worksheet:
             step=5,
             key="target_pct_slider"
         )
+        prescribed_load = current_1rm * (target_pct / 100)
+        st.success(f"🎯 Prescribed Load: **{prescribed_load:.1f} kg** ({target_pct}% of {current_1rm}kg)")
+    else:
+        target_pct = 100
+        prescribed_load = current_1rm
     
-    prescribed_load = ref_1rm * (target_pct / 100)
-    st.info(f"📊 Prescribed Load: **{prescribed_load:.1f} kg** ({target_pct}% of {ref_1rm}kg)")
-    
-    # Plate breakdown
-    plates_str, actual_load = calculate_plates(prescribed_load)
-    st.success(f"🔧 **Plate Setup:** {plates_str}")
+    # Actual weight lifted
+    st.markdown("---")
+    actual_load = st.number_input(
+        "💪 Actual Weight Lifted (kg):",
+        min_value=0.0,
+        max_value=200.0,
+        value=prescribed_load,
+        step=0.25,
+        key="actual_load_input",
+        help="Enter the total weight you lifted (not split between sides)"
+    )
     
     # Workout details
     st.markdown("---")
@@ -139,7 +111,7 @@ if worksheet:
         reps_per_set = st.number_input("Reps per set:", min_value=1, max_value=20, value=5, step=1, key="reps_input")
     
     with col_sets:
-        sets_completed = st.number_input("Sets completed:", min_value=1, max_value=10, value=3, step=1, key="sets_input")
+        sets_completed = st.number_input("Sets completed:", min_value=1, max_value=10, value=3 if "1RM Test" not in exercise else 1, step=1, key="sets_input")
     
     with col_rpe:
         rpe = st.slider("RPE (Rate of Perceived Exertion):", min_value=1, max_value=10, value=7, step=1, key="rpe_slider")
@@ -163,7 +135,7 @@ if worksheet:
             "Date": datetime.now().strftime("%Y-%m-%d"),
             "Exercise": exercise,
             "Arm": arm,
-            "1RM_Reference": ref_1rm,
+            "1RM_Reference": current_1rm,
             "Target_Percentage": target_pct,
             "Prescribed_Load_kg": prescribed_load,
             "Actual_Load_kg": actual_load,
@@ -174,7 +146,12 @@ if worksheet:
         }
         
         if save_workout_to_sheets(worksheet, workout_data):
-            st.success("🎉 Workout logged successfully!")
+            # If this was a 1RM test and it's higher than current, update it
+            if "1RM Test" in exercise and actual_load > current_1rm:
+                update_user_1rm(worksheet, selected_user, base_exercise, arm, actual_load)
+                st.success(f"🎉 Workout logged! New 1RM record: {actual_load}kg! 🏆")
+            else:
+                st.success("🎉 Workout logged successfully!")
             st.balloons()
         else:
             st.error("❌ Failed to save workout. Please try again.")
