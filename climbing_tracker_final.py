@@ -388,35 +388,26 @@ if worksheet:
             
             df_filtered = df_fresh[df_fresh["Exercise"] == selected_analysis_exercise].copy()
             
-            # DEBUG: Show what data we have
-            st.write("DEBUG - Total rows for this exercise:", len(df_filtered))
-            st.write("DEBUG - Arm values found:", df_filtered["Arm"].unique().tolist() if "Arm" in df_filtered.columns else "No Arm column!")
+            # Convert date and numeric columns BEFORE separating arms
+            df_filtered["Date"] = pd.to_datetime(df_filtered["Date"])
+            df_filtered = df_filtered.sort_values("Date").reset_index(drop=True)
             
-            # Separate Left and Right
+            # Convert numeric columns
+            numeric_cols = ["1RM_Reference", "Target_Percentage", "Prescribed_Load_kg", 
+                           "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE"]
+            for col in numeric_cols:
+                df_filtered[col] = pd.to_numeric(df_filtered[col], errors='coerce')
+            
+            # Estimate 1RM from rep data - FIX: Don't inflate 1-rep sets
+            df_filtered["Estimated_1RM"] = df_filtered.apply(
+                lambda row: row["Actual_Load_kg"] if row["Reps_Per_Set"] == 1 
+                else estimate_1rm_epley(row["Actual_Load_kg"], row["Reps_Per_Set"]),
+                axis=1
+            )
+            
+            # NOW separate Left and Right (after all conversions)
             df_left = df_filtered[df_filtered["Arm"] == "L"].copy()
             df_right = df_filtered[df_filtered["Arm"] == "R"].copy()
-            
-            st.write("DEBUG - Left arm rows:", len(df_left))
-            st.write("DEBUG - Right arm rows:", len(df_right))
-            
-            for df_side in [df_left, df_right]:
-                if len(df_side) > 0:
-                    df_side["Date"] = pd.to_datetime(df_side["Date"])
-                    df_side.sort_values("Date", inplace=True)
-                    df_side.reset_index(drop=True, inplace=True)
-                    
-                    # Convert numeric columns
-                    numeric_cols = ["1RM_Reference", "Target_Percentage", "Prescribed_Load_kg", 
-                                   "Actual_Load_kg", "Reps_Per_Set", "Sets_Completed", "RPE"]
-                    for col in numeric_cols:
-                        df_side[col] = pd.to_numeric(df_side[col], errors='coerce')
-                    
-                    # Estimate 1RM from rep data - FIX: Don't inflate 1-rep sets
-                    df_side["Estimated_1RM"] = df_side.apply(
-                        lambda row: row["Actual_Load_kg"] if row["Reps_Per_Set"] == 1 
-                        else estimate_1rm_epley(row["Actual_Load_kg"], row["Reps_Per_Set"]),
-                        axis=1
-                    )
             
             # Get 1RM test data for reference table
             test_exercise_name = f"1RM Test: {selected_analysis_exercise}"
@@ -478,7 +469,7 @@ if worksheet:
             # Plot Left Arm
             if len(df_left) > 0:
                 ax.plot(df_left["Date"], df_left["Actual_Load_kg"], 
-                        marker="o", label="Left - Actual Load", linewidth=2, markersize=6, color="blue")
+                        marker="o", label="Left - Actual Load", linewidth=2, markersize=8, color="blue")
                 ax.plot(df_left["Date"], df_left["Estimated_1RM"], 
                         marker="s", label="Left - Estimated 1RM", linewidth=2, markersize=6, 
                         linestyle="--", color="lightblue")
@@ -486,7 +477,7 @@ if worksheet:
             # Plot Right Arm
             if len(df_right) > 0:
                 ax.plot(df_right["Date"], df_right["Actual_Load_kg"], 
-                        marker="o", label="Right - Actual Load", linewidth=2, markersize=6, color="green")
+                        marker="o", label="Right - Actual Load", linewidth=2, markersize=8, color="green")
                 ax.plot(df_right["Date"], df_right["Estimated_1RM"], 
                         marker="s", label="Right - Estimated 1RM", linewidth=2, markersize=6, 
                         linestyle="--", color="lightgreen")
