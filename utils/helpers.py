@@ -422,3 +422,60 @@ def generate_workout_summary_image(df_data, username, days_back):
     plt.close(fig)
     
     return buf
+
+def save_goals_to_sheets(worksheet, user, goals):
+    """Save goals to a separate Goals sheet"""
+    try:
+        # Try to get Goals sheet, create if doesn't exist
+        try:
+            goals_sheet = worksheet.spreadsheet.worksheet("Goals")
+        except:
+            goals_sheet = worksheet.spreadsheet.add_worksheet(title="Goals", rows=100, cols=10)
+            # Add headers
+            goals_sheet.append_row(["User", "Exercise", "Arm", "Target_Weight", "Target_Date", "Created_Date"])
+        
+        # Clear existing goals for this user
+        all_goals = goals_sheet.get_all_records()
+        for i, row in enumerate(all_goals, start=2):  # Start at 2 to skip header
+            if row.get("User") == user:
+                goals_sheet.delete_rows(i)
+        
+        # Add current goals
+        for goal in goals:
+            goals_sheet.append_row([
+                user,
+                goal["exercise"],
+                goal["arm"],
+                goal["target_weight"],
+                goal["target_date"],
+                goal["created_date"]
+            ])
+        return True
+    except Exception as e:
+        st.error(f"Error saving goals: {e}")
+        return False
+
+def load_goals_from_sheets(worksheet, user):
+    """Load goals from Goals sheet"""
+    try:
+        try:
+            goals_sheet = worksheet.spreadsheet.worksheet("Goals")
+            data = goals_sheet.get_all_records()
+            user_goals = []
+            for row in data:
+                if row.get("User") == user:
+                    user_goals.append({
+                        "exercise": row["Exercise"],
+                        "arm": row["Arm"],
+                        "target_weight": row["Target_Weight"],
+                        "target_date": row["Target_Date"],
+                        "created_date": row["Created_Date"]
+                    })
+            return user_goals
+        except:
+            # Goals sheet doesn't exist yet
+            return []
+    except Exception as e:
+        st.error(f"Error loading goals: {e}")
+        return []
+
