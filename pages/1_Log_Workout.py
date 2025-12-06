@@ -11,16 +11,14 @@ init_session_state()
 st.title("📝 Log Workout")
 
 # Connect to sheet
-# Connect to sheet
 spreadsheet = get_google_sheet()
+workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
 
+# Load users dynamically from Google Sheets
 if spreadsheet:
-    workout_sheet = spreadsheet.sheadsheet("Sheet1")
     available_users = load_users_from_sheets(spreadsheet)
 else:
-    workout_sheet = None
     available_users = USER_LIST.copy()
-
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
@@ -36,7 +34,7 @@ selected_user = st.session_state.current_user
 # Bodyweight input
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚖️ Bodyweight")
-current_bw = get_bodyweight(selected_user)
+current_bw = get_bodyweight(spreadsheet, selected_user) if spreadsheet else 78.0
 new_bw = st.sidebar.number_input(
     "Your bodyweight (kg)",
     min_value=40.0,
@@ -46,8 +44,8 @@ new_bw = st.sidebar.number_input(
     key="bodyweight_input"
 )
 
-if new_bw != current_bw:
-    set_bodyweight(selected_user, new_bw)
+if new_bw != current_bw and spreadsheet:
+    set_bodyweight(spreadsheet, selected_user, new_bw)
     st.sidebar.success(f"✅ Bodyweight updated to {new_bw}kg")
 
 # ==================== MAIN WORKOUT FORM ====================
@@ -63,10 +61,10 @@ exercise = st.selectbox(
 )
 
 # Get 1RMs from sheet
-if sheadsheet:
+if spreadsheet:
     base_exercise = exercise.replace("1RM Test - ", "")
-    current_1rm_L = get_user_1rm(sheadsheet, selected_user, base_exercise, "L")
-    current_1rm_R = get_user_1rm(sheadsheet, selected_user, base_exercise, "R")
+    current_1rm_L = get_user_1rm(spreadsheet, selected_user, base_exercise, "L")
+    current_1rm_R = get_user_1rm(spreadsheet, selected_user, base_exercise, "R")
     
     # Show current 1RMs
     col_info_L, col_info_R = st.columns(2)
@@ -225,8 +223,8 @@ if sheadsheet:
         }
         
         # Save both workouts
-        success_L = save_workout_to_sheets(sheadsheet, workout_data_L)
-        success_R = save_workout_to_sheets(sheadsheet, workout_data_R)
+        success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
+        success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
         
         if success_L and success_R:
             # Clear quick notes after successful save
@@ -236,10 +234,10 @@ if sheadsheet:
             if "1RM Test" in exercise:
                 new_records = []
                 if actual_load_L > current_1rm_L:
-                    update_user_1rm(sheadsheet, selected_user, base_exercise, "L", actual_load_L)
+                    update_user_1rm(spreadsheet, selected_user, base_exercise, "L", actual_load_L)
                     new_records.append(f"Left: {actual_load_L}kg")
                 if actual_load_R > current_1rm_R:
-                    update_user_1rm(sheadsheet, selected_user, base_exercise, "R", actual_load_R)
+                    update_user_1rm(spreadsheet, selected_user, base_exercise, "R", actual_load_R)
                     new_records.append(f"Right: {actual_load_R}kg")
                 
                 if new_records:
