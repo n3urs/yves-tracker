@@ -28,6 +28,8 @@ st.session_state.current_user = st.sidebar.selectbox(
     key="user_selector_profile"
 )
 
+selected_user = st.session_state.current_user
+
 # User creation section
 st.markdown("---")
 st.subheader("➕ Create New User Profile")
