@@ -12,8 +12,7 @@ import io
 # ==================== CONFIG ====================
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
-USER_LIST = ["Oscar", "Yves", "Isaac", "Ian", "Guest"]
-
+USER_LIST = ["Oscar", "Ian"]  # Initial users - more can be added via Profile page
 EXERCISE_PLAN = {
     "20mm Edge": {
         "Schedule": "Monday & Thursday",
@@ -249,11 +248,9 @@ def init_session_state():
         if worksheet:
             loaded_bw = load_bodyweights_from_sheets(worksheet)
             # Merge with defaults
-            default_bw = {"Oscar": 70.0, "Yves": 75.0, "Isaac": 68.0, "Ian": 80.0, "Guest": 70.0}
-            st.session_state.bodyweights = {**default_bw, **loaded_bw}
+            default_bw = {"Oscar": 70.0, "Ian": 80.0}  # Default bodyweights for initial users            st.session_state.bodyweights = {**default_bw, **loaded_bw}
         else:
-            st.session_state.bodyweights = {"Oscar": 70.0, "Yves": 75.0, "Isaac": 68.0, "Ian": 80.0, "Guest": 70.0}
-    
+            st.session_state.bodyweights = {"Oscar": 70.0, "Ian": 80.0}  # Fallback if sheets unavailable    
     # Initialize defaults for current user
     if st.session_state.current_user not in st.session_state.saved_1rms:
         st.session_state.saved_1rms[st.session_state.current_user] = {
@@ -544,4 +541,51 @@ def load_goals_from_sheets(worksheet, user):
     except Exception as e:
         st.error(f"Error loading goals: {e}")
         return []
+
+def load_users_from_sheets(worksheet):
+    """Load all users from Users sheet or return default list"""
+    try:
+        try:
+            users_sheet = worksheet.spreadsheet.worksheet("Users")
+        except:
+            # Users sheet doesn't exist yet, create it with defaults
+            users_sheet = worksheet.spreadsheet.add_worksheet(title="Users", rows=100, cols=1)
+            users_sheet.append_row(["Username"])
+            for user in USER_LIST:
+                users_sheet.append_row([user])
+            return USER_LIST.copy()
+        
+        data = users_sheet.get_all_records()
+        if data:
+            return [row["Username"] for row in data if row.get("Username")]
+        else:
+            return USER_LIST.copy()
+    except Exception as e:
+        st.warning(f"Could not load users from sheets: {e}")
+        return USER_LIST.copy()
+
+def add_new_user(worksheet, username):
+    """Add a new user to the Users sheet"""
+    try:
+        try:
+            users_sheet = worksheet.spreadsheet.worksheet("Users")
+        except:
+            users_sheet = worksheet.spreadsheet.add_worksheet(title="Users", rows=100, cols=1)
+            users_sheet.append_row(["Username"])
+            # Add existing users
+            for user in USER_LIST:
+                users_sheet.append_row([user])
+        
+        # Check if user already exists
+        data = users_sheet.get_all_records()
+        existing_users = [row["Username"] for row in data if row.get("Username")]
+        
+        if username in existing_users:
+            return False, "User already exists"
+        
+        # Add new user
+        users_sheet.append_row([username])
+        return True, "User added successfully"
+    except Exception as e:
+        return False, f"Error adding user: {e}"
 
