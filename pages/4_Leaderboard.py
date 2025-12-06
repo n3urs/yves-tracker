@@ -38,11 +38,11 @@ if worksheet:
             # ==================== TAB 1: ABSOLUTE STRENGTH ====================
             with tab1:
                 st.subheader(f"🏆 {selected_lb_exercise} - Absolute Strength")
+                st.caption("Average of left and right arm max loads")
                 
                 df_exercise = df_training[df_training["Exercise"] == selected_lb_exercise].copy()
                 
                 if len(df_exercise) > 0:
-                    # Get max for each user and arm
                     leaderboard_data = []
                     
                     for user in df_exercise["User"].unique():
@@ -50,32 +50,33 @@ if worksheet:
                         
                         # Left arm
                         df_left = df_user[df_user["Arm"] == "L"]
-                        if len(df_left) > 0:
-                            max_left = df_left["Actual_Load_kg"].max()
-                            date_left = df_left[df_left["Actual_Load_kg"] == max_left]["Date"].max()
-                            leaderboard_data.append({
-                                "User": user,
-                                "Arm": "Left",
-                                "Max Load (kg)": max_left,
-                                "Date": date_left.strftime("%Y-%m-%d") if pd.notna(date_left) else "N/A"
-                            })
+                        max_left = df_left["Actual_Load_kg"].max() if len(df_left) > 0 else 0
                         
                         # Right arm
                         df_right = df_user[df_user["Arm"] == "R"]
-                        if len(df_right) > 0:
-                            max_right = df_right["Actual_Load_kg"].max()
-                            date_right = df_right[df_right["Actual_Load_kg"] == max_right]["Date"].max()
-                            leaderboard_data.append({
-                                "User": user,
-                                "Arm": "Right",
-                                "Max Load (kg)": max_right,
-                                "Date": date_right.strftime("%Y-%m-%d") if pd.notna(date_right) else "N/A"
-                            })
+                        max_right = df_right["Actual_Load_kg"].max() if len(df_right) > 0 else 0
+                        
+                        # Average of both arms
+                        if max_left > 0 and max_right > 0:
+                            avg_load = (max_left + max_right) / 2
+                        elif max_left > 0:
+                            avg_load = max_left
+                        elif max_right > 0:
+                            avg_load = max_right
+                        else:
+                            continue
+                        
+                        leaderboard_data.append({
+                            "User": user,
+                            "Left Max (kg)": max_left if max_left > 0 else "-",
+                            "Right Max (kg)": max_right if max_right > 0 else "-",
+                            "Average (kg)": avg_load
+                        })
                     
                     if leaderboard_data:
                         df_lb = pd.DataFrame(leaderboard_data)
-                        df_lb = df_lb.sort_values("Max Load (kg)", ascending=False).reset_index(drop=True)
-                        df_lb.index = df_lb.index + 1  # Start ranking from 1
+                        df_lb = df_lb.sort_values("Average (kg)", ascending=False).reset_index(drop=True)
+                        df_lb.index = df_lb.index + 1
                         
                         # Add medals
                         def add_medal(rank):
@@ -89,6 +90,9 @@ if worksheet:
                                 return f"{rank}"
                         
                         df_lb.insert(0, "Rank", df_lb.index.map(add_medal))
+                        
+                        # Format average column
+                        df_lb["Average (kg)"] = df_lb["Average (kg)"].apply(lambda x: f"{x:.1f}")
                         
                         st.dataframe(df_lb, use_container_width=True, hide_index=True)
                     else:
@@ -112,31 +116,31 @@ if worksheet:
                         
                         # Left arm
                         df_left = df_user[df_user["Arm"] == "L"]
-                        if len(df_left) > 0:
-                            max_left = df_left["Actual_Load_kg"].max()
-                            relative_left = calculate_relative_strength(max_left, bodyweight)
-                            leaderboard_relative.append({
-                                "User": user,
-                                "Arm": "Left",
-                                "Max Load (kg)": max_left,
-                                "Bodyweight (kg)": bodyweight,
-                                "Relative Strength": relative_left,
-                                "Ratio": f"{relative_left:.2f}x BW"
-                            })
+                        max_left = df_left["Actual_Load_kg"].max() if len(df_left) > 0 else 0
                         
                         # Right arm
                         df_right = df_user[df_user["Arm"] == "R"]
-                        if len(df_right) > 0:
-                            max_right = df_right["Actual_Load_kg"].max()
-                            relative_right = calculate_relative_strength(max_right, bodyweight)
-                            leaderboard_relative.append({
-                                "User": user,
-                                "Arm": "Right",
-                                "Max Load (kg)": max_right,
-                                "Bodyweight (kg)": bodyweight,
-                                "Relative Strength": relative_right,
-                                "Ratio": f"{relative_right:.2f}x BW"
-                            })
+                        max_right = df_right["Actual_Load_kg"].max() if len(df_right) > 0 else 0
+                        
+                        # Average of both arms
+                        if max_left > 0 and max_right > 0:
+                            avg_load = (max_left + max_right) / 2
+                        elif max_left > 0:
+                            avg_load = max_left
+                        elif max_right > 0:
+                            avg_load = max_right
+                        else:
+                            continue
+                        
+                        relative_strength = calculate_relative_strength(avg_load, bodyweight)
+                        
+                        leaderboard_relative.append({
+                            "User": user,
+                            "Max Load (kg)": avg_load,
+                            "Bodyweight (kg)": bodyweight,
+                            "Relative Strength": relative_strength,
+                            "Ratio": f"{relative_strength:.2f}x BW"
+                        })
                     
                     if leaderboard_relative:
                         df_lb_rel = pd.DataFrame(leaderboard_relative)
@@ -154,6 +158,9 @@ if worksheet:
                                 return f"{rank}"
                         
                         df_lb_rel.insert(0, "Rank", df_lb_rel.index.map(add_medal))
+                        
+                        # Format load column
+                        df_lb_rel["Max Load (kg)"] = df_lb_rel["Max Load (kg)"].apply(lambda x: f"{x:.1f}")
                         
                         st.dataframe(df_lb_rel, use_container_width=True, hide_index=True)
                         
@@ -228,4 +235,3 @@ else:
 
 st.markdown("---")
 st.caption("🏆 Train hard, compete harder! May the best climber win!")
-
