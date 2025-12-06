@@ -120,7 +120,17 @@ def load_data_from_sheets(worksheet, user=None):
 def save_workout_to_sheets(worksheet, row_data):
     """Append a new workout to the sheet"""
     try:
-        worksheet.append_row(list(row_data.values()))
+        # Convert all numeric values to native Python types
+        clean_data = {}
+        for key, value in row_data.items():
+            if isinstance(value, (np.integer, np.int64)):
+                clean_data[key] = int(value)
+            elif isinstance(value, (np.floating, np.float64)):
+                clean_data[key] = float(value)
+            else:
+                clean_data[key] = value
+        
+        worksheet.append_row(list(clean_data.values()))
         return True
     except Exception as e:
         st.error(f"Error saving workout: {e}")
@@ -140,8 +150,6 @@ def load_users_from_sheets(worksheet):
         st.error(f"Error loading users: {e}")
         return USER_LIST.copy()
 
-# ==================== HELPER FUNCTIONS ====================
-
 def get_user_1rm(worksheet, user, exercise, arm):
     """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
@@ -154,7 +162,7 @@ def get_user_1rm(worksheet, user, exercise, arm):
                 key = f"{exercise}_{arm}_1RM"
                 value = record.get(key, None)
                 if value and value > 0:
-                    return value
+                    return float(value)  # Convert to Python float
     except:
         pass
     
@@ -173,13 +181,12 @@ def get_user_1rm(worksheet, user, exercise, arm):
                 df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
                 max_weight = df_filtered['Actual_Load_kg'].max()
                 if pd.notna(max_weight) and max_weight > 0:
-                    return max_weight
+                    return float(max_weight)  # Convert to Python float
     except Exception as e:
         st.warning(f"Could not load 1RM from history: {e}")
     
     # If nothing found, return defaults
-    return 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75
-
+    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
 
 def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
     """Update user's 1RM in UserProfile sheet"""
@@ -193,7 +200,7 @@ def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
                 # Update the specific 1RM column
                 key = f"{exercise}_{arm}_1RM"
                 col_idx = list(record.keys()).index(key) + 1  # +1 because gspread is 1-indexed
-                profile_sheet.update_cell(idx + 2, col_idx, new_1rm)  # +2 for header row and 0-indexing
+                profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))  # Convert to float
                 return True
         
         return False
@@ -201,6 +208,7 @@ def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
         st.error(f"Error updating 1RM: {e}")
         return False
 
+# ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
     """Find nearest achievable load with exact plate breakdown."""
     load_per_side = (target_kg - pin_kg) / 2
@@ -257,7 +265,6 @@ def get_bodyweight(user):
         st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
     
     return st.session_state.bodyweights.get(user, 78.0)
-
 
 def set_bodyweight(user, bodyweight):
     """Set user's bodyweight in session state"""
