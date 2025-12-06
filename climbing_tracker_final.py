@@ -408,7 +408,8 @@ if worksheet:
         st.subheader("Load Over Time")
         fig, ax = plt.subplots(figsize=(12, 4))
         ax.plot(df_filtered["Date"], df_filtered["Actual_Load_kg"], marker="o", label="Actual Load", linewidth=2, markersize=6)
-        ax.plot(df_filtered["Date"], df_filtered["1RM_Reference"], marker="s", label="1RM Reference", linewidth=2, markersize=6, linestyle="--")
+        # NEW CODE - Add this instead:
+        ax.plot(df_filtered["Date"], df_filtered["Estimated_1RM"], marker="s", label="Estimated 1RM (Epley)", linewidth=2, markersize=6, linestyle="--", color="orange")
         ax.set_xlabel("Date")
         ax.set_ylabel("Load (kg)")
         ax.set_title(f"{selected_analysis_exercise} Progress")
