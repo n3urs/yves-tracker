@@ -243,16 +243,28 @@ def init_session_state():
     if "goals" not in st.session_state:
         st.session_state.goals = {}
     
+    # Load bodyweights from sheets if not already loaded
+    if "bodyweights" not in st.session_state:
+        worksheet = get_google_sheet()
+        if worksheet:
+            loaded_bw = load_bodyweights_from_sheets(worksheet)
+            # Merge with defaults
+            default_bw = {"Oscar": 70.0, "Yves": 75.0, "Isaac": 68.0, "Ian": 80.0, "Guest": 70.0}
+            st.session_state.bodyweights = {**default_bw, **loaded_bw}
+        else:
+            st.session_state.bodyweights = {"Oscar": 70.0, "Yves": 75.0, "Isaac": 68.0, "Ian": 80.0, "Guest": 70.0}
+    
     # Initialize defaults for current user
     if st.session_state.current_user not in st.session_state.saved_1rms:
         st.session_state.saved_1rms[st.session_state.current_user] = {
-            "20mm Edge (L)": 105,
-            "20mm Edge (R)": 105,
-            "Pinch (L)": 85,
-            "Pinch (R)": 85,
-            "Wrist Roller (L)": 75,
-            "Wrist Roller (R)": 75
+            "20mm Edge L": 105, "20mm Edge R": 105,
+            "Pinch L": 85, "Pinch R": 85,
+            "Wrist Roller L": 75, "Wrist Roller R": 75
         }
+    
+    if st.session_state.current_user not in st.session_state.goals:
+        st.session_state.goals[st.session_state.current_user] = []
+
     
     # Don't initialize empty goals - they'll be loaded from sheets
 
