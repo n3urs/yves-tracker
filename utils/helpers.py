@@ -174,7 +174,7 @@ def get_bodyweight(user):
                 "Ian": 80.0,
                 "Guest": 70.0
             }
-                            else:
+                    else:
                                             # If worksheet connection fails, use defaults
                                             st.session_state.bodyweights = {
                                                                 "Oscar": 70.0,
