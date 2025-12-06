@@ -13,7 +13,7 @@ st.title("👤 User Profile")
 st.sidebar.header("👤 User")
 st.session_state.current_user = st.sidebar.selectbox(
     "Select User:",
-    USER_LIST,
+    available_users,
     index=USER_LIST.index(st.session_state.current_user),
     key="user_selector_profile"
 )
@@ -22,6 +22,36 @@ selected_user = st.session_state.current_user
 
 # Connect to sheet
 worksheet = get_google_sheet()
+
+# Load users dynamically from Google Sheets
+if worksheet:
+    available_users = load_users_from_sheets(worksheet)
+else:
+    available_users = USER_LIST.copy()
+
+# User creation section
+st.markdown("---")
+st.subheader("➕ Create New User Profile")
+
+with st.expander("Add a New User"):
+    new_username = st.text_input("Enter new username:", key="new_user_input")
+    
+    if st.button("Create User", type="primary"):
+        if new_username and new_username.strip():
+            if worksheet:
+                success, message = add_new_user(worksheet, new_username.strip())
+                if success:
+                    st.success(f"✅ {message}! User '{new_username}' has been created.")
+                    # Refresh the user list
+                    available_users = load_users_from_sheets(worksheet)
+                    st.rerun()
+                else:
+                    st.error(f"❌ {message}")
+            else:
+                st.error("Could not connect to Google Sheets.")
+        else:
+            st.warning("Please enter a valid username.")
+
 
 st.markdown("---")
 
@@ -67,7 +97,7 @@ st.subheader("📊 All Users")
 
 if worksheet:
     bodyweights_data = []
-    for user in USER_LIST:
+    for user in available_users:
         bw = get_bodyweight(user)
         bodyweights_data.append({"User": user, "Bodyweight (kg)": bw})
     
