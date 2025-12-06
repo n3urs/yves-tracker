@@ -37,11 +37,40 @@ if new_bw != current_bw:
     set_bodyweight(selected_user, new_bw)
     st.sidebar.success(f"✅ Bodyweight updated to {new_bw}kg")
 
+# 1RM Manager in sidebar
+st.sidebar.markdown("---")
+st.sidebar.subheader("💾 1RM Manager")
+
+saved_1rms = st.session_state.saved_1rms.get(selected_user, {})
+base_exercises = ["20mm Edge", "Pinch", "Wrist Roller"]
+
+for ex in base_exercises:
+    col_left, col_right = st.sidebar.columns(2)
+    with col_left:
+        saved_1rms[f"{ex} (L)"] = st.sidebar.number_input(
+            f"{ex} (L) kg",
+            min_value=20,
+            max_value=200,
+            value=saved_1rms.get(f"{ex} (L)", 105 if "Edge" in ex else 85 if "Pinch" in ex else 75),
+            step=1,
+            key=f"1rm_{ex}_L_{selected_user}"
+        )
+    with col_right:
+        saved_1rms[f"{ex} (R)"] = st.sidebar.number_input(
+            f"{ex} (R) kg",
+            min_value=20,
+            max_value=200,
+            value=saved_1rms.get(f"{ex} (R)", 105 if "Edge" in ex else 85 if "Pinch" in ex else 75),
+            step=1,
+            key=f"1rm_{ex}_R_{selected_user}"
+        )
+
+if st.sidebar.button("💾 Save All 1RMs", key="save_1rms_btn", use_container_width=True):
+    st.session_state.saved_1rms[selected_user] = saved_1rms
+    st.sidebar.success("✅ 1RMs saved!")
+
 # Connect to sheet
 worksheet = get_google_sheet()
-
-# Get saved 1RMs
-saved_1rms = st.session_state.saved_1rms.get(selected_user, {})
 
 exercise_list = [
     "20mm Edge", 
@@ -52,8 +81,6 @@ exercise_list = [
     "1RM Test: Pinch",
     "1RM Test: Wrist Roller"
 ]
-
-base_exercises = ["20mm Edge", "Pinch", "Wrist Roller"]
 
 # ==================== CALCULATOR ====================
 st.subheader("⚙️ Workout Calculator")
@@ -181,4 +208,3 @@ with col_nav1:
     st.page_link("pages/2_📊_Progress.py", label="📊 View My Progress →", use_container_width=True)
 with col_nav2:
     st.page_link("pages/4_🏆_Leaderboard.py", label="🏆 Check Leaderboard →", use_container_width=True)
-
