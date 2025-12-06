@@ -11,13 +11,16 @@ init_session_state()
 st.title("📝 Log Workout")
 
 # Connect to sheet
-worksheet = get_google_sheet()
+# Connect to sheet
+spreadsheet = get_google_sheet()
 
-# Load users dynamically from Google Sheets
-if worksheet:
-    available_users = load_users_from_sheets(worksheet)
+if spreadsheet:
+    workout_sheet = spreadsheet.worksheet("Sheet1")
+    available_users = load_users_from_sheets(spreadsheet)
 else:
+    workout_sheet = None
     available_users = USER_LIST.copy()
+
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
