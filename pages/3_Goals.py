@@ -42,7 +42,7 @@ with st.expander("➕ Add New Goal"):
     goal_weight = st.number_input("Target Weight (kg)", min_value=20, max_value=200, value=60, step=5, key="goal_weight")
     goal_date = st.date_input("Target Date", value=datetime.now() + timedelta(weeks=8), key="goal_date")
     
-        if st.button("Add Goal", key="add_goal_btn"):
+    if st.button("Add Goal", key="add_goal_btn"):
         new_goal = {
             "exercise": goal_exercise,
             "arm": goal_arm,
@@ -58,7 +58,6 @@ with st.expander("➕ Add New Goal"):
         
         st.success("🎉 Goal added and saved!")
         st.rerun()
-
 
 # Display active goals
 if len(st.session_state.goals[selected_user]) > 0:
@@ -80,7 +79,6 @@ if len(st.session_state.goals[selected_user]) > 0:
                         df_user["Actual_Load_kg"] = pd.to_numeric(df_user["Actual_Load_kg"], errors='coerce')
                         
                         df_exercise = df_user[df_user["Exercise"] == goal['exercise']]
-                        
                         if len(df_exercise) > 0:
                             if goal['arm'] == "Both":
                                 current_max = df_exercise['Actual_Load_kg'].max()
@@ -91,7 +89,6 @@ if len(st.session_state.goals[selected_user]) > 0:
                             
                             progress = (current_max / goal['target_weight']) * 100
                             progress = min(progress, 100)
-                            
                             st.progress(progress / 100, text=f"{progress:.0f}% complete ({current_max:.1f}kg / {goal['target_weight']}kg)")
                             
                             days_left = (datetime.strptime(goal['target_date'], "%Y-%m-%d") - datetime.now()).days
@@ -103,15 +100,14 @@ if len(st.session_state.goals[selected_user]) > 0:
             with col_delete:
                 if st.button(f"🗑️", key=f"delete_goal_{idx}"):
                     st.session_state.goals[selected_user].pop(idx)
-    
-    # Save to Google Sheets
+                    
+                    # Save to Google Sheets
                     if worksheet:
                         save_goals_to_sheets(worksheet, selected_user, st.session_state.goals[selected_user])
-    
+                    
                     st.rerun()
-
-            
-            st.markdown("---")
+        
+        st.markdown("---")
 else:
     st.info("No goals set yet. Add one above!")
 
@@ -149,7 +145,6 @@ if worksheet:
                             mime="image/png",
                             use_container_width=True
                         )
-                        
                         st.info("📱 Tip: Perfect for Instagram Stories (1080x1920), WhatsApp, or Discord!")
                     else:
                         st.warning("Not enough data for the selected time period.")
@@ -157,7 +152,6 @@ if worksheet:
         # CSV Export
         st.markdown("---")
         st.subheader("💾 Export All Data")
-        
         csv_data = df_fresh.to_csv(index=False)
         st.download_button(
             label="📊 Download CSV Backup",
@@ -183,7 +177,6 @@ if worksheet:
             heatmap_data, date_range = heatmap_result
             
             fig3, ax3 = plt.subplots(figsize=(14, 3))
-            
             im = ax3.imshow(heatmap_data, cmap='Greens', aspect='auto', vmin=0, vmax=3)
             
             ax3.set_yticks(np.arange(7))
@@ -193,31 +186,30 @@ if worksheet:
             
             cbar = plt.colorbar(im, ax=ax3, orientation='horizontal', pad=0.1)
             cbar.set_label('Sessions per day', rotation=0)
-            
             ax3.set_title("Training Frequency Heatmap (Green = More Sessions)")
+            
             plt.tight_layout()
             st.pyplot(fig3)
-            
-            # Training streak
-            df_fresh_sorted = df_fresh.sort_values("Date")
-            df_fresh_sorted["Date"] = pd.to_datetime(df_fresh_sorted["Date"])
-            unique_dates = df_fresh_sorted["Date"].dt.date.unique()
-            
-            current_streak = 0
-            today = datetime.now().date()
-            
-            if len(unique_dates) > 0 and unique_dates[-1] == today:
-                current_streak = 1
-                for i in range(len(unique_dates) - 2, -1, -1):
-                    if (unique_dates[i+1] - unique_dates[i]).days == 1:
-                        current_streak += 1
-                    else:
-                        break
-            
-            if current_streak > 0:
-                st.success(f"🔥 **Current Streak: {current_streak} days!** Keep it up!")
-            else:
-                st.info("💪 Start a new training streak today!")
+        
+        # Training streak
+        df_fresh_sorted = df_fresh.sort_values("Date")
+        df_fresh_sorted["Date"] = pd.to_datetime(df_fresh_sorted["Date"])
+        unique_dates = df_fresh_sorted["Date"].dt.date.unique()
+        
+        current_streak = 0
+        today = datetime.now().date()
+        
+        if len(unique_dates) > 0 and unique_dates[-1] == today:
+            current_streak = 1
+            for i in range(len(unique_dates) - 2, -1, -1):
+                if (unique_dates[i+1] - unique_dates[i]).days == 1:
+                    current_streak += 1
+                else:
+                    break
+        
+        if current_streak > 0:
+            st.success(f"🔥 **Current Streak: {current_streak} days!** Keep it up!")
         else:
-            st.info("Not enough data yet for heatmap. Keep logging workouts!")
-
+            st.info("💪 Start a new training streak today!")
+    else:
+        st.info("Not enough data yet for heatmap. Keep logging workouts!")
