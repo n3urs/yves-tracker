@@ -26,6 +26,10 @@ selected_user = st.session_state.current_user
 # Connect to sheet
 worksheet = get_google_sheet()
 
+# Load goals from Google Sheets when page loads
+if worksheet and selected_user not in st.session_state.goals:
+    st.session_state.goals[selected_user] = load_goals_from_sheets(worksheet, selected_user)
+
 # ==================== GOAL TRACKER ====================
 st.subheader("🎯 Goal Tracker")
 
