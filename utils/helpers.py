@@ -141,6 +141,45 @@ def load_users_from_sheets(worksheet):
         return USER_LIST.copy()
 
 # ==================== HELPER FUNCTIONS ====================
+
+def get_user_1rm(worksheet, user, exercise, arm):
+    """Get user's 1RM from UserProfile sheet"""
+    try:
+        # Try to get the UserProfile sheet
+        profile_sheet = worksheet.spreadsheet.worksheet("UserProfile")
+        records = profile_sheet.get_all_records()
+        
+        for record in records:
+            if record.get("User") == user:
+                key = f"{exercise}_{arm}_1RM"
+                return record.get(key, 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
+        
+        # If user not found, return default
+        return 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75
+    except:
+        # If sheet doesn't exist, return default
+        return 105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75
+
+def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
+    """Update user's 1RM in UserProfile sheet"""
+    try:
+        profile_sheet = worksheet.spreadsheet.worksheet("UserProfile")
+        records = profile_sheet.get_all_records()
+        
+        # Find user row
+        for idx, record in enumerate(records):
+            if record.get("User") == user:
+                # Update the specific 1RM column
+                key = f"{exercise}_{arm}_1RM"
+                col_idx = list(record.keys()).index(key) + 1  # +1 because gspread is 1-indexed
+                profile_sheet.update_cell(idx + 2, col_idx, new_1rm)  # +2 for header row and 0-indexing
+                return True
+        
+        return False
+    except Exception as e:
+        st.error(f"Error updating 1RM: {e}")
+        return False
+
 def calculate_plates(target_kg, pin_kg=1):
     """Find nearest achievable load with exact plate breakdown."""
     load_per_side = (target_kg - pin_kg) / 2
