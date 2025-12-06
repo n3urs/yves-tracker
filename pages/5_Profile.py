@@ -9,17 +9,6 @@ init_session_state()
 
 st.title("👤 User Profile")
 
-# User selector
-st.sidebar.header("👤 User")
-st.session_state.current_user = st.sidebar.selectbox(
-    "Select User:",
-    available_users,
-    index=USER_LIST.index(st.session_state.current_user),
-    key="user_selector_profile"
-)
-
-selected_user = st.session_state.current_user
-
 # Connect to sheet
 worksheet = get_google_sheet()
 
@@ -28,6 +17,16 @@ if worksheet:
     available_users = load_users_from_sheets(worksheet)
 else:
     available_users = USER_LIST.copy()
+
+
+# User selector
+st.sidebar.header("👤 User")
+st.session_state.current_user = st.sidebar.selectbox(
+    "Select User:",
+    available_users,
+    index=available_users.index(st.session_state.current_user),
+    key="user_selector_profile"
+)
 
 # User creation section
 st.markdown("---")
@@ -51,7 +50,6 @@ with st.expander("Add a New User"):
                 st.error("Could not connect to Google Sheets.")
         else:
             st.warning("Please enter a valid username.")
-
 
 st.markdown("---")
 
@@ -93,7 +91,7 @@ if st.button("💾 Save Bodyweight", type="primary", use_container_width=True):
 st.markdown("---")
 
 # Display all users' bodyweights
-st.subheader("📊 All Users")
+st.subheader("👥 All Users")
 
 if worksheet:
     bodyweights_data = []
@@ -106,4 +104,7 @@ if worksheet:
     st.dataframe(df_bw, use_container_width=True, hide_index=True)
 
 st.markdown("---")
-st.caption("💡 Keep your bodyweight updated for accurate relative strength comparisons!")
+
+
+selected_user = st.session_state.current_user
+
