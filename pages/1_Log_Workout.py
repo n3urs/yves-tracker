@@ -205,6 +205,6 @@ if st.button("✅ Save Workout (Both Arms)", key="save_btn", use_container_width
 st.markdown("---")
 col_nav1, col_nav2 = st.columns(2)
 with col_nav1:
-    st.page_link("pages/2_📊_Progress.py", label="📊 View My Progress →", use_container_width=True)
+    st.page_link("pages/2_Progress.py", label="📊 View My Progress →", use_container_width=True)
 with col_nav2:
-    st.page_link("pages/4_🏆_Leaderboard.py", label="🏆 Check Leaderboard →", use_container_width=True)
+    st.page_link("pages/4_Leaderboard.py", label="🏆 Check Leaderboard →", use_container_width=True)
