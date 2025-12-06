@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import json
 import gspread
@@ -197,6 +197,101 @@ def estimate_1rm_epley(load_kg, reps):
         return load_kg
     return load_kg * (1 + reps / 30)
 
+def analyze_progression(df_filtered, exercise_name):
+    """Analyze recent sessions and suggest progression"""
+    suggestions = []
+    
+    if len(df_filtered) < 3:
+        return suggestions
+    
+    # Get last 3 sessions
+    recent = df_filtered.tail(3).copy()
+    
+    # Check for both arms
+    for arm in ["L", "R"]:
+        arm_data = recent[recent["Arm"] == arm]
+        
+        if len(arm_data) < 3:
+            continue
+        
+        # Average RPE of last 3 sessions
+        avg_rpe = arm_data["RPE"].mean()
+        current_load = arm_data["Actual_Load_kg"].iloc[-1]
+        
+        # Progression logic
+        if avg_rpe <= 6.0:
+            # Too easy - suggest increase
+            increase = 2.5 if current_load < 60 else 5.0
+            new_load = current_load + increase
+            suggestions.append({
+                "type": "increase",
+                "arm": arm,
+                "message": f"💪 **{arm} Arm**: RPE averaging {avg_rpe:.1f} (too easy!) → Increase from {current_load:.1f}kg to {new_load:.1f}kg",
+                "color": "success"
+            })
+        elif avg_rpe >= 8.5:
+            # Too hard - suggest decrease or same
+            suggestions.append({
+                "type": "caution",
+                "arm": arm,
+                "message": f"⚠️ **{arm} Arm**: RPE averaging {avg_rpe:.1f} (very hard) → Stay at {current_load:.1f}kg or reduce slightly",
+                "color": "warning"
+            })
+        else:
+            # Just right
+            suggestions.append({
+                "type": "maintain",
+                "arm": arm,
+                "message": f"✅ **{arm} Arm**: RPE {avg_rpe:.1f} is perfect! Keep training at {current_load:.1f}kg",
+                "color": "info"
+            })
+    
+    return suggestions
+
+def check_deload_needed(df_all):
+    """Check if user needs a deload week"""
+    if len(df_all) == 0:
+        return None
+    
+    # Get date range
+    df_all["Date"] = pd.to_datetime(df_all["Date"])
+    df_all = df_all.sort_values("Date")
+    
+    # Look at last 6 weeks
+    six_weeks_ago = datetime.now() - timedelta(weeks=6)
+    recent_data = df_all[df_all["Date"] >= six_weeks_ago]
+    
+    if len(recent_data) == 0:
+        return None
+    
+    # Count weeks with sessions
+    recent_data["Week"] = recent_data["Date"].dt.isocalendar().week
+    weeks_trained = recent_data["Week"].nunique()
+    
+    # Check average RPE
+    recent_data["RPE"] = pd.to_numeric(recent_data["RPE"], errors='coerce')
+    avg_rpe = recent_data["RPE"].mean()
+    
+    # Deload recommendation logic
+    if weeks_trained >= 4:
+        if avg_rpe >= 8.0:
+            return {
+                "needed": True,
+                "reason": f"You've trained hard for {weeks_trained} weeks with avg RPE {avg_rpe:.1f}",
+                "recommendation": "Consider a deload week: 60-70% intensity, same reps/sets, focus on form"
+            }
+        elif weeks_trained >= 6:
+            return {
+                "needed": True,
+                "reason": f"You've been training consistently for {weeks_trained} weeks",
+                "recommendation": "Time for a planned deload: 60-70% intensity to allow recovery and adaptation"
+            }
+    
+    return {
+        "needed": False,
+        "message": f"Training load looks good! {weeks_trained} weeks of training, avg RPE {avg_rpe:.1f}"
+    }
+
 # ==================== SIDEBAR: 1RM MANAGER ====================
 st.sidebar.header(f"💾 {selected_user}'s 1RM Manager")
 st.sidebar.subheader("Save your max lifts:")
@@ -302,6 +397,23 @@ else:
     current_1rm_L = 100.0
     current_1rm_R = 100.0
     target_pct = 1.0
+
+# ==================== DELOAD CHECK (SIDEBAR) ====================
+st.sidebar.markdown("---")
+st.sidebar.header("🔋 Recovery Status")
+
+if worksheet:
+    df_all_user = load_data_from_sheets(worksheet, user=selected_user)
+    deload_status = check_deload_needed(df_all_user)
+    
+    if deload_status:
+        if deload_status.get("needed"):
+            st.sidebar.warning(f"⚠️ **Deload Recommended**")
+            st.sidebar.write(deload_status["reason"])
+            st.sidebar.info(f"💡 {deload_status['recommendation']}")
+        else:
+            st.sidebar.success("✅ Recovery looks good!")
+            st.sidebar.write(deload_status.get("message", "Keep training!"))
 
 # ==================== MAIN: LOG FORM ====================
 st.header("📝 Log Today's Session")
@@ -425,6 +537,26 @@ if worksheet:
             # NOW separate Left and Right (after all conversions)
             df_left = df_filtered[df_filtered["Arm"] == "L"].copy()
             df_right = df_filtered[df_filtered["Arm"] == "R"].copy()
+            
+            # ==================== PROGRESSION SUGGESTIONS ====================
+            if len(df_filtered) >= 3:
+                st.markdown("---")
+                st.subheader("🎯 Training Recommendations")
+                
+                suggestions = analyze_progression(df_filtered, selected_analysis_exercise)
+                
+                if suggestions:
+                    for suggestion in suggestions:
+                        if suggestion["type"] == "increase":
+                            st.success(suggestion["message"])
+                        elif suggestion["type"] == "caution":
+                            st.warning(suggestion["message"])
+                        else:
+                            st.info(suggestion["message"])
+                else:
+                    st.info("Keep training! Need at least 3 sessions for recommendations.")
+                
+                st.markdown("---")
             
             # Get 1RM test data for reference table
             test_exercise_name = f"1RM Test: {selected_analysis_exercise}"
