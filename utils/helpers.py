@@ -12,7 +12,7 @@ import io
 # ==================== CONFIG ====================
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
-USER_LIST = ["Oscar", "Ian"]  # Initial users - more can be added via Profile page
+USER_LIST = ["Oscar", "Ian"]  # Initial users
 
 EXERCISE_PLAN = {
     "20mm Edge": {
@@ -83,7 +83,7 @@ def init_session_state():
 # ==================== GOOGLE SHEETS ====================
 @st.cache_resource
 def get_google_sheet():
-    """Connect to Google Sheets"""
+    """Connect to Google Sheets - returns the spreadsheet object"""
     try:
         credentials_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
         credentials = Credentials.from_service_account_info(
@@ -92,14 +92,13 @@ def get_google_sheet():
         )
         client = gspread.authorize(credentials)
         sheet_url = st.secrets["SHEET_URL"]
-        sheet = client.open_by_url(sheet_url)
-        return sheet.worksheet("Sheet1")
+        return client.open_by_url(sheet_url)
     except Exception as e:
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
 
 def load_data_from_sheets(worksheet, user=None):
-    """Load all data from Google Sheet, optionally filtered by user"""
+    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
     try:
         data = worksheet.get_all_records()
         if data:
@@ -118,7 +117,7 @@ def load_data_from_sheets(worksheet, user=None):
         return pd.DataFrame()
 
 def save_workout_to_sheets(worksheet, row_data):
-    """Append a new workout to the sheet"""
+    """Append a new workout to the Sheet1"""
     try:
         # Convert all numeric values to native Python types
         clean_data = {}
@@ -136,25 +135,61 @@ def save_workout_to_sheets(worksheet, row_data):
         st.error(f"Error saving workout: {e}")
         return False
 
-def load_users_from_sheets(worksheet):
-    """Load unique users from Google Sheets"""
+def load_users_from_sheets(spreadsheet):
+    """Load unique users from Users sheet"""
     try:
-        data = worksheet.get_all_records()
+        users_sheet = spreadsheet.worksheet("Users")
+        data = users_sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
-            if "User" in df.columns:
-                users = sorted(df["User"].unique().tolist())
+            if "Username" in df.columns:
+                users = df["Username"].tolist()
                 return users if users else USER_LIST.copy()
         return USER_LIST.copy()
     except Exception as e:
-        st.error(f"Error loading users: {e}")
+        st.warning(f"Could not load users from sheet, using defaults: {e}")
         return USER_LIST.copy()
 
-def get_user_1rm(worksheet, user, exercise, arm):
+def get_bodyweight(spreadsheet, user):
+    """Get user's bodyweight from Bodyweights sheet"""
+    try:
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        records = bw_sheet.get_all_records()
+        
+        for record in records:
+            if record.get("User") == user:
+                return float(record.get("Bodyweight_kg", 78.0))
+        
+        # If not found, return default
+        return 78.0
+    except:
+        return 78.0
+
+def set_bodyweight(spreadsheet, user, bodyweight):
+    """Update user's bodyweight in Bodyweights sheet"""
+    try:
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        records = bw_sheet.get_all_records()
+        
+        # Find user row
+        for idx, record in enumerate(records):
+            if record.get("User") == user:
+                # Update bodyweight (row is idx+2 because of header and 0-indexing)
+                bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
+                return True
+        
+        # If user not found, append new row
+        bw_sheet.append_row([user, float(bodyweight)])
+        return True
+    except Exception as e:
+        st.error(f"Error updating bodyweight: {e}")
+        return False
+
+def get_user_1rm(spreadsheet, user, exercise, arm):
     """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
         # First try to get from UserProfile sheet
-        profile_sheet = worksheet.spreadsheet.worksheet("UserProfile")
+        profile_sheet = spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
         
         for record in records:
@@ -162,13 +197,14 @@ def get_user_1rm(worksheet, user, exercise, arm):
                 key = f"{exercise}_{arm}_1RM"
                 value = record.get(key, None)
                 if value and value > 0:
-                    return float(value)  # Convert to Python float
+                    return float(value)
     except:
         pass
     
-    # Fall back to workout history - find max weight from 1RM tests or regular workouts
+    # Fall back to workout history - find max weight from workouts
     try:
-        df = load_data_from_sheets(worksheet, user=user)
+        workout_sheet = spreadsheet.worksheet("Sheet1")
+        df = load_data_from_sheets(workout_sheet, user=user)
         if len(df) > 0:
             # Filter for this exercise and arm
             df_filtered = df[
@@ -181,17 +217,17 @@ def get_user_1rm(worksheet, user, exercise, arm):
                 df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
                 max_weight = df_filtered['Actual_Load_kg'].max()
                 if pd.notna(max_weight) and max_weight > 0:
-                    return float(max_weight)  # Convert to Python float
+                    return float(max_weight)
     except Exception as e:
-        st.warning(f"Could not load 1RM from history: {e}")
+        pass
     
     # If nothing found, return defaults
     return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
 
-def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
+def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
     """Update user's 1RM in UserProfile sheet"""
     try:
-        profile_sheet = worksheet.spreadsheet.worksheet("UserProfile")
+        profile_sheet = spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
         
         # Find user row
@@ -199,14 +235,47 @@ def update_user_1rm(worksheet, user, exercise, arm, new_1rm):
             if record.get("User") == user:
                 # Update the specific 1RM column
                 key = f"{exercise}_{arm}_1RM"
-                col_idx = list(record.keys()).index(key) + 1  # +1 because gspread is 1-indexed
-                profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))  # Convert to float
-                return True
+                headers = list(record.keys())
+                if key in headers:
+                    col_idx = headers.index(key) + 1
+                    profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
+                    return True
         
-        return False
+        # If user not found in UserProfile, add them
+        headers = profile_sheet.row_values(1)
+        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]  # Default values
+        
+        # Update the specific 1RM
+        key = f"{exercise}_{arm}_1RM"
+        if key in headers:
+            col_idx = headers.index(key)
+            new_row[col_idx] = float(new_1rm)
+        
+        profile_sheet.append_row(new_row)
+        return True
+        
     except Exception as e:
         st.error(f"Error updating 1RM: {e}")
         return False
+
+def add_new_user(spreadsheet, username, bodyweight=78.0):
+    """Add a new user to all necessary sheets"""
+    try:
+        # 1. Add to Users sheet
+        users_sheet = spreadsheet.worksheet("Users")
+        users_sheet.append_row([username])
+        
+        # 2. Add to Bodyweights sheet
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_sheet.append_row([username, float(bodyweight)])
+        
+        # 3. Add to UserProfile sheet with default 1RMs
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
+        
+        return True, "User created successfully!"
+    except Exception as e:
+        return False, f"Error creating user: {e}"
 
 # ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
@@ -258,65 +327,6 @@ def calculate_relative_strength(avg_load, bodyweight):
     if bodyweight is not None and bodyweight > 0:
         return avg_load / bodyweight
     return 0
-
-def get_bodyweight(user):
-    """Get user's bodyweight from session state"""
-    if "bodyweights" not in st.session_state:
-        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
-    
-    return st.session_state.bodyweights.get(user, 78.0)
-
-def set_bodyweight(user, bodyweight):
-    """Set user's bodyweight in session state"""
-    if "bodyweights" not in st.session_state:
-        st.session_state.bodyweights = {}
-    
-    st.session_state.bodyweights[user] = bodyweight
-
-def save_bodyweight_to_sheets(worksheet, user, bodyweight):
-    """Save bodyweight to Google Sheets"""
-    try:
-        # This is a placeholder - implement based on your sheet structure
-        # You may want to create a separate sheet for user profiles
-        return True
-    except Exception as e:
-        st.error(f"Error saving bodyweight: {e}")
-        return False
-
-def add_new_user(worksheet, username):
-    """Add a new user to the system"""
-    try:
-        # Add user to session state
-        if username not in USER_LIST:
-            USER_LIST.append(username)
-        
-        if "bodyweights" not in st.session_state:
-            st.session_state.bodyweights = {}
-        
-        st.session_state.bodyweights[username] = 78.0
-        
-        return True, "User created successfully"
-    except Exception as e:
-        return False, f"Error creating user: {e}"
-
-def load_goals_from_sheets(worksheet, user):
-    """Load user's goals from Google Sheets"""
-    try:
-        # Placeholder - implement based on your sheet structure
-        # You may want to create a separate sheet for goals
-        return []
-    except Exception as e:
-        st.error(f"Error loading goals: {e}")
-        return []
-
-def save_goals_to_sheets(worksheet, user, goals):
-    """Save user's goals to Google Sheets"""
-    try:
-        # Placeholder - implement based on your sheet structure
-        return True
-    except Exception as e:
-        st.error(f"Error saving goals: {e}")
-        return False
 
 def create_heatmap(df):
     """Create training consistency heatmap data"""
