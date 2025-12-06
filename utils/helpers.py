@@ -1,4 +1,3 @@
-158
 import streamlit as st
 import pandas as pd
 import json
@@ -14,6 +13,7 @@ import io
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
 USER_LIST = ["Oscar", "Ian"]  # Initial users - more can be added via Profile page
+
 EXERCISE_PLAN = {
     "20mm Edge": {
         "Schedule": "Monday & Thursday",
@@ -65,6 +65,21 @@ EXERCISE_PLAN = {
     }
 }
 
+# ==================== SESSION STATE ====================
+def init_session_state():
+    """Initialize session state variables if they don't exist"""
+    if "current_user" not in st.session_state:
+        st.session_state.current_user = USER_LIST[0]
+    
+    if "bodyweights" not in st.session_state:
+        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
+    
+    if "saved_1rms" not in st.session_state:
+        st.session_state.saved_1rms = {}
+    
+    if "goals" not in st.session_state:
+        st.session_state.goals = {}
+
 # ==================== GOOGLE SHEETS ====================
 @st.cache_resource
 def get_google_sheet():
@@ -111,19 +126,6 @@ def save_workout_to_sheets(worksheet, row_data):
         st.error(f"Error saving workout: {e}")
         return False
 
-# ==================== HELPER FUNCTIONS ====================
-
-def init_session_state():
-    """Initialize session state variables if they don't exist"""
-    if "current_user" not in st.session_state:
-        st.session_state.current_user = USER_LIST[0]
-    
-    if "bodyweights" not in st.session_state:
-        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
-    
-    if "saved_1rms" not in st.session_state:
-        st.session_state.saved_1rms = {}
-
 def load_users_from_sheets(worksheet):
     """Load unique users from Google Sheets"""
     try:
@@ -138,14 +140,7 @@ def load_users_from_sheets(worksheet):
         st.error(f"Error loading users: {e}")
         return USER_LIST.copy()
 
-def calculate_relative_strength(avg_load, bodyweight):
-    """Calculate relative strength: load / bodyweight"""
-    if bodyweight > 0:
-        return avg_load / bodyweight
-    return 0
-
-
-
+# ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
     """Find nearest achievable load with exact plate breakdown."""
     load_per_side = (target_kg - pin_kg) / 2
@@ -190,8 +185,158 @@ def estimate_1rm_epley(load_kg, reps):
         return load_kg
     return load_kg * (1 + reps / 30)
 
+def calculate_relative_strength(avg_load, bodyweight):
+    """Calculate relative strength: load / bodyweight"""
+    if bodyweight is not None and bodyweight > 0:
+        return avg_load / bodyweight
+    return 0
+
 def get_bodyweight(user):
     """Get user's bodyweight from session state"""
     if "bodyweights" not in st.session_state:
-        # Load bodyweights from Google Sheets
-        worksheet = get_google_sheet()
+        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
+    
+    return st.session_state.bodyweights.get(user, 78.0)
+
+def set_bodyweight(user, bodyweight):
+    """Set user's bodyweight in session state"""
+    if "bodyweights" not in st.session_state:
+        st.session_state.bodyweights = {}
+    
+    st.session_state.bodyweights[user] = bodyweight
+
+def save_bodyweight_to_sheets(worksheet, user, bodyweight):
+    """Save bodyweight to Google Sheets"""
+    try:
+        # This is a placeholder - implement based on your sheet structure
+        # You may want to create a separate sheet for user profiles
+        return True
+    except Exception as e:
+        st.error(f"Error saving bodyweight: {e}")
+        return False
+
+def add_new_user(worksheet, username):
+    """Add a new user to the system"""
+    try:
+        # Add user to session state
+        if username not in USER_LIST:
+            USER_LIST.append(username)
+        
+        if "bodyweights" not in st.session_state:
+            st.session_state.bodyweights = {}
+        
+        st.session_state.bodyweights[username] = 78.0
+        
+        return True, "User created successfully"
+    except Exception as e:
+        return False, f"Error creating user: {e}"
+
+def load_goals_from_sheets(worksheet, user):
+    """Load user's goals from Google Sheets"""
+    try:
+        # Placeholder - implement based on your sheet structure
+        # You may want to create a separate sheet for goals
+        return []
+    except Exception as e:
+        st.error(f"Error loading goals: {e}")
+        return []
+
+def save_goals_to_sheets(worksheet, user, goals):
+    """Save user's goals to Google Sheets"""
+    try:
+        # Placeholder - implement based on your sheet structure
+        return True
+    except Exception as e:
+        st.error(f"Error saving goals: {e}")
+        return False
+
+def create_heatmap(df):
+    """Create training consistency heatmap data"""
+    try:
+        if len(df) == 0:
+            return None
+        
+        # Create 12-week heatmap data
+        df_copy = df.copy()
+        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
+        
+        end_date = datetime.now()
+        start_date = end_date - timedelta(weeks=12)
+        
+        df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
+        
+        if len(df_filtered) == 0:
+            return None
+        
+        # Create heatmap grid (7 days x 12 weeks)
+        heatmap_data = np.zeros((7, 12))
+        
+        for _, row in df_filtered.iterrows():
+            date = row['Date']
+            week = min((end_date - date).days // 7, 11)
+            day_of_week = date.weekday()
+            if week < 12 and day_of_week < 7:
+                heatmap_data[day_of_week, 11 - week] += 1
+        
+        return heatmap_data, (start_date, end_date)
+    except Exception as e:
+        st.error(f"Error creating heatmap: {e}")
+        return None
+
+def generate_workout_summary_image(df, user, time_period):
+    """Generate social media summary image"""
+    try:
+        if len(df) == 0:
+            return None
+        
+        # Filter data by time period
+        df_copy = df.copy()
+        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
+        cutoff_date = datetime.now() - timedelta(days=time_period)
+        df_filtered = df_copy[df_copy['Date'] >= cutoff_date]
+        
+        if len(df_filtered) == 0:
+            return None
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(10.8, 19.2), facecolor='#1a1a2e')
+        ax.set_facecolor('#1a1a2e')
+        ax.axis('off')
+        
+        # Add title
+        ax.text(0.5, 0.95, f"🏆 {user}'s Training Summary", 
+                ha='center', va='top', fontsize=32, color='white', weight='bold')
+        
+        ax.text(0.5, 0.90, f"Last {time_period} Days", 
+                ha='center', va='top', fontsize=20, color='#888')
+        
+        # Calculate stats
+        total_sessions = len(df_filtered['Date'].unique())
+        total_volume = (df_filtered['Actual_Load_kg'] * 
+                       pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') * 
+                       pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce')).sum()
+        
+        # Add stats
+        y_pos = 0.75
+        stats = [
+            (f"💪 {total_sessions}", "Training Sessions"),
+            (f"🏋️ {total_volume:.0f}kg", "Total Volume"),
+        ]
+        
+        for value, label in stats:
+            ax.text(0.5, y_pos, value, ha='center', va='center', 
+                   fontsize=36, color='white', weight='bold')
+            ax.text(0.5, y_pos - 0.05, label, ha='center', va='center', 
+                   fontsize=18, color='#888')
+            y_pos -= 0.15
+        
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, facecolor='#1a1a2e', bbox_inches='tight')
+        buf.seek(0)
+        plt.close()
+        
+        return buf
+    except Exception as e:
+        st.error(f"Error generating summary: {e}")
+        return None
