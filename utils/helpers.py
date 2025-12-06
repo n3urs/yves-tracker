@@ -200,8 +200,8 @@ def init_session_state():
             "Wrist Roller (R)": 75
         }
     
-    if st.session_state.current_user not in st.session_state.goals:
-        st.session_state.goals[st.session_state.current_user] = []
+    # Don't initialize empty goals - they'll be loaded from sheets
+
 
 def analyze_progression(df_filtered, exercise_name):
     """Analyze recent sessions and suggest progression"""
