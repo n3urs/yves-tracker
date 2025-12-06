@@ -388,9 +388,16 @@ if worksheet:
             
             df_filtered = df_fresh[df_fresh["Exercise"] == selected_analysis_exercise].copy()
             
+            # DEBUG: Show what data we have
+            st.write("DEBUG - Total rows for this exercise:", len(df_filtered))
+            st.write("DEBUG - Arm values found:", df_filtered["Arm"].unique().tolist() if "Arm" in df_filtered.columns else "No Arm column!")
+            
             # Separate Left and Right
             df_left = df_filtered[df_filtered["Arm"] == "L"].copy()
             df_right = df_filtered[df_filtered["Arm"] == "R"].copy()
+            
+            st.write("DEBUG - Left arm rows:", len(df_left))
+            st.write("DEBUG - Right arm rows:", len(df_right))
             
             for df_side in [df_left, df_right]:
                 if len(df_side) > 0:
@@ -420,18 +427,23 @@ if worksheet:
             
             with col_metrics:
                 # Metrics - Show both arms
-                if len(df_left) > 0 and len(df_right) > 0:
+                if len(df_left) > 0 or len(df_right) > 0:
                     col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
                     with col_metric1:
-                        st.metric("Best Load (L)", f"{df_left['Actual_Load_kg'].max():.1f} kg")
+                        best_L = df_left['Actual_Load_kg'].max() if len(df_left) > 0 else 0
+                        st.metric("Best Load (L)", f"{best_L:.1f} kg")
                     with col_metric2:
-                        st.metric("Best Load (R)", f"{df_right['Actual_Load_kg'].max():.1f} kg")
+                        best_R = df_right['Actual_Load_kg'].max() if len(df_right) > 0 else 0
+                        st.metric("Best Load (R)", f"{best_R:.1f} kg")
                     with col_metric3:
-                        vol_L = (df_left["Actual_Load_kg"] * df_left["Reps_Per_Set"] * df_left["Sets_Completed"]).sum()
-                        vol_R = (df_right["Actual_Load_kg"] * df_right["Reps_Per_Set"] * df_right["Sets_Completed"]).sum()
-                        st.metric("Total Volume", f"L: {vol_L:.0f} / R: {vol_R:.0f} kg")
+                        vol_L = (df_left["Actual_Load_kg"] * df_left["Reps_Per_Set"] * df_left["Sets_Completed"]).sum() if len(df_left) > 0 else 0
+                        vol_R = (df_right["Actual_Load_kg"] * df_right["Reps_Per_Set"] * df_right["Sets_Completed"]).sum() if len(df_right) > 0 else 0
+                        st.metric("Volume (L)", f"{vol_L:.0f} kg")
+                        st.caption(f"R: {vol_R:.0f} kg")
                     with col_metric4:
-                        st.metric("Sessions", f"{len(df_left)}")
+                        # Count unique dates (sessions) instead of rows
+                        unique_sessions = df_filtered["Date"].nunique()
+                        st.metric("Sessions", f"{unique_sessions}")
             
             with col_1rm_ref:
                 # 1RM Test Reference Table
