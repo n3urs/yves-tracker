@@ -93,17 +93,22 @@ def get_google_sheet():
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
 
-# CACHED VERSION - Reduces API calls dramatically
-@st.cache_data(ttl=60)  # Cache for 1 minute
-def load_data_from_sheets(sheet_url, user=None):
-    """Load all data from workout log sheet (Sheet1), optionally filtered by user - CACHED"""
+@st.cache_data(ttl=120)  # Cache for 2 minutes
+def _load_sheet_data(sheet_name):
+    """Internal cached function to load data from a specific sheet"""
     try:
         spreadsheet = get_google_sheet()
         if not spreadsheet:
-            return pd.DataFrame()
-        
-        worksheet = spreadsheet.worksheet("Sheet1")
-        data = worksheet.get_all_records()
+            return []
+        worksheet = spreadsheet.worksheet(sheet_name)
+        return worksheet.get_all_records()
+    except:
+        return []
+
+def load_data_from_sheets(worksheet, user=None):
+    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
+    try:
+        data = _load_sheet_data("Sheet1")
         if data:
             df = pd.DataFrame(data)
             if user and "User" in df.columns:
@@ -132,25 +137,18 @@ def save_workout_to_sheets(worksheet, row_data):
                 clean_data[key] = value
         worksheet.append_row(list(clean_data.values()))
         
-        # Clear the cache after saving new data
-        load_data_from_sheets.clear()
+        # Clear the cache after saving
+        _load_sheet_data.clear()
         
         return True
     except Exception as e:
         st.error(f"Error saving workout: {e}")
         return False
 
-# CACHED VERSION
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_users_from_sheets(sheet_url):
-    """Load unique users from Users sheet - CACHED"""
+def load_users_from_sheets(spreadsheet):
+    """Load unique users from Users sheet"""
     try:
-        spreadsheet = get_google_sheet()
-        if not spreadsheet:
-            return USER_LIST.copy()
-        
-        users_sheet = spreadsheet.worksheet("Users")
-        data = users_sheet.get_all_records()
+        data = _load_sheet_data("Users")
         if data:
             df = pd.DataFrame(data)
             if "Username" in df.columns:
@@ -160,17 +158,10 @@ def load_users_from_sheets(sheet_url):
     except Exception as e:
         return USER_LIST.copy()
 
-# CACHED VERSION
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def get_bodyweight(sheet_url, user):
-    """Get user's bodyweight from Bodyweights sheet - CACHED"""
+def get_bodyweight(spreadsheet, user):
+    """Get user's bodyweight from Bodyweights sheet"""
     try:
-        spreadsheet = get_google_sheet()
-        if not spreadsheet:
-            return 78.0
-            
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        records = bw_sheet.get_all_records()
+        records = _load_sheet_data("Bodyweights")
         for record in records:
             if record.get("User") == user:
                 return float(record.get("Bodyweight_kg", 78.0))
@@ -186,27 +177,19 @@ def set_bodyweight(spreadsheet, user, bodyweight):
         for idx, record in enumerate(records):
             if record.get("User") == user:
                 bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
-                # Clear cache after update
-                get_bodyweight.clear()
+                _load_sheet_data.clear()
                 return True
         bw_sheet.append_row([user, float(bodyweight)])
-        get_bodyweight.clear()
+        _load_sheet_data.clear()
         return True
     except Exception as e:
         st.error(f"Error updating bodyweight: {e}")
         return False
 
-# CACHED VERSION
-@st.cache_data(ttl=600)  # Cache for 10 minutes
-def get_user_1rm(sheet_url, user, exercise, arm):
-    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history - CACHED"""
+def get_user_1rm(spreadsheet, user, exercise, arm):
+    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
-        spreadsheet = get_google_sheet()
-        if not spreadsheet:
-            return 105.0 if "Edge" in exercise else 85.0 if "Pinch" in exercise else 75.0
-            
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        records = profile_sheet.get_all_records()
+        records = _load_sheet_data("UserProfile")
         for record in records:
             if record.get("User") == user:
                 key = f"{exercise}_{arm}_1RM"
@@ -217,12 +200,7 @@ def get_user_1rm(sheet_url, user, exercise, arm):
         pass
     
     try:
-        spreadsheet = get_google_sheet()
-        if not spreadsheet:
-            return 105.0 if "Edge" in exercise else 85.0 if "Pinch" in exercise else 75.0
-            
-        workout_sheet = spreadsheet.worksheet("Sheet1")
-        data = workout_sheet.get_all_records()
+        data = _load_sheet_data("Sheet1")
         if data:
             df = pd.DataFrame(data)
             if user and "User" in df.columns:
@@ -255,8 +233,7 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
                 if key in headers:
                     col_idx = headers.index(key) + 1
                     profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
-                    # Clear cache after update
-                    get_user_1rm.clear()
+                    _load_sheet_data.clear()
                     return True
         
         headers = profile_sheet.row_values(1)
@@ -266,7 +243,7 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
             col_idx = headers.index(key)
             new_row[col_idx] = float(new_1rm)
         profile_sheet.append_row(new_row)
-        get_user_1rm.clear()
+        _load_sheet_data.clear()
         return True
     except Exception as e:
         return False
@@ -283,10 +260,7 @@ def add_new_user(spreadsheet, username, bodyweight=78.0):
         profile_sheet = spreadsheet.worksheet("UserProfile")
         profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
         
-        # Clear caches
-        load_users_from_sheets.clear()
-        get_bodyweight.clear()
-        get_user_1rm.clear()
+        _load_sheet_data.clear()
         
         return True, "User created successfully!"
     except Exception as e:
