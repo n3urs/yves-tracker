@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 
-# DELETE THIS LINE: init_session_state()
+# DELETE THIS LINE COMPLETELY: init_session_state()
 
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
+
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
 USER_LIST = ["Oscar", "Ian"]
 
