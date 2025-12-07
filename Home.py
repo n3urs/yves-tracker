@@ -55,20 +55,21 @@ if workout_sheet:
         
         col1, col2, col3, col4, col5 = st.columns(5)
         
-        # Total workouts
+        # Total SESSIONS (unique dates) - FIXED
         with col1:
-            total_workouts = len(df)
+            df['Date'] = pd.to_datetime(df['Date'])
+            total_sessions = len(df['Date'].dt.date.unique())  # Count unique dates
+            
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
                 padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(240,147,251,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_workouts}</div>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Workouts Logged</div>
+                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_sessions}</div>
+                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Training Sessions</div>
                 </div>
             """, unsafe_allow_html=True)
         
         # Last workout
         with col2:
-            df['Date'] = pd.to_datetime(df['Date'])
             last_workout = df['Date'].max()
             days_since = (pd.Timestamp.now() - last_workout).days
             
@@ -108,17 +109,17 @@ if workout_sheet:
                 </div>
             """, unsafe_allow_html=True)
         
-        # This week's workouts
+        # This week's sessions - ALSO FIXED
         with col5:
             today = datetime.now()
             week_start = today - timedelta(days=today.weekday())
             df_week = df[df['Date'] >= week_start]
-            workouts_this_week = len(df_week['Date'].unique())
+            sessions_this_week = len(df_week['Date'].dt.date.unique())  # Count unique dates
             
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); 
                 padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(168,237,234,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: #333;'>{workouts_this_week}</div>
+                    <div style='font-size: 36px; font-weight: bold; color: #333;'>{sessions_this_week}</div>
                     <div style='font-size: 14px; color: #555; margin-top: 5px;'>This Week</div>
                 </div>
             """, unsafe_allow_html=True)
