@@ -9,7 +9,16 @@ st.set_page_config(page_title="Goals", page_icon="🎯", layout="wide")
 
 init_session_state()
 
-st.title("🎯 Goals & Training Plan")
+# ==================== HEADER ====================
+st.markdown("""
+    <div style='text-align: center; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+    padding: 30px 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(250,112,154,0.4);'>
+        <h1 style='color: white; font-size: 42px; margin: 0;'>🎯 Goals & Training Plan</h1>
+        <p style='color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 8px;'>
+            Set ambitious targets and crush them one rep at a time
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
 # Connect to Google Sheets
 spreadsheet = get_google_sheet()
@@ -32,87 +41,257 @@ st.session_state.current_user = st.sidebar.selectbox(
 
 selected_user = st.session_state.current_user
 
-# Training Plan Section
-st.markdown("---")
-st.header("📅 Weekly Training Plan")
-
-for exercise, details in EXERCISE_PLAN.items():
-    with st.expander(f"🏋️ {exercise}", expanded=False):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"**Schedule:** {details['Schedule']}")
-            st.markdown(f"**Frequency:** {details['Frequency']}")
-            st.markdown(f"**Sets:** {details['Sets']}")
-            st.markdown(f"**Reps:** {details['Reps']}")
-        
-        with col2:
-            st.markdown(f"**Rest:** {details['Rest']}")
-            st.markdown(f"**Intensity:** {details['Intensity']}")
-        
-        st.markdown("**Technique Tips:**")
-        for tip in details['Technique']:
-            st.markdown(tip)
-
-# Goals Section
-st.markdown("---")
-st.header("🎯 Set Your Goals")
-
-# Get current 1RMs
-if spreadsheet:
-    st.subheader("Current 1RMs")
+if workout_sheet:
+    # Load data
+    df = load_data_from_sheets(workout_sheet, user=selected_user)
+    
+    # ==================== WEEKLY WORKOUT TRACKER ====================
+    st.markdown("### 📅 This Week's Progress")
+    
+    # Calculate this week's sessions
+    today = datetime.now()
+    week_start = today - timedelta(days=today.weekday())  # Monday
+    df['Date'] = pd.to_datetime(df['Date'])
+    df_week = df[df['Date'] >= week_start]
+    sessions_this_week = len(df_week['Date'].dt.date.unique()) if len(df) > 0 else 0
+    
+    weekly_target = 3  # Default target
+    progress_pct = min((sessions_this_week / weekly_target) * 100, 100)
+    
+    # Visual progress bar
+    if sessions_this_week >= weekly_target:
+        bar_color = "#4ade80"
+        status_emoji = "🔥"
+        status_text = "Target smashed!"
+    elif sessions_this_week >= weekly_target - 1:
+        bar_color = "#fbbf24"
+        status_emoji = "💪"
+        status_text = "Almost there!"
+    else:
+        bar_color = "#3b82f6"
+        status_emoji = "📈"
+        status_text = "Keep going!"
+    
+    st.markdown(f"""
+        <div style='background: rgba(255,255,255,0.05); padding: 25px; border-radius: 12px; margin-bottom: 20px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;'>
+                <div>
+                    <div style='font-size: 18px; font-weight: bold; color: white;'>{status_emoji} Weekly Workouts</div>
+                    <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 5px;'>{status_text}</div>
+                </div>
+                <div style='font-size: 36px; font-weight: bold; color: {bar_color};'>{sessions_this_week}/{weekly_target}</div>
+            </div>
+            <div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px; overflow: hidden;'>
+                <div style='background: {bar_color}; height: 100%; width: {progress_pct}%; transition: width 0.3s ease;'></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ==================== WEIGHT GOALS ====================
+    st.markdown("### 🎯 Your Weight Goals")
+    
+    # Initialize goals sheet if it doesn't exist
+    try:
+        goals_sheet = spreadsheet.worksheet("Goals")
+    except:
+        # Create new sheet
+        goals_sheet = spreadsheet.add_worksheet(title="Goals", rows=100, cols=10)
+        goals_sheet.append_row(["User", "Exercise", "Arm", "Target_Weight", "Completed", "Date_Set", "Date_Completed"])
+    
+    # Load active goals
+    goals_data = goals_sheet.get_all_records()
+    goals_df = pd.DataFrame(goals_data)
+    
+    if len(goals_df) > 0:
+        active_goals = goals_df[(goals_df['User'] == selected_user) & (goals_df['Completed'] == False)]
+    else:
+        active_goals = pd.DataFrame()
+    
+    # Display active goals with progress
+    if len(active_goals) > 0:
+        for idx, goal in active_goals.iterrows():
+            exercise = goal['Exercise']
+            arm = goal['Arm']
+            target = float(goal['Target_Weight'])
+            
+            # Get current 1RM
+            current = get_user_1rm(spreadsheet, selected_user, exercise, arm)
+            
+            # Calculate progress
+            if current >= target:
+                # Goal achieved!
+                progress_pct = 100
+                bar_color = "#4ade80"
+                status = "🎉 ACHIEVED!"
+                
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #4ade80 0%, #10b981 100%); 
+                    padding: 25px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 6px 20px rgba(74,222,128,0.4);'>
+                        <div style='font-size: 32px; text-align: center; margin-bottom: 10px;'>🎉</div>
+                        <div style='font-size: 24px; font-weight: bold; color: white; text-align: center;'>
+                            Goal Achieved!
+                        </div>
+                        <div style='font-size: 18px; color: rgba(255,255,255,0.9); text-align: center; margin-top: 8px;'>
+                            {exercise} ({arm} arm): {target} kg
+                        </div>
+                        <div style='font-size: 16px; color: rgba(255,255,255,0.8); text-align: center; margin-top: 5px;'>
+                            You hit {current} kg - that's {current - target:.1f} kg over your goal! 💪
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Dismiss button
+                if st.button(f"✅ Mark as Complete & Celebrate", key=f"complete_{idx}"):
+                    # Update goal as completed
+                    row_num = idx + 2  # +2 because of header and 0-indexing
+                    goals_sheet.update_cell(row_num, 5, True)  # Completed column
+                    goals_sheet.update_cell(row_num, 7, datetime.now().strftime("%Y-%m-%d"))  # Date completed
+                    st.balloons()
+                    st.rerun()
+            else:
+                # Still working towards goal
+                progress_pct = (current / target) * 100
+                remaining = target - current
+                
+                if progress_pct >= 90:
+                    bar_color = "#fbbf24"
+                    status_emoji = "🔥"
+                elif progress_pct >= 70:
+                    bar_color = "#3b82f6"
+                    status_emoji = "💪"
+                else:
+                    bar_color = "#8b5cf6"
+                    status_emoji = "📈"
+                
+                arm_emoji = "👈" if arm == "L" else "👉"
+                
+                st.markdown(f"""
+                    <div style='background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 15px;'>
+                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                            <div>
+                                <div style='font-size: 20px; font-weight: bold; color: white;'>
+                                    {status_emoji} {exercise} - {arm_emoji} {arm} Arm
+                                </div>
+                                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 5px;'>
+                                    Current: {current} kg → Target: {target} kg
+                                </div>
+                            </div>
+                            <div style='text-align: right;'>
+                                <div style='font-size: 28px; font-weight: bold; color: {bar_color};'>{progress_pct:.0f}%</div>
+                                <div style='font-size: 12px; color: rgba(255,255,255,0.6);'>{remaining:.1f} kg to go</div>
+                            </div>
+                        </div>
+                        <div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 16px; overflow: hidden;'>
+                            <div style='background: {bar_color}; height: 100%; width: {progress_pct}%; transition: width 0.3s ease;'></div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Delete goal button
+                if st.button(f"🗑️ Remove Goal", key=f"delete_{idx}"):
+                    row_num = idx + 2
+                    goals_sheet.delete_rows(row_num)
+                    st.rerun()
+    else:
+        st.info("📝 No active goals set. Create one below!")
+    
+    st.markdown("---")
+    
+    # ==================== CREATE NEW GOAL ====================
+    st.markdown("### ➕ Set a New Goal")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("**20mm Edge**")
-        edge_L = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
-        edge_R = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
-        st.write(f"Left: {edge_L} kg")
-        st.write(f"Right: {edge_R} kg")
+        goal_exercise = st.selectbox("Exercise:", ["20mm Edge", "Pinch", "Wrist Roller"], key="goal_exercise")
     
     with col2:
-        st.markdown("**Pinch**")
-        pinch_L = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
-        pinch_R = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
-        st.write(f"Left: {pinch_L} kg")
-        st.write(f"Right: {pinch_R} kg")
+        goal_arm = st.selectbox("Arm:", ["L", "R"], key="goal_arm")
     
     with col3:
-        st.markdown("**Wrist Roller**")
-        wrist_L = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
-        wrist_R = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
-        st.write(f"Left: {wrist_L} kg")
-        st.write(f"Right: {wrist_R} kg")
-
-# Training Consistency
-st.markdown("---")
-st.subheader("📆 Training Consistency (Last 12 Weeks)")
-
-if workout_sheet:
-    df_fresh = load_data_from_sheets(workout_sheet, user=selected_user)
+        current_1rm = get_user_1rm(spreadsheet, selected_user, goal_exercise, goal_arm)
+        goal_weight = st.number_input(
+            f"Target Weight (kg) - Current: {current_1rm} kg",
+            min_value=float(current_1rm),
+            max_value=200.0,
+            value=float(current_1rm) + 5.0,
+            step=0.25,
+            key="goal_weight"
+        )
     
-    if len(df_fresh) > 0:
-        df_fresh['Date'] = pd.to_datetime(df_fresh['Date'])
+    if st.button("🎯 Create Goal", type="primary", use_container_width=True):
+        # Add goal to sheet
+        goals_sheet.append_row([
+            selected_user,
+            goal_exercise,
+            goal_arm,
+            goal_weight,
+            False,  # Not completed
+            datetime.now().strftime("%Y-%m-%d"),
+            ""  # Date completed (empty)
+        ])
+        st.success(f"✅ Goal created! Target: {goal_weight} kg on {goal_exercise} ({goal_arm} arm)")
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # ==================== CURRENT 1RMs ====================
+    st.markdown("### 💪 Current 1RMs")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    exercises_display = ["20mm Edge", "Pinch", "Wrist Roller"]
+    colors = [
+        "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+        "linear-gradient(135deg, #fa709a 0%, #fee140 100%)"
+    ]
+    
+    for idx, (col, exercise, color) in enumerate(zip([col1, col2, col3], exercises_display, colors)):
+        with col:
+            edge_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
+            edge_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+            
+            st.markdown(f"""
+                <div style='background: {color}; 
+                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);'>
+                    <h4 style='margin: 0 0 15px 0; color: white; text-align: center;'>{exercise}</h4>
+                    <div style='display: flex; justify-content: space-between;'>
+                        <div>
+                            <div style='font-size: 12px; color: rgba(255,255,255,0.8);'>👈 Left</div>
+                            <div style='font-size: 28px; font-weight: bold; color: white;'>{edge_L} kg</div>
+                        </div>
+                        <div style='text-align: right;'>
+                            <div style='font-size: 12px; color: rgba(255,255,255,0.8);'>👉 Right</div>
+                            <div style='font-size: 28px; font-weight: bold; color: white;'>{edge_R} kg</div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ==================== COMPLETED GOALS HISTORY ====================
+    if len(goals_df) > 0:
+        completed_goals = goals_df[(goals_df['User'] == selected_user) & (goals_df['Completed'] == True)]
         
-        # Get unique training days
-        training_days = df_fresh['Date'].dt.date.unique()
-        
-        # Calculate weekly frequency
-        end_date = datetime.now()
-        start_date = end_date - timedelta(weeks=12)
-        
-        recent_days = [d for d in training_days if start_date.date() <= d <= end_date.date()]
-        
-        weeks_trained = len(recent_days) / 7 if len(recent_days) > 0 else 1
-        sessions_per_week = len(recent_days) / weeks_trained if weeks_trained > 0 else 0
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric("Training Days (12 weeks)", len(recent_days))
-        
-        with col2:
-            st.metric("Average Sessions/Week", f"{sessions_per_week:.1f}")
-    else:
-        st.info("No training data available yet.")
+        if len(completed_goals) > 0:
+            st.markdown("### 🏆 Completed Goals")
+            
+            for idx, goal in completed_goals.iterrows():
+                st.markdown(f"""
+                    <div style='background: rgba(74,222,128,0.1); border-left: 4px solid #4ade80; 
+                    padding: 15px; border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 16px; font-weight: bold; color: #4ade80;'>
+                            ✅ {goal['Exercise']} - {goal['Arm']} Arm: {goal['Target_Weight']} kg
+                        </div>
+                        <div style='font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 5px;'>
+                            Completed: {goal['Date_Completed']}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+else:
+    st.error("⚠️ Could not connect to Google Sheets.")
