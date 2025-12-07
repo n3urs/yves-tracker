@@ -48,33 +48,34 @@ if new_bw != current_bw and spreadsheet:
     set_bodyweight(spreadsheet, selected_user, new_bw)
     st.sidebar.success(f"✅ Bodyweight updated to {new_bw}kg")
 
-# ==================== MAIN WORKOUT FORM ====================
+# ==================== TABS FOR WORKOUT vs 1RM TEST ====================
+tab1, tab2 = st.tabs(["🏋️ Log Training Session", "🎯 Update 1RM"])
 
-st.markdown("---")
-st.subheader("🏋️ Log Your Session")
+# ==================== TAB 1: REGULAR WORKOUT ====================
+with tab1:
+    st.markdown("---")
+    st.subheader("🏋️ Log Your Session")
 
-# Exercise selection
-exercise = st.selectbox(
-    "Exercise:",
-    ["20mm Edge", "Pinch", "Wrist Roller", "1RM Test - 20mm Edge", "1RM Test - Pinch", "1RM Test - Wrist Roller"],
-    key="exercise_select"
-)
+    # Exercise selection (NO 1RM tests here)
+    exercise = st.selectbox(
+        "Exercise:",
+        ["20mm Edge", "Pinch", "Wrist Roller"],
+        key="exercise_select"
+    )
 
-# Get 1RMs from sheet
-if spreadsheet:
-    base_exercise = exercise.replace("1RM Test - ", "")
-    current_1rm_L = get_user_1rm(spreadsheet, selected_user, base_exercise, "L")
-    current_1rm_R = get_user_1rm(spreadsheet, selected_user, base_exercise, "R")
-    
-    # Show current 1RMs
-    col_info_L, col_info_R = st.columns(2)
-    with col_info_L:
-        st.info(f"📊 Left 1RM: **{current_1rm_L} kg**")
-    with col_info_R:
-        st.info(f"📊 Right 1RM: **{current_1rm_R} kg**")
-    
-    # Target percentage (only if not 1RM test)
-    if "1RM Test" not in exercise:
+    # Get 1RMs from sheet
+    if spreadsheet:
+        current_1rm_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
+        current_1rm_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+        
+        # Show current 1RMs
+        col_info_L, col_info_R = st.columns(2)
+        with col_info_L:
+            st.info(f"📊 Left 1RM: **{current_1rm_L} kg**")
+        with col_info_R:
+            st.info(f"📊 Right 1RM: **{current_1rm_R} kg**")
+        
+        # Target percentage
         target_pct = st.slider(
             "Target % of 1RM:",
             min_value=50,
@@ -91,164 +92,278 @@ if spreadsheet:
             st.success(f"🎯 Left Prescribed: **{prescribed_load_L:.1f} kg**")
         with col_prescribed_R:
             st.success(f"🎯 Right Prescribed: **{prescribed_load_R:.1f} kg**")
-    else:
-        target_pct = 100
-        prescribed_load_L = current_1rm_L
-        prescribed_load_R = current_1rm_R
-    
-    # Option to use same weight or different weights
-    st.markdown("---")
-    use_same_weight = st.checkbox("✅ Use same weight for both arms", value=True, key="same_weight_toggle")
-    
-    if use_same_weight:
-        # Single input for both arms
-        actual_load = st.number_input(
-            "💪 Weight Lifted (kg) - Both Arms:",
-            min_value=0.0,
-            max_value=200.0,
-            value=(prescribed_load_L + prescribed_load_R) / 2,
-            step=0.25,
-            key="actual_load_both",
-            help="Enter the total weight you lifted (same for both arms)"
-        )
-        actual_load_L = actual_load
-        actual_load_R = actual_load
-    else:
-        # Separate inputs for each arm
-        col_L, col_R = st.columns(2)
         
-        with col_L:
-            actual_load_L = st.number_input(
-                "💪 Left Arm Weight (kg):",
+        # Option to use same weight or different weights
+        st.markdown("---")
+        use_same_weight = st.checkbox("✅ Use same weight for both arms", value=True, key="same_weight_toggle")
+        
+        if use_same_weight:
+            # Single input for both arms
+            actual_load = st.number_input(
+                "💪 Weight Lifted (kg) - Both Arms:",
                 min_value=0.0,
                 max_value=200.0,
-                value=prescribed_load_L,
+                value=(prescribed_load_L + prescribed_load_R) / 2,
                 step=0.25,
-                key="actual_load_L",
-                help="Weight lifted with left arm"
+                key="actual_load_both",
+                help="Enter the total weight you lifted (same for both arms)"
             )
-        
-        with col_R:
-            actual_load_R = st.number_input(
-                "💪 Right Arm Weight (kg):",
-                min_value=0.0,
-                max_value=200.0,
-                value=prescribed_load_R,
-                step=0.25,
-                key="actual_load_R",
-                help="Weight lifted with right arm"
-            )
-    
-    # Workout details
-    st.markdown("---")
-    st.subheader("📝 Workout Details")
-    
-    col_reps, col_sets, col_rpe = st.columns(3)
-    
-    with col_reps:
-        reps_per_set = st.number_input("Reps per set:", min_value=1, max_value=20, value=5, step=1, key="reps_input")
-    
-    with col_sets:
-        sets_completed = st.number_input("Sets completed:", min_value=1, max_value=10, value=3 if "1RM Test" not in exercise else 1, step=1, key="sets_input")
-    
-    with col_rpe:
-        rpe = st.slider("RPE (Rate of Perceived Exertion):", min_value=1, max_value=10, value=7, step=1, key="rpe_slider")
-    
-    # Notes
-    notes = st.text_area("Notes (optional):", placeholder="How did it feel? Any observations?", key="notes_input")
-    
-    # Quick note buttons
-    st.markdown("**Quick Notes:**")
-    
-    # Initialize quick notes in session state
-    if "quick_note_append" not in st.session_state:
-        st.session_state.quick_note_append = ""
-    
-    quick_cols = st.columns(len(QUICK_NOTES))
-    for idx, (emoji_label, note_text) in enumerate(QUICK_NOTES.items()):
-        if quick_cols[idx].button(emoji_label, key=f"quick_{note_text}"):
-            # Append to quick_note_append instead
-            if st.session_state.quick_note_append:
-                st.session_state.quick_note_append += " " + note_text
-            else:
-                st.session_state.quick_note_append = note_text
-            st.rerun()
-    
-    # Combine manual notes with quick notes
-    if st.session_state.quick_note_append:
-        final_notes = (notes + " " + st.session_state.quick_note_append).strip()
-        st.info(f"📝 Notes to save: {final_notes}")
-    else:
-        final_notes = notes
-    
-    # Clear quick notes button
-    if st.session_state.quick_note_append:
-        if st.button("🗑️ Clear quick notes"):
-            st.session_state.quick_note_append = ""
-            st.rerun()
-    
-    # Submit button
-    st.markdown("---")
-    if st.button("✅ Log Workout", type="primary", use_container_width=True):
-        # Log LEFT arm
-        workout_data_L = {
-            "User": selected_user,
-            "Date": datetime.now().strftime("%Y-%m-%d"),
-            "Exercise": exercise,
-            "Arm": "L",
-            "1RM_Reference": current_1rm_L,
-            "Target_Percentage": target_pct,
-            "Prescribed_Load_kg": prescribed_load_L,
-            "Actual_Load_kg": actual_load_L,
-            "Reps_Per_Set": reps_per_set,
-            "Sets_Completed": sets_completed,
-            "RPE": rpe,
-            "Notes": final_notes
-        }
-        
-        # Log RIGHT arm
-        workout_data_R = {
-            "User": selected_user,
-            "Date": datetime.now().strftime("%Y-%m-%d"),
-            "Exercise": exercise,
-            "Arm": "R",
-            "1RM_Reference": current_1rm_R,
-            "Target_Percentage": target_pct,
-            "Prescribed_Load_kg": prescribed_load_R,
-            "Actual_Load_kg": actual_load_R,
-            "Reps_Per_Set": reps_per_set,
-            "Sets_Completed": sets_completed,
-            "RPE": rpe,
-            "Notes": final_notes
-        }
-        
-        # Save both workouts
-        success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
-        success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
-        
-        if success_L and success_R:
-            # Clear quick notes after successful save
-            st.session_state.quick_note_append = ""
-            
-            # If this was a 1RM test, check for new records
-            if "1RM Test" in exercise:
-                new_records = []
-                if actual_load_L > current_1rm_L:
-                    update_user_1rm(spreadsheet, selected_user, base_exercise, "L", actual_load_L)
-                    new_records.append(f"Left: {actual_load_L}kg")
-                if actual_load_R > current_1rm_R:
-                    update_user_1rm(spreadsheet, selected_user, base_exercise, "R", actual_load_R)
-                    new_records.append(f"Right: {actual_load_R}kg")
-                
-                if new_records:
-                    st.success(f"🎉 Workout logged! New 1RM records: {', '.join(new_records)}! 🏆")
-                else:
-                    st.success("🎉 Workout logged successfully!")
-            else:
-                st.success("🎉 Workout logged successfully for both arms!")
-            st.balloons()
+            actual_load_L = actual_load
+            actual_load_R = actual_load
         else:
-            st.error("❌ Failed to save workout. Please try again.")
+            # Separate inputs for each arm
+            col_L, col_R = st.columns(2)
+            
+            with col_L:
+                actual_load_L = st.number_input(
+                    "💪 Left Arm Weight (kg):",
+                    min_value=0.0,
+                    max_value=200.0,
+                    value=prescribed_load_L,
+                    step=0.25,
+                    key="actual_load_L",
+                    help="Weight lifted with left arm"
+                )
+            
+            with col_R:
+                actual_load_R = st.number_input(
+                    "💪 Right Arm Weight (kg):",
+                    min_value=0.0,
+                    max_value=200.0,
+                    value=prescribed_load_R,
+                    step=0.25,
+                    key="actual_load_R",
+                    help="Weight lifted with right arm"
+                )
+        
+        # Workout details
+        st.markdown("---")
+        st.subheader("📝 Workout Details")
+        
+        col_reps, col_sets, col_rpe = st.columns(3)
+        
+        with col_reps:
+            reps_per_set = st.number_input("Reps per set:", min_value=1, max_value=20, value=5, step=1, key="reps_input")
+        
+        with col_sets:
+            sets_completed = st.number_input("Sets completed:", min_value=1, max_value=10, value=3, step=1, key="sets_input")
+        
+        with col_rpe:
+            rpe = st.slider("RPE (Rate of Perceived Exertion):", min_value=1, max_value=10, value=7, step=1, key="rpe_slider")
+        
+        # Notes
+        notes = st.text_area("Notes (optional):", placeholder="How did it feel? Any observations?", key="notes_input")
+        
+        # Quick note buttons
+        st.markdown("**Quick Notes:**")
+        
+        # Initialize quick notes in session state
+        if "quick_note_append" not in st.session_state:
+            st.session_state.quick_note_append = ""
+        
+        quick_cols = st.columns(len(QUICK_NOTES))
+        for idx, (emoji_label, note_text) in enumerate(QUICK_NOTES.items()):
+            if quick_cols[idx].button(emoji_label, key=f"quick_{note_text}"):
+                # Append to quick_note_append instead
+                if st.session_state.quick_note_append:
+                    st.session_state.quick_note_append += " " + note_text
+                else:
+                    st.session_state.quick_note_append = note_text
+                st.rerun()
+        
+        # Combine manual notes with quick notes
+        if st.session_state.quick_note_append:
+            final_notes = (notes + " " + st.session_state.quick_note_append).strip()
+            st.info(f"📝 Notes to save: {final_notes}")
+        else:
+            final_notes = notes
+        
+        # Clear quick notes button
+        if st.session_state.quick_note_append:
+            if st.button("🗑️ Clear quick notes"):
+                st.session_state.quick_note_append = ""
+                st.rerun()
+        
+        # Submit button
+        st.markdown("---")
+        if st.button("✅ Log Workout", type="primary", use_container_width=True):
+            # Log LEFT arm
+            workout_data_L = {
+                "User": selected_user,
+                "Date": datetime.now().strftime("%Y-%m-%d"),
+                "Exercise": exercise,
+                "Arm": "L",
+                "1RM_Reference": current_1rm_L,
+                "Target_Percentage": target_pct,
+                "Prescribed_Load_kg": prescribed_load_L,
+                "Actual_Load_kg": actual_load_L,
+                "Reps_Per_Set": reps_per_set,
+                "Sets_Completed": sets_completed,
+                "RPE": rpe,
+                "Notes": final_notes
+            }
+            
+            # Log RIGHT arm
+            workout_data_R = {
+                "User": selected_user,
+                "Date": datetime.now().strftime("%Y-%m-%d"),
+                "Exercise": exercise,
+                "Arm": "R",
+                "1RM_Reference": current_1rm_R,
+                "Target_Percentage": target_pct,
+                "Prescribed_Load_kg": prescribed_load_R,
+                "Actual_Load_kg": actual_load_R,
+                "Reps_Per_Set": reps_per_set,
+                "Sets_Completed": sets_completed,
+                "RPE": rpe,
+                "Notes": final_notes
+            }
+            
+            # Save both workouts
+            success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
+            success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
+            
+            if success_L and success_R:
+                # Clear quick notes after successful save
+                st.session_state.quick_note_append = ""
+                st.success("🎉 Workout logged successfully for both arms!")
+                st.balloons()
+            else:
+                st.error("❌ Failed to save workout. Please try again.")
+
+# ==================== TAB 2: 1RM UPDATE ====================
+with tab2:
+    st.markdown("---")
+    st.subheader("🎯 Update Your 1RM")
+    st.caption("Test your max strength and update your training targets")
+    
+    # Select exercise to test
+    test_exercise = st.selectbox(
+        "Select Exercise to Test:",
+        ["20mm Edge", "Pinch", "Wrist Roller"],
+        key="test_exercise_select"
+    )
+    
+    if spreadsheet:
+        # Get current 1RMs
+        current_1rm_L_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "L")
+        current_1rm_R_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "R")
+        
+        st.markdown("### Current 1RMs")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric("Left Arm", f"{current_1rm_L_test} kg", delta=None)
+        
+        with col2:
+            st.metric("Right Arm", f"{current_1rm_R_test} kg", delta=None)
+        
+        st.markdown("---")
+        st.markdown("### Enter New 1RM Results")
+        
+        col_left, col_right = st.columns(2)
+        
+        with col_left:
+            st.markdown("**👈 Left Arm**")
+            new_1rm_L = st.number_input(
+                "New 1RM (kg):",
+                min_value=0.0,
+                max_value=200.0,
+                value=float(current_1rm_L_test),
+                step=0.25,
+                key="new_1rm_L"
+            )
+            
+            if new_1rm_L > current_1rm_L_test:
+                st.success(f"🎉 New PR! +{new_1rm_L - current_1rm_L_test:.2f} kg")
+            elif new_1rm_L < current_1rm_L_test:
+                st.warning(f"⚠️ Lower than current: -{current_1rm_L_test - new_1rm_L:.2f} kg")
+        
+        with col_right:
+            st.markdown("**👉 Right Arm**")
+            new_1rm_R = st.number_input(
+                "New 1RM (kg):",
+                min_value=0.0,
+                max_value=200.0,
+                value=float(current_1rm_R_test),
+                step=0.25,
+                key="new_1rm_R"
+            )
+            
+            if new_1rm_R > current_1rm_R_test:
+                st.success(f"🎉 New PR! +{new_1rm_R - current_1rm_R_test:.2f} kg")
+            elif new_1rm_R < current_1rm_R_test:
+                st.warning(f"⚠️ Lower than current: -{current_1rm_R_test - new_1rm_R:.2f} kg")
+        
+        # Optional: Log the 1RM test as a workout too
+        st.markdown("---")
+        log_test_as_workout = st.checkbox(
+            "📝 Also log this as a workout entry",
+            value=True,
+            help="This will record the test in your workout history"
+        )
+        
+        # Test notes
+        test_notes = st.text_area(
+            "Test Notes (optional):",
+            placeholder="How did the test feel? Any observations?",
+            key="test_notes"
+        )
+        
+        # Update button
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            if st.button("🔄 Update 1RMs", type="primary", use_container_width=True):
+                success_L = update_user_1rm(spreadsheet, selected_user, test_exercise, "L", new_1rm_L)
+                success_R = update_user_1rm(spreadsheet, selected_user, test_exercise, "R", new_1rm_R)
+                
+                if success_L and success_R:
+                    st.success("✅ 1RMs updated successfully!")
+                    
+                    # Also log as workout if checkbox is checked
+                    if log_test_as_workout:
+                        workout_data_L = {
+                            "User": selected_user,
+                            "Date": datetime.now().strftime("%Y-%m-%d"),
+                            "Exercise": f"1RM Test - {test_exercise}",
+                            "Arm": "L",
+                            "1RM_Reference": new_1rm_L,
+                            "Target_Percentage": 100,
+                            "Prescribed_Load_kg": new_1rm_L,
+                            "Actual_Load_kg": new_1rm_L,
+                            "Reps_Per_Set": 1,
+                            "Sets_Completed": 1,
+                            "RPE": 10,
+                            "Notes": test_notes
+                        }
+                        
+                        workout_data_R = {
+                            "User": selected_user,
+                            "Date": datetime.now().strftime("%Y-%m-%d"),
+                            "Exercise": f"1RM Test - {test_exercise}",
+                            "Arm": "R",
+                            "1RM_Reference": new_1rm_R,
+                            "Target_Percentage": 100,
+                            "Prescribed_Load_kg": new_1rm_R,
+                            "Actual_Load_kg": new_1rm_R,
+                            "Reps_Per_Set": 1,
+                            "Sets_Completed": 1,
+                            "RPE": 10,
+                            "Notes": test_notes
+                        }
+                        
+                        save_workout_to_sheets(workout_sheet, workout_data_L)
+                        save_workout_to_sheets(workout_sheet, workout_data_R)
+                        st.success("📝 Test also logged in workout history!")
+                    
+                    st.balloons()
+                else:
+                    st.error("❌ Failed to update 1RMs. Please try again.")
+        
+        with col_btn2:
+            st.caption("💡 Tip: Test your 1RM every 3-4 weeks")
 
 else:
     st.error("⚠️ Could not connect to Google Sheets. Please check your configuration.")
