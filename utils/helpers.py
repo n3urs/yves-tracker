@@ -182,6 +182,7 @@ def load_users_from_sheets(spreadsheet):
     return users if users else USER_LIST.copy()
 
 
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_all_bodyweights(_spreadsheet):
     """Get all bodyweights at once to reduce API calls"""
