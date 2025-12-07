@@ -264,7 +264,7 @@ if workout_sheet:
     
     st.markdown("---")
     
-        # ==================== CREATE NEW USER ====================
+          # ==================== CREATE NEW USER ====================
     st.markdown("### ➕ Create New User")
     
     col_user1, col_user2, col_user3 = st.columns([2, 2, 1])
@@ -279,11 +279,14 @@ if workout_sheet:
         st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
         if st.button("Create User", use_container_width=True):
             if new_username and new_username.strip() != "":
-                if new_username in available_users:
+                # Reload users to check for duplicates
+                current_users = load_users_from_sheets(spreadsheet) if spreadsheet else USER_LIST.copy()
+                
+                if new_username in current_users:
                     st.error(f"❌ User '{new_username}' already exists!")
                 else:
                     try:
-                        # Add to Bodyweights sheet
+                        # Add to Bodyweights sheet (primary user list)
                         try:
                             bw_sheet = spreadsheet.worksheet("Bodyweights")
                         except:
@@ -294,22 +297,24 @@ if workout_sheet:
                         # Add new user to Bodyweights sheet
                         bw_sheet.append_row([new_username, initial_bw])
                         
-                        # Also add to Users sheet (for 1RMs tracking)
+                        # Also add to Users sheet (for 1RMs tracking) if it exists
                         try:
                             users_sheet = spreadsheet.worksheet("Users")
+                            users_sheet.append_row([new_username, initial_bw, 0, 0, 0, 0, 0, 0])
                         except:
+                            # Users sheet doesn't exist, create it
                             users_sheet = spreadsheet.add_worksheet(title="Users", rows=100, cols=10)
                             users_sheet.append_row(["User", "Bodyweight_kg", "20mm_Edge_L", "20mm_Edge_R", 
                                                   "Pinch_L", "Pinch_R", "Wrist_Roller_L", "Wrist_Roller_R"])
-                        
-                        users_sheet.append_row([new_username, initial_bw, 0, 0, 0, 0, 0, 0])
+                            users_sheet.append_row([new_username, initial_bw, 0, 0, 0, 0, 0, 0])
                         
                         st.success(f"✅ User '{new_username}' created successfully with bodyweight {initial_bw} kg!")
+                        st.info("🔄 Refreshing to load new user...")
                         st.balloons()
                         
-                        # Clear the input by rerunning
+                        # Force immediate rerun to refresh user list
                         import time
-                        time.sleep(1.5)
+                        time.sleep(1)
                         st.rerun()
                         
                     except Exception as e:
