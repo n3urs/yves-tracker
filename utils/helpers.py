@@ -1,345 +1,438 @@
 import streamlit as st
+import sys
+sys.path.append('..')
+from utils.helpers import *
 import pandas as pd
-import json
-import gspread
-from google.oauth2.service_account import Credentials
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import numpy as np
-import io
 
-# ==================== CONFIG ====================
-PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
-QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
-USER_LIST = ["Oscar", "Ian"]
+st.set_page_config(page_title="Profile", page_icon="👤", layout="wide")
 
-EXERCISE_PLAN = {
-    "20mm Edge": {
-        "Schedule": "Monday & Thursday",
-        "Frequency": "2x per week",
-        "Sets": "3-4 sets",
-        "Reps": "3-5 reps per set",
-        "Rest": "3-5 min between sets",
-        "Intensity": "80-85% 1RM",
-        "Technique": [
-            "• Grip: Thumb over, fingers on edge (crimp grip)",
-            "• Dead hang first 2-3 seconds before pulling",
-            "• Keep shoulders packed (avoid shrugging)",
-            "• Pull elbows down and back (don't just hang)",
-            "• Focus on controlled descent (eccentric)",
-            "• Avoid twisting or swinging the body"
-        ]
-    },
-    "Pinch": {
-        "Schedule": "Tuesday & Saturday",
-        "Frequency": "2x per week",
-        "Sets": "3-4 sets",
-        "Reps": "5-8 reps per set",
-        "Rest": "2-3 min between sets",
-        "Intensity": "75-80% 1RM",
-        "Technique": [
-            "• Grip: Thumb against fingers (pinch hold)",
-            "• Hold weight plate between thumb and fingers",
-            "• Keep arm straight (don't bend elbow)",
-            "• Squeeze hard at the top for 2-3 seconds",
-            "• Lower slowly and controlled",
-            "• Start with lighter weight to build grip endurance"
-        ]
-    },
-    "Wrist Roller": {
-        "Schedule": "Wednesday & Sunday",
-        "Frequency": "2x per week",
-        "Sets": "2-3 sets",
-        "Reps": "Full ROM (up and down)",
-        "Rest": "2 min between sets",
-        "Intensity": "50-60% 1RM",
-        "Technique": [
-            "• Hold roller with arms extended at shoulder height",
-            "• Roll wrist forward to wrap rope around roller",
-            "• Then roll backward to unwrap",
-            "• Keep movement slow and controlled",
-            "• Full range of motion (flex to extension)",
-            "• Can be used for warm-up or conditioning"
-        ]
-    }
-}
+init_session_state()
 
-# ==================== SESSION STATE ====================
-def init_session_state():
-    """Initialize session state variables if they don't exist"""
-    if "current_user" not in st.session_state:
-        st.session_state.current_user = USER_LIST[0]
-    if "bodyweights" not in st.session_state:
-        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
-    if "saved_1rms" not in st.session_state:
-        st.session_state.saved_1rms = {}
-    if "goals" not in st.session_state:
-        st.session_state.goals = {}
+# ==================== HEADER ====================
 
-# ==================== GOOGLE SHEETS ====================
-@st.cache_resource(ttl=600)
-def get_google_sheet():
-    """Connect to Google Sheets - returns the spreadsheet object"""
-    try:
-        credentials_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
-        credentials = Credentials.from_service_account_info(
-            credentials_dict,
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
-        client = gspread.authorize(credentials)
-        sheet_url = st.secrets["SHEET_URL"]
-        return client.open_by_url(sheet_url)
-    except Exception as e:
-        st.error(f"Error connecting to Google Sheets: {e}")
-        return None
+st.markdown(
+    """
+    <div style="
+        text-align: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 30px 20px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 20px rgba(102,126,234,0.4);
+    ">
+        <h1 style="color: white; font-size: 42px; margin: 0;">Your Profile</h1>
+        <p style="color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 8px;">
+            Track your journey, analyze your strength, dominate your training 💪
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-@st.cache_data(ttl=120)  # Cache for 2 minutes
-def _load_sheet_data(sheet_name):
-    """Internal cached function to load data from a specific sheet"""
-    try:
-        spreadsheet = get_google_sheet()
-        if not spreadsheet:
-            return []
-        worksheet = spreadsheet.worksheet(sheet_name)
-        return worksheet.get_all_records()
-    except:
-        return []
+# ==================== GOOGLE SHEETS CONNECTION ====================
 
-def load_data_from_sheets(worksheet, user=None):
-    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
-    try:
-        data = _load_sheet_data("Sheet1")
-        if data:
-            df = pd.DataFrame(data)
-            if user and "User" in df.columns:
-                df = df[df["User"] == user]
-            return df
-        else:
-            return pd.DataFrame(columns=[
-                "User", "Date", "Exercise", "Arm", "1RM_Reference", "Target_Percentage",
-                "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
-                "Sets_Completed", "RPE", "Notes"
-            ])
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
+spreadsheet = get_google_sheet()
+workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
 
-def save_workout_to_sheets(worksheet, row_data):
-    """Append a new workout to the Sheet1"""
-    try:
-        clean_data = {}
-        for key, value in row_data.items():
-            if isinstance(value, (np.integer, np.int64)):
-                clean_data[key] = int(value)
-            elif isinstance(value, (np.floating, np.float64)):
-                clean_data[key] = float(value)
+# ==================== USER SELECTION ====================
+
+if spreadsheet:
+    available_users = load_users_from_sheets(spreadsheet)
+else:
+    available_users = USER_LIST.copy()
+
+st.sidebar.header("User")
+st.session_state.current_user = st.sidebar.selectbox(
+    "Select User",
+    available_users,
+    index=available_users.index(st.session_state.current_user)
+    if st.session_state.current_user in available_users
+    else 0,
+    key="user_selector_profile",
+)
+selected_user = st.session_state.current_user
+
+# ==================== LOAD WORKOUT DATA ====================
+
+if workout_sheet:
+    df = load_data_from_sheets(workout_sheet, user=selected_user)
+else:
+    df = pd.DataFrame(columns=[
+        "User", "Date", "Exercise", "Arm", "1RM Reference",
+        "Target Percentage", "Prescribed Load (kg)", "Actual Load (kg)",
+        "Reps Per Set", "Sets Completed", "RPE", "Notes"
+    ])
+
+st.markdown(f"### {selected_user}'s Training Profile")
+
+if len(df) == 0:
+    st.info("No workout data yet. Head to **Log Workout** to get started!")
+else:
+    df["Date"] = pd.to_datetime(df["Date"])
+
+    # ==================== PERSONAL STATS OVERVIEW ====================
+
+    total_sessions = len(df["Date"].dt.date.unique())
+    total_reps = (
+        pd.to_numeric(df["Reps Per Set"], errors="coerce") *
+        pd.to_numeric(df["Sets Completed"], errors="coerce")
+    ).sum()
+    total_volume = (
+        pd.to_numeric(df["Actual Load (kg)"], errors="coerce") *
+        pd.to_numeric(df["Reps Per Set"], errors="coerce") *
+        pd.to_numeric(df["Sets Completed"], errors="coerce")
+    ).sum()
+
+    dates = sorted(df["Date"].dt.date.unique())
+    current_streak = 0
+    if len(dates) > 0:
+        current_streak = 1
+        for i in range(len(dates) - 1, 0, -1):
+            if (dates[i] - dates[i - 1]).days <= 3:  # 3 days tolerance
+                current_streak += 1
             else:
-                clean_data[key] = value
-        worksheet.append_row(list(clean_data.values()))
-        
-        # Clear the cache after saving
-        _load_sheet_data.clear()
-        
-        return True
-    except Exception as e:
-        st.error(f"Error saving workout: {e}")
-        return False
+                break
 
-def load_users_from_sheets(spreadsheet):
-    """Load unique users from Users sheet"""
-    try:
-        data = _load_sheet_data("Users")
-        if data:
-            df = pd.DataFrame(data)
-            if "Username" in df.columns:
-                users = df["Username"].tolist()
-                return users if users else USER_LIST.copy()
-        return USER_LIST.copy()
-    except Exception as e:
-        return USER_LIST.copy()
+    days_training = (datetime.now() - df["Date"].min()).days
 
-def get_bodyweight(spreadsheet, user):
-    """Get user's bodyweight from Bodyweights sheet"""
-    try:
-        records = _load_sheet_data("Bodyweights")
-        for record in records:
-            if record.get("User") == user:
-                return float(record.get("Bodyweight_kg", 78.0))
-        return 78.0
-    except:
-        return 78.0
+    col1, col2, col3, col4 = st.columns(4)
 
-def set_bodyweight(spreadsheet, user, bodyweight):
-    """Update user's bodyweight in Bodyweights sheet"""
-    try:
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        records = bw_sheet.get_all_records()
-        for idx, record in enumerate(records):
-            if record.get("User") == user:
-                bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
-                _load_sheet_data.clear()
-                return True
-        bw_sheet.append_row([user, float(bodyweight)])
-        _load_sheet_data.clear()
-        return True
-    except Exception as e:
-        st.error(f"Error updating bodyweight: {e}")
-        return False
+    with col1:
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(79,172,254,0.4);
+            ">
+                <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;">
+                    Total Sessions
+                </div>
+                <div style="font-size: 36px; font-weight: bold; color: white;">
+                    {total_sessions}
+                </div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
+                    workouts logged
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-def get_user_1rm(spreadsheet, user, exercise, arm):
-    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
-    try:
-        records = _load_sheet_data("UserProfile")
-        for record in records:
-            if record.get("User") == user:
-                key = f"{exercise}_{arm}_1RM"
-                value = record.get(key, None)
-                if value and value > 0:
-                    return float(value)
-    except:
-        pass
-    
-    try:
-        data = _load_sheet_data("Sheet1")
-        if data:
-            df = pd.DataFrame(data)
-            if user and "User" in df.columns:
-                df = df[df["User"] == user]
-            
-            if len(df) > 0:
-                df_filtered = df[
-                    (df['Exercise'].str.contains(exercise, na=False)) &
-                    (df['Arm'] == arm)
-                ]
-                if len(df_filtered) > 0:
-                    df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
-                    max_weight = df_filtered['Actual_Load_kg'].max()
-                    if pd.notna(max_weight) and max_weight > 0:
-                        return float(max_weight)
-    except:
-        pass
-    
-    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
+    with col2:
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(240,147,251,0.4);
+            ">
+                <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;">
+                    Training Streak
+                </div>
+                <div style="font-size: 36px; font-weight: bold; color: white;">
+                    {current_streak}
+                </div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
+                    consecutive sessions
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
-    """Update user's 1RM in UserProfile sheet"""
-    try:
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        records = profile_sheet.get_all_records()
-        for idx, record in enumerate(records):
-            if record.get("User") == user:
-                key = f"{exercise}_{arm}_1RM"
-                headers = list(record.keys())
-                if key in headers:
-                    col_idx = headers.index(key) + 1
-                    profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
-                    _load_sheet_data.clear()
-                    return True
-        
-        headers = profile_sheet.row_values(1)
-        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
-        key = f"{exercise}_{arm}_1RM"
-        if key in headers:
-            col_idx = headers.index(key)
-            new_row[col_idx] = float(new_1rm)
-        profile_sheet.append_row(new_row)
-        _load_sheet_data.clear()
-        return True
-    except Exception as e:
-        return False
+    with col3:
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(250,112,154,0.4);
+            ">
+                <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;">
+                    Total Volume
+                </div>
+                <div style="font-size: 36px; font-weight: bold; color: white;">
+                    {total_volume:,.0f}
+                </div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
+                    kg lifted
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-def add_new_user(spreadsheet, username, bodyweight=78.0):
-    """Add a new user to all necessary sheets"""
-    try:
-        users_sheet = spreadsheet.worksheet("Users")
-        users_sheet.append_row([username])
-        
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        bw_sheet.append_row([username, float(bodyweight)])
-        
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
-        
-        _load_sheet_data.clear()
-        
-        return True, "User created successfully!"
-    except Exception as e:
-        return False, f"Error creating user: {e}"
+    with col4:
+        st.markdown(
+            f"""
+            <div style="
+                background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(48,207,208,0.4);
+            ">
+                <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;">
+                    Training Days
+                </div>
+                <div style="font-size: 36px; font-weight: bold; color: white;">
+                    {days_training}
+                </div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px;">
+                    days since start
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-# ==================== HELPER FUNCTIONS ====================
-def calculate_plates(target_kg, pin_kg=1):
-    """Find nearest achievable load with exact plate breakdown."""
-    load_per_side = (target_kg - pin_kg) / 2
-    best_diff = float('inf')
-    best_load = target_kg
-    best_plates = []
-    
-    for multiplier in range(int(load_per_side * 4) - 5, int(load_per_side * 4) + 10):
-        test_per_side = multiplier / 4
-        test_total = test_per_side * 2 + pin_kg
-        
-        if test_total > target_kg + 3 or test_total < target_kg - 3:
-            continue
-        
-        plates = []
-        remaining = test_per_side
-        for plate in PLATE_SIZES:
-            while remaining >= plate - 0.001:
-                plates.append(plate)
-                remaining -= plate
-        
-        if remaining < 0.001:
-            diff = abs(test_total - target_kg)
-            if diff < best_diff:
-                best_diff = diff
-                best_load = test_total
-                best_plates = sorted(plates, reverse=True)
-    
-    if best_plates:
-        plates_str = f"{' + '.join(map(str, best_plates))} kg per side"
-        if abs(best_load - target_kg) < 0.1:
-            return plates_str, best_load
+st.markdown("---")
+
+# ==================== BODYWEIGHT ====================
+
+current_bw = get_bodyweight_spreadsheet(selected_user) if spreadsheet else 78.0
+
+st.markdown("### Bodyweight")
+
+st.markdown(
+    f"""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        text-align: center;
+    ">
+        <div style="font-size: 14px; color: rgba(255,255,255,0.8);">
+            Current Bodyweight
+        </div>
+        <div style="font-size: 32px; font-weight: bold; color: white;">
+            {current_bw} kg
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.caption("Your bodyweight is used to calculate relative strength metrics.")
+
+col_bw1, col_bw2 = st.columns([3, 1])
+
+with col_bw1:
+    new_bw = st.number_input(
+        "Update Bodyweight (kg)",
+        min_value=40.0,
+        max_value=150.0,
+        value=current_bw,
+        step=0.5,
+        key="bodyweight_input",
+    )
+
+with col_bw2:
+    if st.button("Update Bodyweight", use_container_width=True):
+        if new_bw != current_bw and spreadsheet:
+            if set_bodyweight_spreadsheet(spreadsheet, selected_user, new_bw):
+                st.success(f"Updated to {new_bw} kg")
+                st.rerun()
         else:
-            return f"{plates_str} (actual: {best_load}kg)", best_load
-    
-    return "No exact combo found", target_kg
+            st.info("No change to bodyweight.")
 
-def estimate_1rm_epley(load_kg, reps):
-    """Epley formula: 1RM = weight * (1 + reps/30)"""
-    if reps == 1:
-        return load_kg
-    return load_kg * (1 + reps / 30)
+st.markdown("---")
 
-def calculate_relative_strength(avg_load, bodyweight):
-    """Calculate relative strength: load / bodyweight"""
-    if bodyweight is not None and bodyweight > 0:
-        return avg_load / bodyweight
-    return 0
+# ==================== CURRENT 1RMs ====================
 
-def create_heatmap(df):
-    """Create training consistency heatmap data"""
-    try:
-        if len(df) == 0:
-            return None
-        
-        df_copy = df.copy()
-        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
-        
-        end_date = datetime.now()
-        start_date = end_date - timedelta(weeks=12)
-        df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
-        
-        if len(df_filtered) == 0:
-            return None
-        
-        heatmap_data = np.zeros((7, 12))
-        for _, row in df_filtered.iterrows():
-            date = row['Date']
-            week = min((end_date - date).days // 7, 11)
-            day_of_week = date.weekday()
-            if week < 12 and day_of_week < 7:
-                heatmap_data[day_of_week, 11 - week] += 1
-        
-        return heatmap_data, (start_date, end_date)
-    except Exception as e:
-        return None
+st.markdown("### Current 1RMs")
+
+col1, col2, col3 = st.columns(3)
+exercises_display = ["20mm Edge", "Pinch", "Wrist Roller"]
+colors = [
+    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+]
+
+left_vals = []
+right_vals = []
+
+for idx, (col, exercise, color) in enumerate(zip([col1, col2, col3], exercises_display, colors)):
+    with col:
+        val_L = get_user_1rm_spreadsheet(spreadsheet, selected_user, exercise, "L")
+        val_R = get_user_1rm_spreadsheet(spreadsheet, selected_user, exercise, "R")
+
+        left_vals.append(val_L)
+        right_vals.append(val_R)
+
+        st.markdown(
+            f"""
+            <div style="
+                background: {color};
+                padding: 20px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            ">
+                <h4 style="margin: 0 0 15px 0; color: white; text-align: center;">
+                    {exercise}
+                </h4>
+                <div style="display: flex; justify-content: space-between;">
+                    <div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">
+                            Left
+                        </div>
+                        <div style="font-size: 28px; font-weight: bold; color: white;">
+                            {val_L} kg
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">
+                            Right
+                        </div>
+                        <div style="font-size: 28px; font-weight: bold; color: white;">
+                            {val_R} kg
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+st.caption("1RMs are automatically updated when you log 1RM tests.")
+
+st.markdown("---")
+
+# ==================== STRENGTH BALANCE CHART ====================
+
+st.markdown("### Strength Balance Analysis")
+
+fig = go.Figure()
+fig.add_trace(
+    go.Bar(
+        x=exercises_display,
+        y=left_vals,
+        name="Left Arm",
+        marker_color="#4facfe",
+        text=left_vals,
+        textposition="auto",
+        texttemplate="%{text} kg",
+    )
+)
+fig.add_trace(
+    go.Bar(
+        x=exercises_display,
+        y=right_vals,
+        name="Right Arm",
+        marker_color="#f093fb",
+        text=right_vals,
+        textposition="auto",
+        texttemplate="%{text} kg",
+    )
+)
+
+fig.update_layout(
+    barmode="group",
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="white", size=14),
+    xaxis=dict(
+        showgrid=False,
+        title="Exercise",
+        titlefont=dict(size=16, color="white"),
+    ),
+    yaxis=dict(
+        showgrid=True,
+        gridcolor="rgba(255,255,255,0.1)",
+        title="1RM (kg)",
+        titlefont=dict(size=16, color="white"),
+    ),
+    height=400,
+    legend=dict(
+        bgcolor="rgba(0,0,0,0.5)",
+        bordercolor="rgba(255,255,255,0.3)",
+        borderwidth=1,
+    ),
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# ==================== IMBALANCE ANALYSIS ====================
+
+imbalances = []
+
+for idx, exercise in enumerate(exercises_display):
+    diff = abs(left_vals[idx] - right_vals[idx])
+    max_val = max(left_vals[idx], right_vals[idx]) if max(left_vals[idx], right_vals[idx]) > 0 else 1
+    pct_diff = diff / max_val * 100
+
+    if pct_diff >= 10:
+        stronger = "Left" if left_vals[idx] > right_vals[idx] else "Right"
+        imbalances.append(
+            f"{exercise}: {stronger} arm is {pct_diff:.1f}% stronger ({diff:.1f} kg difference)"
+        )
+
+if imbalances:
+    st.warning(
+        "⚠️ Strength Imbalances Detected:\n\n- " + "\n- ".join(imbalances)
+    )
+    st.caption("Consider focusing on your weaker arm to prevent injury and improve overall performance.")
+else:
+    st.success("✅ Excellent balance! Your left and right arm strength are well-matched.")
+
+st.markdown("---")
+
+# ==================== CREATE NEW USER ====================
+
+st.markdown("### Create New User")
+
+coluser1, coluser2, coluser3 = st.columns([2, 2, 1])
+
+with coluser1:
+    new_username = st.text_input(
+        "Username",
+        placeholder="Enter new username",
+        key="new_user_input",
+    )
+
+with coluser2:
+    initial_bw = st.number_input(
+        "Initial Bodyweight (kg)",
+        min_value=40.0,
+        max_value=150.0,
+        value=78.0,
+        step=0.5,
+        key="new_user_bw",
+    )
+
+with coluser3:
+    st.markdown("<div style='margin-top: 32px'></div>", unsafe_allow_html=True)
+
+if st.button("Create User", use_container_width=True):
+    if new_username and new_username.strip():
+        if not spreadsheet:
+            st.error("Could not connect to Google Sheets.")
+        else:
+            cleaned_username = new_username.strip()
+
+            # Get current users to prevent duplicates
+            current_users = load_users_from_sheets(spreadsheet)
+            if cleaned_username in current_users:
+                st.error(f"User '{cleaned_username}' already exists!")
+            else:
+                ok, msg = add_new_user_spreadsheet(spreadsheet, cleaned_username, initial_bw)
+                if ok:
+                    st.success(msg)
+                    st.info("Refreshing to load new user...")
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error(msg)
+    else:
+        st.error("Please enter a username!")
