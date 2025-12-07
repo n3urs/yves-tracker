@@ -8,6 +8,7 @@ import os
 USER_LIST = ["Oscar", "Ian", "Ali"]
 
 # ==================== LOAD USERS FROM SHEETS ====================
+# NO DECORATOR - this is the fix!
 def load_users_from_sheets(spreadsheet):
     """Load users from both Bodyweights and Users sheets and merge them."""
     users = []
@@ -227,7 +228,8 @@ def process_workout_data(df):
         return df
     
     # Convert date column
-    df['Date'] = pd.to_datetime(df['Date'])
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
     
     # Convert numeric columns
     numeric_cols = ['Actual_Load_kg', 'Reps_Per_Set', 'Sets_Completed']
