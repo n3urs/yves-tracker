@@ -114,19 +114,29 @@ if workout_sheet:
                 </div>
             """, unsafe_allow_html=True)
     
-    st.markdown("---")
+        st.markdown("---")
     
     # ==================== BODYWEIGHT ====================
     st.markdown("### ⚖️ Bodyweight")
-    st.caption("Your bodyweight is used to calculate relative strength metrics.")
     
     current_bw = get_bodyweight(spreadsheet, selected_user) if spreadsheet else 78.0
+    
+    # Display current bodyweight
+    st.markdown(f"""
+        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        padding: 15px 20px; border-radius: 10px; margin-bottom: 15px; text-align: center;'>
+            <div style='font-size: 14px; color: rgba(255,255,255,0.8);'>Current Bodyweight</div>
+            <div style='font-size: 32px; font-weight: bold; color: white;'>{current_bw} kg</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.caption("Your bodyweight is used to calculate relative strength metrics.")
     
     col_bw1, col_bw2 = st.columns([3, 1])
     
     with col_bw1:
         new_bw = st.number_input(
-            "Bodyweight (kg):",
+            "Update Bodyweight (kg):",
             min_value=40.0,
             max_value=150.0,
             value=current_bw,
@@ -140,8 +150,7 @@ if workout_sheet:
                 set_bodyweight(spreadsheet, selected_user, new_bw)
                 st.success(f"✅ Updated to {new_bw}kg")
                 st.rerun()
-    
-    st.markdown("---")
+
     
     # ==================== CURRENT 1RMs WITH STRENGTH CHART ====================
     st.markdown("### 💪 Current 1RMs")
