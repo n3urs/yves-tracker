@@ -43,17 +43,20 @@ def load_users_from_sheets(spreadsheet):
 
 # ==================== GOOGLE SHEETS CONNECTION ====================
 @st.cache_resource
+@st.cache_resource
 def get_google_sheet():
     """Connect to Google Sheets using service account credentials."""
     try:
+        import json
+        
         # Define scope
         scope = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
         ]
         
-        # Load credentials from Streamlit secrets
-        creds_dict = dict(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
+        # Parse JSON string from secrets
+        creds_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         
         # Authorize and open spreadsheet
@@ -64,6 +67,7 @@ def get_google_sheet():
     except Exception as e:
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
+
 
 
 # ==================== SESSION STATE ====================
