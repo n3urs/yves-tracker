@@ -1,267 +1,339 @@
 import streamlit as st
+import pandas as pd
+import json
 import gspread
 from google.oauth2.service_account import Credentials
-import pandas as pd
-import os
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+import numpy as np
+import io
 
-# ==================== USER LIST ====================
-USER_LIST = ["Oscar", "Ian", "Ali"]
+# ==================== CONFIG ====================
+PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
+QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
+USER_LIST = ["Oscar", "Ian"]
 
-# ==================== LOAD USERS FROM SHEETS ====================
-# NO DECORATOR - this is the fix!
-def load_users_from_sheets(spreadsheet):
-    """Load users from both Bodyweights and Users sheets and merge them."""
-    users = []
-    
-    # Try to load from Bodyweights sheet first (primary source)
-    try:
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        bw_data = bw_sheet.get_all_records()
-        if bw_data:
-            users.extend([row["User"] for row in bw_data if row.get("User")])
-    except:
-        pass
-    
-    # Also check Users sheet for any users not in Bodyweights
-    try:
-        users_sheet = spreadsheet.worksheet("Users")
-        users_data = users_sheet.get_all_records()
-        if users_data:
-            for row in users_data:
-                user = row.get("User") or row.get("Username")
-                if user and user not in users:
-                    users.append(user)
-    except:
-        pass
-    
-    # Remove duplicates and empty entries, return sorted list
-    users = sorted(list(set([u for u in users if u and u.strip() != ""])))
-    
-    # Fallback to default list if no users found
-    return users if users else USER_LIST.copy()
-
-
-# ==================== GOOGLE SHEETS CONNECTION ====================
-@st.cache_resource
-@st.cache_resource
-def get_google_sheet():
-    """Connect to Google Sheets using service account credentials."""
-    try:
-        import json
-        
-        # Define scope
-        scope = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
+EXERCISE_PLAN = {
+    "20mm Edge": {
+        "Schedule": "Monday & Thursday",
+        "Frequency": "2x per week",
+        "Sets": "3-4 sets",
+        "Reps": "3-5 reps per set",
+        "Rest": "3-5 min between sets",
+        "Intensity": "80-85% 1RM",
+        "Technique": [
+            "• Grip: Thumb over, fingers on edge (crimp grip)",
+            "• Dead hang first 2-3 seconds before pulling",
+            "• Keep shoulders packed (avoid shrugging)",
+            "• Pull elbows down and back (don't just hang)",
+            "• Focus on controlled descent (eccentric)",
+            "• Avoid twisting or swinging the body"
         ]
-        
-        # Parse JSON string from secrets
-        creds_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        
-        # Authorize and open spreadsheet
-        client = gspread.authorize(creds)
-        spreadsheet = client.open("Yves Climbing Tracker")
-        
-        return spreadsheet
+    },
+    "Pinch": {
+        "Schedule": "Tuesday & Saturday",
+        "Frequency": "2x per week",
+        "Sets": "3-4 sets",
+        "Reps": "5-8 reps per set",
+        "Rest": "2-3 min between sets",
+        "Intensity": "75-80% 1RM",
+        "Technique": [
+            "• Grip: Thumb against fingers (pinch hold)",
+            "• Hold weight plate between thumb and fingers",
+            "• Keep arm straight (don't bend elbow)",
+            "• Squeeze hard at the top for 2-3 seconds",
+            "• Lower slowly and controlled",
+            "• Start with lighter weight to build grip endurance"
+        ]
+    },
+    "Wrist Roller": {
+        "Schedule": "Wednesday & Sunday",
+        "Frequency": "2x per week",
+        "Sets": "2-3 sets",
+        "Reps": "Full ROM (up and down)",
+        "Rest": "2 min between sets",
+        "Intensity": "50-60% 1RM",
+        "Technique": [
+            "• Hold roller with arms extended at shoulder height",
+            "• Roll wrist forward to wrap rope around roller",
+            "• Then roll backward to unwrap",
+            "• Keep movement slow and controlled",
+            "• Full range of motion (flex to extension)",
+            "• Can be used for warm-up or conditioning"
+        ]
+    }
+}
+
+# ==================== SESSION STATE ====================
+def init_session_state():
+    """Initialize session state variables if they don't exist"""
+    if "current_user" not in st.session_state:
+        st.session_state.current_user = USER_LIST[0]
+    
+    if "bodyweights" not in st.session_state:
+        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
+    
+    if "saved_1rms" not in st.session_state:
+        st.session_state.saved_1rms = {}
+    
+    if "goals" not in st.session_state:
+        st.session_state.goals = {}
+
+# ==================== GOOGLE SHEETS ====================
+@st.cache_resource(ttl=600)
+def get_google_sheet():
+    """Connect to Google Sheets - returns the spreadsheet object"""
+    try:
+        credentials_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
+        credentials = Credentials.from_service_account_info(
+            credentials_dict,
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+        client = gspread.authorize(credentials)
+        sheet_url = st.secrets["SHEET_URL"]
+        return client.open_by_url(sheet_url)
     except Exception as e:
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
 
-
-
-# ==================== SESSION STATE ====================
-def init_session_state():
-    """Initialize session state variables."""
-    if 'current_user' not in st.session_state:
-        st.session_state.current_user = "Oscar"
-
-
-# ==================== LOAD DATA FROM SHEETS ====================
 def load_data_from_sheets(worksheet, user=None):
-    """Load workout data from Google Sheets."""
+    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
     try:
         data = worksheet.get_all_records()
-        df = pd.DataFrame(data)
-        
-        if user:
-            df = df[df['User'] == user]
-        
-        return df
+        if data:
+            df = pd.DataFrame(data)
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
+            return df
+        else:
+            return pd.DataFrame(columns=[
+                "User", "Date", "Exercise", "Arm", "1RM_Reference", "Target_Percentage",
+                "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
+                "Sets_Completed", "RPE", "Notes"
+            ])
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
 
-
-# ==================== BODYWEIGHT FUNCTIONS ====================
-def get_bodyweight(spreadsheet, user):
-    """Get bodyweight for a specific user."""
+def save_workout_to_sheets(worksheet, row_data):
+    """Append a new workout to the Sheet1"""
     try:
-        # Try Bodyweights sheet first
-        try:
-            bw_sheet = spreadsheet.worksheet("Bodyweights")
-            bw_data = bw_sheet.get_all_records()
-            for row in bw_data:
-                if row.get("User") == user:
-                    return float(row.get("Bodyweight_kg", 78.0))
-        except:
-            pass
+        clean_data = {}
+        for key, value in row_data.items():
+            if isinstance(value, (np.integer, np.int64)):
+                clean_data[key] = int(value)
+            elif isinstance(value, (np.floating, np.float64)):
+                clean_data[key] = float(value)
+            else:
+                clean_data[key] = value
         
-        # Fallback to Users sheet
-        try:
-            users_sheet = spreadsheet.worksheet("Users")
-            users_data = users_sheet.get_all_records()
-            for row in users_data:
-                if row.get("User") == user:
-                    return float(row.get("Bodyweight_kg", 78.0))
-        except:
-            pass
+        worksheet.append_row(list(clean_data.values()))
+        return True
+    except Exception as e:
+        st.error(f"Error saving workout: {e}")
+        return False
+
+def load_users_from_sheets(spreadsheet):
+    """Load unique users from Users sheet"""
+    try:
+        users_sheet = spreadsheet.worksheet("Users")
+        data = users_sheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            if "Username" in df.columns:
+                users = df["Username"].tolist()
+                return users if users else USER_LIST.copy()
+        return USER_LIST.copy()
+    except Exception as e:
+        return USER_LIST.copy()
+
+def get_bodyweight(spreadsheet, user):
+    """Get user's bodyweight from Bodyweights sheet"""
+    try:
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        records = bw_sheet.get_all_records()
         
-        return 78.0  # Default
+        for record in records:
+            if record.get("User") == user:
+                return float(record.get("Bodyweight_kg", 78.0))
+        
+        return 78.0
     except:
         return 78.0
 
-
 def set_bodyweight(spreadsheet, user, bodyweight):
-    """Set bodyweight for a specific user."""
+    """Update user's bodyweight in Bodyweights sheet"""
     try:
-        # Update in Bodyweights sheet
-        try:
-            bw_sheet = spreadsheet.worksheet("Bodyweights")
-            bw_data = bw_sheet.get_all_records()
-            
-            for idx, row in enumerate(bw_data):
-                if row.get("User") == user:
-                    bw_sheet.update_cell(idx + 2, 2, bodyweight)  # +2 for header and 0-indexing
-                    break
-        except:
-            pass
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        records = bw_sheet.get_all_records()
         
-        # Also update in Users sheet if it exists
-        try:
-            users_sheet = spreadsheet.worksheet("Users")
-            users_data = users_sheet.get_all_records()
-            
-            for idx, row in enumerate(users_data):
-                if row.get("User") == user:
-                    users_sheet.update_cell(idx + 2, 2, bodyweight)
-                    break
-        except:
-            pass
-            
-    except Exception as e:
-        st.error(f"Error updating bodyweight: {e}")
-
-
-# ==================== 1RM FUNCTIONS ====================
-def get_user_1rm(spreadsheet, user, exercise, arm):
-    """Get 1RM for a specific user, exercise, and arm."""
-    try:
-        users_sheet = spreadsheet.worksheet("Users")
-        users_data = users_sheet.get_all_records()
+        for idx, record in enumerate(records):
+            if record.get("User") == user:
+                bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
+                return True
         
-        # Column mapping
-        col_map = {
-            "20mm Edge_L": "20mm_Edge_L",
-            "20mm Edge_R": "20mm_Edge_R",
-            "Pinch_L": "Pinch_L",
-            "Pinch_R": "Pinch_R",
-            "Wrist Roller_L": "Wrist_Roller_L",
-            "Wrist Roller_R": "Wrist_Roller_R"
-        }
-        
-        col_key = f"{exercise}_{arm}"
-        col_name = col_map.get(col_key, col_key)
-        
-        for row in users_data:
-            if row.get("User") == user:
-                return float(row.get(col_name, 0))
-        
-        return 0.0
-    except:
-        return 0.0
-
-
-def update_user_1rm(spreadsheet, user, exercise, arm, value):
-    """Update 1RM for a specific user."""
-    try:
-        users_sheet = spreadsheet.worksheet("Users")
-        users_data = users_sheet.get_all_records()
-        
-        # Column mapping
-        col_map = {
-            "20mm Edge": {"L": 3, "R": 4},
-            "Pinch": {"L": 5, "R": 6},
-            "Wrist Roller": {"L": 7, "R": 8}
-        }
-        
-        col_num = col_map.get(exercise, {}).get(arm)
-        
-        if col_num:
-            for idx, row in enumerate(users_data):
-                if row.get("User") == user:
-                    users_sheet.update_cell(idx + 2, col_num, value)
-                    break
-    except Exception as e:
-        st.error(f"Error updating 1RM: {e}")
-
-
-# ==================== WORKOUT LOGGING ====================
-def log_workout_to_sheets(worksheet, workout_data):
-    """Log a workout to Google Sheets."""
-    try:
-        worksheet.append_row(workout_data)
+        bw_sheet.append_row([user, float(bodyweight)])
         return True
     except Exception as e:
-        st.error(f"Error logging workout: {e}")
+        st.error(f"Error updating bodyweight: {e}")
         return False
 
+def get_user_1rm(spreadsheet, user, exercise, arm):
+    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
+    try:
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        records = profile_sheet.get_all_records()
+        
+        for record in records:
+            if record.get("User") == user:
+                key = f"{exercise}_{arm}_1RM"
+                value = record.get(key, None)
+                if value and value > 0:
+                    return float(value)
+    except:
+        pass
+    
+    try:
+        workout_sheet = spreadsheet.worksheet("Sheet1")
+        df = load_data_from_sheets(workout_sheet, user=user)
+        if len(df) > 0:
+            df_filtered = df[
+                (df['Exercise'].str.contains(exercise, na=False)) & 
+                (df['Arm'] == arm)
+            ]
+            
+            if len(df_filtered) > 0:
+                df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
+                max_weight = df_filtered['Actual_Load_kg'].max()
+                if pd.notna(max_weight) and max_weight > 0:
+                    return float(max_weight)
+    except:
+        pass
+    
+    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
 
-# ==================== CALCULATE 1RM ====================
-def calculate_1rm(weight, reps):
-    """Calculate 1RM using Brzycki formula."""
+def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
+    """Update user's 1RM in UserProfile sheet"""
+    try:
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        records = profile_sheet.get_all_records()
+        
+        for idx, record in enumerate(records):
+            if record.get("User") == user:
+                key = f"{exercise}_{arm}_1RM"
+                headers = list(record.keys())
+                if key in headers:
+                    col_idx = headers.index(key) + 1
+                    profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
+                    return True
+        
+        headers = profile_sheet.row_values(1)
+        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
+        
+        key = f"{exercise}_{arm}_1RM"
+        if key in headers:
+            col_idx = headers.index(key)
+            new_row[col_idx] = float(new_1rm)
+        
+        profile_sheet.append_row(new_row)
+        return True
+        
+    except Exception as e:
+        return False
+
+def add_new_user(spreadsheet, username, bodyweight=78.0):
+    """Add a new user to all necessary sheets"""
+    try:
+        users_sheet = spreadsheet.worksheet("Users")
+        users_sheet.append_row([username])
+        
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_sheet.append_row([username, float(bodyweight)])
+        
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
+        
+        return True, "User created successfully!"
+    except Exception as e:
+        return False, f"Error creating user: {e}"
+
+# ==================== HELPER FUNCTIONS ====================
+def calculate_plates(target_kg, pin_kg=1):
+    """Find nearest achievable load with exact plate breakdown."""
+    load_per_side = (target_kg - pin_kg) / 2
+    best_diff = float('inf')
+    best_load = target_kg
+    best_plates = []
+    
+    for multiplier in range(int(load_per_side * 4) - 5, int(load_per_side * 4) + 10):
+        test_per_side = multiplier / 4
+        test_total = test_per_side * 2 + pin_kg
+        
+        if test_total > target_kg + 3 or test_total < target_kg - 3:
+            continue
+        
+        plates = []
+        remaining = test_per_side
+        
+        for plate in PLATE_SIZES:
+            while remaining >= plate - 0.001:
+                plates.append(plate)
+                remaining -= plate
+        
+        if remaining < 0.001:
+            diff = abs(test_total - target_kg)
+            if diff < best_diff:
+                best_diff = diff
+                best_load = test_total
+                best_plates = sorted(plates, reverse=True)
+    
+    if best_plates:
+        plates_str = f"{' + '.join(map(str, best_plates))} kg per side"
+        if abs(best_load - target_kg) < 0.1:
+            return plates_str, best_load
+        else:
+            return f"{plates_str} (actual: {best_load}kg)", best_load
+    
+    return "No exact combo found", target_kg
+
+def estimate_1rm_epley(load_kg, reps):
+    """Epley formula: 1RM = weight * (1 + reps/30)"""
     if reps == 1:
-        return weight
-    return weight * (36 / (37 - reps))
+        return load_kg
+    return load_kg * (1 + reps / 30)
 
+def calculate_relative_strength(avg_load, bodyweight):
+    """Calculate relative strength: load / bodyweight"""
+    if bodyweight is not None and bodyweight > 0:
+        return avg_load / bodyweight
+    return 0
 
-# ==================== DATA PROCESSING ====================
-def process_workout_data(df):
-    """Process and clean workout data."""
-    if len(df) == 0:
-        return df
-    
-    # Convert date column
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
-    
-    # Convert numeric columns
-    numeric_cols = ['Actual_Load_kg', 'Reps_Per_Set', 'Sets_Completed']
-    for col in numeric_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    return df
-
-
-# ==================== STATISTICS ====================
-def get_user_stats(df, user):
-    """Calculate statistics for a user."""
-    user_df = df[df['User'] == user] if 'User' in df.columns else df
-    
-    if len(user_df) == 0:
-        return {
-            'total_sessions': 0,
-            'total_volume': 0,
-            'avg_weight': 0,
-            'max_weight': 0
-        }
-    
-    stats = {
-        'total_sessions': len(user_df['Date'].dt.date.unique()) if 'Date' in user_df.columns else 0,
-        'total_volume': (user_df['Actual_Load_kg'] * user_df['Reps_Per_Set'] * user_df['Sets_Completed']).sum() if all(col in user_df.columns for col in ['Actual_Load_kg', 'Reps_Per_Set', 'Sets_Completed']) else 0,
-        'avg_weight': user_df['Actual_Load_kg'].mean() if 'Actual_Load_kg' in user_df.columns else 0,
-        'max_weight': user_df['Actual_Load_kg'].max() if 'Actual_Load_kg' in user_df.columns else 0
-    }
-    
-    return stats
+def create_heatmap(df):
+    """Create training consistency heatmap data"""
+    try:
+        if len(df) == 0:
+            return None
+        
+        df_copy = df.copy()
+        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
+        
+        end_date = datetime.now()
+        start_date = end_date - timedelta(weeks=12)
+        
+        df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
+        
+        if len(df_filtered) == 0:
+            return None
+        
+        heatmap_data = np.zeros((7, 12))
+        
+        for _, row in df_filtered.iterrows():
+            date = row['Date']
+            week = min((end_date - date).days // 7, 11)
+            day_of_week = date.weekday()
+            if week < 12 and day_of_week < 7:
+                heatmap_data[day_of_week, 11 - week] += 1
+        
+        return heatmap_data, (start_date, end_date)
+    except Exception as e:
+        return None
