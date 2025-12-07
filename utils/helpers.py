@@ -78,9 +78,19 @@ def init_session_state():
     
     if "goals" not in st.session_state:
         st.session_state.goals = {}
+    
+    # Cache loaded data
+    if "users_cache" not in st.session_state:
+        st.session_state.users_cache = None
+    
+    if "bodyweights_cache" not in st.session_state:
+        st.session_state.bodyweights_cache = {}
+    
+    if "profile_cache" not in st.session_state:
+        st.session_state.profile_cache = {}
 
 # ==================== GOOGLE SHEETS ====================
-@st.cache_resource(ttl=600)
+@st.cache_resource(ttl=3600)  # Cache for 1 hour
 def get_google_sheet():
     """Connect to Google Sheets - returns the spreadsheet object"""
     try:
@@ -96,10 +106,11 @@ def get_google_sheet():
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
 
-def load_data_from_sheets(worksheet, user=None):
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_data_from_sheets(_worksheet, user=None):
     """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
     try:
-        data = worksheet.get_all_records()
+        data = _worksheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
             if user and "User" in df.columns:
@@ -128,15 +139,21 @@ def save_workout_to_sheets(worksheet, row_data):
                 clean_data[key] = value
         
         worksheet.append_row(list(clean_data.values()))
+        
+        # Clear cache after writing
+        load_data_from_sheets.clear()
+        load_users_from_sheets.clear()
+        
         return True
     except Exception as e:
         st.error(f"Error saving workout: {e}")
         return False
 
-def load_users_from_sheets(spreadsheet):
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_users_from_sheets(_spreadsheet):
     """Load unique users from Users sheet"""
     try:
-        users_sheet = spreadsheet.worksheet("Users")
+        users_sheet = _spreadsheet.worksheet("Users")
         data = users_sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
@@ -147,19 +164,28 @@ def load_users_from_sheets(spreadsheet):
     except Exception as e:
         return USER_LIST.copy()
 
-def get_bodyweight(spreadsheet, user):
-    """Get user's bodyweight from Bodyweights sheet"""
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_all_bodyweights(_spreadsheet):
+    """Get all bodyweights at once to reduce API calls"""
     try:
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_sheet = _spreadsheet.worksheet("Bodyweights")
         records = bw_sheet.get_all_records()
         
+        bodyweights = {}
         for record in records:
-            if record.get("User") == user:
-                return float(record.get("Bodyweight_kg", 78.0))
+            user = record.get("User")
+            bw = record.get("Bodyweight_kg", 78.0)
+            if user:
+                bodyweights[user] = float(bw)
         
-        return 78.0
+        return bodyweights
     except:
-        return 78.0
+        return {}
+
+def get_bodyweight(spreadsheet, user):
+    """Get user's bodyweight from cache or Bodyweights sheet"""
+    bodyweights = get_all_bodyweights(spreadsheet)
+    return bodyweights.get(user, 78.0)
 
 def set_bodyweight(spreadsheet, user, bodyweight):
     """Update user's bodyweight in Bodyweights sheet"""
@@ -170,21 +196,32 @@ def set_bodyweight(spreadsheet, user, bodyweight):
         for idx, record in enumerate(records):
             if record.get("User") == user:
                 bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
+                get_all_bodyweights.clear()  # Clear cache
                 return True
         
         bw_sheet.append_row([user, float(bodyweight)])
+        get_all_bodyweights.clear()  # Clear cache
         return True
     except Exception as e:
         st.error(f"Error updating bodyweight: {e}")
         return False
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_all_user_profiles(_spreadsheet):
+    """Get all user profiles at once to reduce API calls"""
+    try:
+        profile_sheet = _spreadsheet.worksheet("UserProfile")
+        records = profile_sheet.get_all_records()
+        return records
+    except:
+        return []
+
 def get_user_1rm(spreadsheet, user, exercise, arm):
     """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        records = profile_sheet.get_all_records()
+        profiles = get_all_user_profiles(spreadsheet)
         
-        for record in records:
+        for record in profiles:
             if record.get("User") == user:
                 key = f"{exercise}_{arm}_1RM"
                 value = record.get(key, None)
@@ -225,6 +262,7 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
                 if key in headers:
                     col_idx = headers.index(key) + 1
                     profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
+                    get_all_user_profiles.clear()  # Clear cache
                     return True
         
         headers = profile_sheet.row_values(1)
@@ -236,26 +274,41 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
             new_row[col_idx] = float(new_1rm)
         
         profile_sheet.append_row(new_row)
+        get_all_user_profiles.clear()  # Clear cache
         return True
         
     except Exception as e:
         return False
 
 def add_new_user(spreadsheet, username, bodyweight=78.0):
-    """Add a new user to all necessary sheets"""
+    """Add a new user to all necessary sheets - with retry logic"""
     try:
+        # Add to Users sheet
         users_sheet = spreadsheet.worksheet("Users")
         users_sheet.append_row([username])
         
+        # Wait a moment between writes to avoid rate limiting
+        import time
+        time.sleep(0.5)
+        
+        # Add to Bodyweights sheet
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         bw_sheet.append_row([username, float(bodyweight)])
         
+        time.sleep(0.5)
+        
+        # Add to UserProfile sheet
         profile_sheet = spreadsheet.worksheet("UserProfile")
         profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
         
+        # Clear all caches
+        load_users_from_sheets.clear()
+        get_all_bodyweights.clear()
+        get_all_user_profiles.clear()
+        
         return True, "User created successfully!"
     except Exception as e:
-        return False, f"Error creating user: {e}"
+        return False, f"Error creating user: {str(e)}"
 
 # ==================== HELPER FUNCTIONS ====================
 def calculate_plates(target_kg, pin_kg=1):
