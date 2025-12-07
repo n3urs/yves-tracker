@@ -150,19 +150,37 @@ def save_workout_to_sheets(worksheet, row_data):
         return False
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_users_from_sheets(_spreadsheet):
-    """Load unique users from Users sheet"""
+def load_users_from_sheets(spreadsheet):
+    """Load users from both Bodyweights and Users sheets and merge them."""
+    users = []
+    
+    # Try to load from Bodyweights sheet first (primary source)
     try:
-        users_sheet = _spreadsheet.worksheet("Users")
-        data = users_sheet.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
-            if "Username" in df.columns:
-                users = df["Username"].tolist()
-                return users if users else USER_LIST.copy()
-        return USER_LIST.copy()
-    except Exception as e:
-        return USER_LIST.copy()
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_data = bw_sheet.get_all_records()
+        if bw_data:
+            users.extend([row["User"] for row in bw_data if row.get("User")])
+    except:
+        pass
+    
+    # Also check Users sheet for any users not in Bodyweights
+    try:
+        users_sheet = spreadsheet.worksheet("Users")
+        users_data = users_sheet.get_all_records()
+        if users_data:
+            for row in users_data:
+                user = row.get("User") or row.get("Username")
+                if user and user not in users:
+                    users.append(user)
+    except:
+        pass
+    
+    # Remove duplicates and empty entries, return sorted list
+    users = sorted(list(set([u for u in users if u and u.strip() != ""])))
+    
+    # Fallback to default list if no users found
+    return users if users else USER_LIST.copy()
+
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_all_bodyweights(_spreadsheet):
