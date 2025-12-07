@@ -104,8 +104,8 @@ if workout_sheet:
     goals_data = goals_sheet.get_all_records()
     goals_df = pd.DataFrame(goals_data)
     
-    # Filter active goals - FIX: handle different data types for Completed
-    if len(goals_df) > 0:
+    # Filter active goals - FIXED: handle empty dataframe and different data types
+    if len(goals_df) > 0 and 'Completed' in goals_df.columns:
         # Convert Completed to string and check for various "false" values
         goals_df['Completed_str'] = goals_df['Completed'].astype(str).str.lower()
         active_goals = goals_df[(goals_df['User'] == selected_user) & 
@@ -278,7 +278,7 @@ if workout_sheet:
     st.markdown("---")
     
     # ==================== COMPLETED GOALS HISTORY ====================
-    if len(goals_df) > 0:
+    if len(goals_df) > 0 and 'Completed_str' in goals_df.columns:
         # Filter completed goals - handle different true values
         completed_goals = goals_df[(goals_df['User'] == selected_user) & 
                                    (goals_df['Completed_str'].isin(['true', '1', 'yes', 'TRUE']))]
