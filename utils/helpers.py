@@ -69,13 +69,10 @@ def init_session_state():
     """Initialize session state variables if they don't exist"""
     if "current_user" not in st.session_state:
         st.session_state.current_user = USER_LIST[0]
-    
     if "bodyweights" not in st.session_state:
         st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
-    
     if "saved_1rms" not in st.session_state:
         st.session_state.saved_1rms = {}
-    
     if "goals" not in st.session_state:
         st.session_state.goals = {}
 
@@ -96,9 +93,16 @@ def get_google_sheet():
         st.error(f"Error connecting to Google Sheets: {e}")
         return None
 
-def load_data_from_sheets(worksheet, user=None):
-    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
+# CACHED VERSION - Reduces API calls dramatically
+@st.cache_data(ttl=60)  # Cache for 1 minute
+def load_data_from_sheets(sheet_url, user=None):
+    """Load all data from workout log sheet (Sheet1), optionally filtered by user - CACHED"""
     try:
+        spreadsheet = get_google_sheet()
+        if not spreadsheet:
+            return pd.DataFrame()
+        
+        worksheet = spreadsheet.worksheet("Sheet1")
         data = worksheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
@@ -126,16 +130,25 @@ def save_workout_to_sheets(worksheet, row_data):
                 clean_data[key] = float(value)
             else:
                 clean_data[key] = value
-        
         worksheet.append_row(list(clean_data.values()))
+        
+        # Clear the cache after saving new data
+        load_data_from_sheets.clear()
+        
         return True
     except Exception as e:
         st.error(f"Error saving workout: {e}")
         return False
 
-def load_users_from_sheets(spreadsheet):
-    """Load unique users from Users sheet"""
+# CACHED VERSION
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_users_from_sheets(sheet_url):
+    """Load unique users from Users sheet - CACHED"""
     try:
+        spreadsheet = get_google_sheet()
+        if not spreadsheet:
+            return USER_LIST.copy()
+        
         users_sheet = spreadsheet.worksheet("Users")
         data = users_sheet.get_all_records()
         if data:
@@ -147,16 +160,20 @@ def load_users_from_sheets(spreadsheet):
     except Exception as e:
         return USER_LIST.copy()
 
-def get_bodyweight(spreadsheet, user):
-    """Get user's bodyweight from Bodyweights sheet"""
+# CACHED VERSION
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def get_bodyweight(sheet_url, user):
+    """Get user's bodyweight from Bodyweights sheet - CACHED"""
     try:
+        spreadsheet = get_google_sheet()
+        if not spreadsheet:
+            return 78.0
+            
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         records = bw_sheet.get_all_records()
-        
         for record in records:
             if record.get("User") == user:
                 return float(record.get("Bodyweight_kg", 78.0))
-        
         return 78.0
     except:
         return 78.0
@@ -166,24 +183,30 @@ def set_bodyweight(spreadsheet, user, bodyweight):
     try:
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         records = bw_sheet.get_all_records()
-        
         for idx, record in enumerate(records):
             if record.get("User") == user:
                 bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
+                # Clear cache after update
+                get_bodyweight.clear()
                 return True
-        
         bw_sheet.append_row([user, float(bodyweight)])
+        get_bodyweight.clear()
         return True
     except Exception as e:
         st.error(f"Error updating bodyweight: {e}")
         return False
 
-def get_user_1rm(spreadsheet, user, exercise, arm):
-    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
+# CACHED VERSION
+@st.cache_data(ttl=600)  # Cache for 10 minutes
+def get_user_1rm(sheet_url, user, exercise, arm):
+    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history - CACHED"""
     try:
+        spreadsheet = get_google_sheet()
+        if not spreadsheet:
+            return 105.0 if "Edge" in exercise else 85.0 if "Pinch" in exercise else 75.0
+            
         profile_sheet = spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
-        
         for record in records:
             if record.get("User") == user:
                 key = f"{exercise}_{arm}_1RM"
@@ -194,19 +217,27 @@ def get_user_1rm(spreadsheet, user, exercise, arm):
         pass
     
     try:
-        workout_sheet = spreadsheet.worksheet("Sheet1")
-        df = load_data_from_sheets(workout_sheet, user=user)
-        if len(df) > 0:
-            df_filtered = df[
-                (df['Exercise'].str.contains(exercise, na=False)) & 
-                (df['Arm'] == arm)
-            ]
+        spreadsheet = get_google_sheet()
+        if not spreadsheet:
+            return 105.0 if "Edge" in exercise else 85.0 if "Pinch" in exercise else 75.0
             
-            if len(df_filtered) > 0:
-                df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
-                max_weight = df_filtered['Actual_Load_kg'].max()
-                if pd.notna(max_weight) and max_weight > 0:
-                    return float(max_weight)
+        workout_sheet = spreadsheet.worksheet("Sheet1")
+        data = workout_sheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
+            
+            if len(df) > 0:
+                df_filtered = df[
+                    (df['Exercise'].str.contains(exercise, na=False)) &
+                    (df['Arm'] == arm)
+                ]
+                if len(df_filtered) > 0:
+                    df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
+                    max_weight = df_filtered['Actual_Load_kg'].max()
+                    if pd.notna(max_weight) and max_weight > 0:
+                        return float(max_weight)
     except:
         pass
     
@@ -217,7 +248,6 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
     try:
         profile_sheet = spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
-        
         for idx, record in enumerate(records):
             if record.get("User") == user:
                 key = f"{exercise}_{arm}_1RM"
@@ -225,19 +255,19 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
                 if key in headers:
                     col_idx = headers.index(key) + 1
                     profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
+                    # Clear cache after update
+                    get_user_1rm.clear()
                     return True
         
         headers = profile_sheet.row_values(1)
         new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
-        
         key = f"{exercise}_{arm}_1RM"
         if key in headers:
             col_idx = headers.index(key)
             new_row[col_idx] = float(new_1rm)
-        
         profile_sheet.append_row(new_row)
+        get_user_1rm.clear()
         return True
-        
     except Exception as e:
         return False
 
@@ -252,6 +282,11 @@ def add_new_user(spreadsheet, username, bodyweight=78.0):
         
         profile_sheet = spreadsheet.worksheet("UserProfile")
         profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
+        
+        # Clear caches
+        load_users_from_sheets.clear()
+        get_bodyweight.clear()
+        get_user_1rm.clear()
         
         return True, "User created successfully!"
     except Exception as e:
@@ -274,7 +309,6 @@ def calculate_plates(target_kg, pin_kg=1):
         
         plates = []
         remaining = test_per_side
-        
         for plate in PLATE_SIZES:
             while remaining >= plate - 0.001:
                 plates.append(plate)
@@ -319,14 +353,12 @@ def create_heatmap(df):
         
         end_date = datetime.now()
         start_date = end_date - timedelta(weeks=12)
-        
         df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
         
         if len(df_filtered) == 0:
             return None
         
         heatmap_data = np.zeros((7, 12))
-        
         for _, row in df_filtered.iterrows():
             date = row['Date']
             week = min((end_date - date).days // 7, 11)
