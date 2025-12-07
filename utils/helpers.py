@@ -1,155 +1,13 @@
 import streamlit as st
-import pandas as pd
-import json
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import numpy as np
-import io
+import pandas as pd
+import os
 
-# ==================== CONFIG ====================
-PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
-QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
-USER_LIST = ["Oscar", "Ian"]
+# ==================== USER LIST ====================
+USER_LIST = ["Oscar", "Ian", "Ali"]
 
-EXERCISE_PLAN = {
-    "20mm Edge": {
-        "Schedule": "Monday & Thursday",
-        "Frequency": "2x per week",
-        "Sets": "3-4 sets",
-        "Reps": "3-5 reps per set",
-        "Rest": "3-5 min between sets",
-        "Intensity": "80-85% 1RM",
-        "Technique": [
-            "• Grip: Thumb over, fingers on edge (crimp grip)",
-            "• Dead hang first 2-3 seconds before pulling",
-            "• Keep shoulders packed (avoid shrugging)",
-            "• Pull elbows down and back (don't just hang)",
-            "• Focus on controlled descent (eccentric)",
-            "• Avoid twisting or swinging the body"
-        ]
-    },
-    "Pinch": {
-        "Schedule": "Tuesday & Saturday",
-        "Frequency": "2x per week",
-        "Sets": "3-4 sets",
-        "Reps": "5-8 reps per set",
-        "Rest": "2-3 min between sets",
-        "Intensity": "75-80% 1RM",
-        "Technique": [
-            "• Grip: Thumb against fingers (pinch hold)",
-            "• Hold weight plate between thumb and fingers",
-            "• Keep arm straight (don't bend elbow)",
-            "• Squeeze hard at the top for 2-3 seconds",
-            "• Lower slowly and controlled",
-            "• Start with lighter weight to build grip endurance"
-        ]
-    },
-    "Wrist Roller": {
-        "Schedule": "Wednesday & Sunday",
-        "Frequency": "2x per week",
-        "Sets": "2-3 sets",
-        "Reps": "Full ROM (up and down)",
-        "Rest": "2 min between sets",
-        "Intensity": "50-60% 1RM",
-        "Technique": [
-            "• Hold roller with arms extended at shoulder height",
-            "• Roll wrist forward to wrap rope around roller",
-            "• Then roll backward to unwrap",
-            "• Keep movement slow and controlled",
-            "• Full range of motion (flex to extension)",
-            "• Can be used for warm-up or conditioning"
-        ]
-    }
-}
-
-# ==================== SESSION STATE ====================
-def init_session_state():
-    """Initialize session state variables if they don't exist"""
-    if "current_user" not in st.session_state:
-        st.session_state.current_user = USER_LIST[0]
-    
-    if "bodyweights" not in st.session_state:
-        st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
-    
-    if "saved_1rms" not in st.session_state:
-        st.session_state.saved_1rms = {}
-    
-    if "goals" not in st.session_state:
-        st.session_state.goals = {}
-    
-    # Cache loaded data
-    if "users_cache" not in st.session_state:
-        st.session_state.users_cache = None
-    
-    if "bodyweights_cache" not in st.session_state:
-        st.session_state.bodyweights_cache = {}
-    
-    if "profile_cache" not in st.session_state:
-        st.session_state.profile_cache = {}
-
-# ==================== GOOGLE SHEETS ====================
-@st.cache_resource(ttl=3600)  # Cache for 1 hour
-def get_google_sheet():
-    """Connect to Google Sheets - returns the spreadsheet object"""
-    try:
-        credentials_dict = json.loads(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
-        credentials = Credentials.from_service_account_info(
-            credentials_dict,
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
-        client = gspread.authorize(credentials)
-        sheet_url = st.secrets["SHEET_URL"]
-        return client.open_by_url(sheet_url)
-    except Exception as e:
-        st.error(f"Error connecting to Google Sheets: {e}")
-        return None
-
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def load_data_from_sheets(_worksheet, user=None):
-    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
-    try:
-        data = _worksheet.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
-            if user and "User" in df.columns:
-                df = df[df["User"] == user]
-            return df
-        else:
-            return pd.DataFrame(columns=[
-                "User", "Date", "Exercise", "Arm", "1RM_Reference", "Target_Percentage",
-                "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
-                "Sets_Completed", "RPE", "Notes"
-            ])
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
-
-def save_workout_to_sheets(worksheet, row_data):
-    """Append a new workout to the Sheet1"""
-    try:
-        clean_data = {}
-        for key, value in row_data.items():
-            if isinstance(value, (np.integer, np.int64)):
-                clean_data[key] = int(value)
-            elif isinstance(value, (np.floating, np.float64)):
-                clean_data[key] = float(value)
-            else:
-                clean_data[key] = value
-        
-        worksheet.append_row(list(clean_data.values()))
-        
-        # Clear cache after writing
-        load_data_from_sheets.clear()
-        load_users_from_sheets.clear()
-        
-        return True
-    except Exception as e:
-        st.error(f"Error saving workout: {e}")
-        return False
-
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+# ==================== LOAD USERS FROM SHEETS ====================
 def load_users_from_sheets(spreadsheet):
     """Load users from both Bodyweights and Users sheets and merge them."""
     users = []
@@ -182,230 +40,222 @@ def load_users_from_sheets(spreadsheet):
     return users if users else USER_LIST.copy()
 
 
-
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def get_all_bodyweights(_spreadsheet):
-    """Get all bodyweights at once to reduce API calls"""
+# ==================== GOOGLE SHEETS CONNECTION ====================
+@st.cache_resource
+def get_google_sheet():
+    """Connect to Google Sheets using service account credentials."""
     try:
-        bw_sheet = _spreadsheet.worksheet("Bodyweights")
-        records = bw_sheet.get_all_records()
+        # Define scope
+        scope = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
         
-        bodyweights = {}
-        for record in records:
-            user = record.get("User")
-            bw = record.get("Bodyweight_kg", 78.0)
-            if user:
-                bodyweights[user] = float(bw)
+        # Load credentials from Streamlit secrets
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         
-        return bodyweights
-    except:
-        return {}
+        # Authorize and open spreadsheet
+        client = gspread.authorize(creds)
+        spreadsheet = client.open("Yves Climbing Tracker")
+        
+        return spreadsheet
+    except Exception as e:
+        st.error(f"Error connecting to Google Sheets: {e}")
+        return None
 
+
+# ==================== SESSION STATE ====================
+def init_session_state():
+    """Initialize session state variables."""
+    if 'current_user' not in st.session_state:
+        st.session_state.current_user = "Oscar"
+
+
+# ==================== LOAD DATA FROM SHEETS ====================
+def load_data_from_sheets(worksheet, user=None):
+    """Load workout data from Google Sheets."""
+    try:
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+        
+        if user:
+            df = df[df['User'] == user]
+        
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
+
+
+# ==================== BODYWEIGHT FUNCTIONS ====================
 def get_bodyweight(spreadsheet, user):
-    """Get user's bodyweight from cache or Bodyweights sheet"""
-    bodyweights = get_all_bodyweights(spreadsheet)
-    return bodyweights.get(user, 78.0)
+    """Get bodyweight for a specific user."""
+    try:
+        # Try Bodyweights sheet first
+        try:
+            bw_sheet = spreadsheet.worksheet("Bodyweights")
+            bw_data = bw_sheet.get_all_records()
+            for row in bw_data:
+                if row.get("User") == user:
+                    return float(row.get("Bodyweight_kg", 78.0))
+        except:
+            pass
+        
+        # Fallback to Users sheet
+        try:
+            users_sheet = spreadsheet.worksheet("Users")
+            users_data = users_sheet.get_all_records()
+            for row in users_data:
+                if row.get("User") == user:
+                    return float(row.get("Bodyweight_kg", 78.0))
+        except:
+            pass
+        
+        return 78.0  # Default
+    except:
+        return 78.0
+
 
 def set_bodyweight(spreadsheet, user, bodyweight):
-    """Update user's bodyweight in Bodyweights sheet"""
+    """Set bodyweight for a specific user."""
     try:
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        records = bw_sheet.get_all_records()
+        # Update in Bodyweights sheet
+        try:
+            bw_sheet = spreadsheet.worksheet("Bodyweights")
+            bw_data = bw_sheet.get_all_records()
+            
+            for idx, row in enumerate(bw_data):
+                if row.get("User") == user:
+                    bw_sheet.update_cell(idx + 2, 2, bodyweight)  # +2 for header and 0-indexing
+                    break
+        except:
+            pass
         
-        for idx, record in enumerate(records):
-            if record.get("User") == user:
-                bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
-                get_all_bodyweights.clear()  # Clear cache
-                return True
-        
-        bw_sheet.append_row([user, float(bodyweight)])
-        get_all_bodyweights.clear()  # Clear cache
-        return True
+        # Also update in Users sheet if it exists
+        try:
+            users_sheet = spreadsheet.worksheet("Users")
+            users_data = users_sheet.get_all_records()
+            
+            for idx, row in enumerate(users_data):
+                if row.get("User") == user:
+                    users_sheet.update_cell(idx + 2, 2, bodyweight)
+                    break
+        except:
+            pass
+            
     except Exception as e:
         st.error(f"Error updating bodyweight: {e}")
-        return False
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def get_all_user_profiles(_spreadsheet):
-    """Get all user profiles at once to reduce API calls"""
-    try:
-        profile_sheet = _spreadsheet.worksheet("UserProfile")
-        records = profile_sheet.get_all_records()
-        return records
-    except:
-        return []
 
+# ==================== 1RM FUNCTIONS ====================
 def get_user_1rm(spreadsheet, user, exercise, arm):
-    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
+    """Get 1RM for a specific user, exercise, and arm."""
     try:
-        profiles = get_all_user_profiles(spreadsheet)
+        users_sheet = spreadsheet.worksheet("Users")
+        users_data = users_sheet.get_all_records()
         
-        for record in profiles:
-            if record.get("User") == user:
-                key = f"{exercise}_{arm}_1RM"
-                value = record.get(key, None)
-                if value and value > 0:
-                    return float(value)
+        # Column mapping
+        col_map = {
+            "20mm Edge_L": "20mm_Edge_L",
+            "20mm Edge_R": "20mm_Edge_R",
+            "Pinch_L": "Pinch_L",
+            "Pinch_R": "Pinch_R",
+            "Wrist Roller_L": "Wrist_Roller_L",
+            "Wrist Roller_R": "Wrist_Roller_R"
+        }
+        
+        col_key = f"{exercise}_{arm}"
+        col_name = col_map.get(col_key, col_key)
+        
+        for row in users_data:
+            if row.get("User") == user:
+                return float(row.get(col_name, 0))
+        
+        return 0.0
     except:
-        pass
-    
-    try:
-        workout_sheet = spreadsheet.worksheet("Sheet1")
-        df = load_data_from_sheets(workout_sheet, user=user)
-        if len(df) > 0:
-            df_filtered = df[
-                (df['Exercise'].str.contains(exercise, na=False)) & 
-                (df['Arm'] == arm)
-            ]
-            
-            if len(df_filtered) > 0:
-                df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
-                max_weight = df_filtered['Actual_Load_kg'].max()
-                if pd.notna(max_weight) and max_weight > 0:
-                    return float(max_weight)
-    except:
-        pass
-    
-    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
+        return 0.0
 
-def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
-    """Update user's 1RM in UserProfile sheet"""
+
+def update_user_1rm(spreadsheet, user, exercise, arm, value):
+    """Update 1RM for a specific user."""
     try:
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        records = profile_sheet.get_all_records()
+        users_sheet = spreadsheet.worksheet("Users")
+        users_data = users_sheet.get_all_records()
         
-        for idx, record in enumerate(records):
-            if record.get("User") == user:
-                key = f"{exercise}_{arm}_1RM"
-                headers = list(record.keys())
-                if key in headers:
-                    col_idx = headers.index(key) + 1
-                    profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
-                    get_all_user_profiles.clear()  # Clear cache
-                    return True
+        # Column mapping
+        col_map = {
+            "20mm Edge": {"L": 3, "R": 4},
+            "Pinch": {"L": 5, "R": 6},
+            "Wrist Roller": {"L": 7, "R": 8}
+        }
         
-        headers = profile_sheet.row_values(1)
-        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
+        col_num = col_map.get(exercise, {}).get(arm)
         
-        key = f"{exercise}_{arm}_1RM"
-        if key in headers:
-            col_idx = headers.index(key)
-            new_row[col_idx] = float(new_1rm)
-        
-        profile_sheet.append_row(new_row)
-        get_all_user_profiles.clear()  # Clear cache
-        return True
-        
+        if col_num:
+            for idx, row in enumerate(users_data):
+                if row.get("User") == user:
+                    users_sheet.update_cell(idx + 2, col_num, value)
+                    break
     except Exception as e:
+        st.error(f"Error updating 1RM: {e}")
+
+
+# ==================== WORKOUT LOGGING ====================
+def log_workout_to_sheets(worksheet, workout_data):
+    """Log a workout to Google Sheets."""
+    try:
+        worksheet.append_row(workout_data)
+        return True
+    except Exception as e:
+        st.error(f"Error logging workout: {e}")
         return False
 
-def add_new_user(spreadsheet, username, bodyweight=78.0):
-    """Add a new user to all necessary sheets - with retry logic"""
-    try:
-        # Add to Users sheet
-        users_sheet = spreadsheet.worksheet("Users")
-        users_sheet.append_row([username])
-        
-        # Wait a moment between writes to avoid rate limiting
-        import time
-        time.sleep(0.5)
-        
-        # Add to Bodyweights sheet
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        bw_sheet.append_row([username, float(bodyweight)])
-        
-        time.sleep(0.5)
-        
-        # Add to UserProfile sheet
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
-        
-        # Clear all caches
-        load_users_from_sheets.clear()
-        get_all_bodyweights.clear()
-        get_all_user_profiles.clear()
-        
-        return True, "User created successfully!"
-    except Exception as e:
-        return False, f"Error creating user: {str(e)}"
 
-# ==================== HELPER FUNCTIONS ====================
-def calculate_plates(target_kg, pin_kg=1):
-    """Find nearest achievable load with exact plate breakdown."""
-    load_per_side = (target_kg - pin_kg) / 2
-    best_diff = float('inf')
-    best_load = target_kg
-    best_plates = []
-    
-    for multiplier in range(int(load_per_side * 4) - 5, int(load_per_side * 4) + 10):
-        test_per_side = multiplier / 4
-        test_total = test_per_side * 2 + pin_kg
-        
-        if test_total > target_kg + 3 or test_total < target_kg - 3:
-            continue
-        
-        plates = []
-        remaining = test_per_side
-        
-        for plate in PLATE_SIZES:
-            while remaining >= plate - 0.001:
-                plates.append(plate)
-                remaining -= plate
-        
-        if remaining < 0.001:
-            diff = abs(test_total - target_kg)
-            if diff < best_diff:
-                best_diff = diff
-                best_load = test_total
-                best_plates = sorted(plates, reverse=True)
-    
-    if best_plates:
-        plates_str = f"{' + '.join(map(str, best_plates))} kg per side"
-        if abs(best_load - target_kg) < 0.1:
-            return plates_str, best_load
-        else:
-            return f"{plates_str} (actual: {best_load}kg)", best_load
-    
-    return "No exact combo found", target_kg
-
-def estimate_1rm_epley(load_kg, reps):
-    """Epley formula: 1RM = weight * (1 + reps/30)"""
+# ==================== CALCULATE 1RM ====================
+def calculate_1rm(weight, reps):
+    """Calculate 1RM using Brzycki formula."""
     if reps == 1:
-        return load_kg
-    return load_kg * (1 + reps / 30)
+        return weight
+    return weight * (36 / (37 - reps))
 
-def calculate_relative_strength(avg_load, bodyweight):
-    """Calculate relative strength: load / bodyweight"""
-    if bodyweight is not None and bodyweight > 0:
-        return avg_load / bodyweight
-    return 0
 
-def create_heatmap(df):
-    """Create training consistency heatmap data"""
-    try:
-        if len(df) == 0:
-            return None
-        
-        df_copy = df.copy()
-        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
-        
-        end_date = datetime.now()
-        start_date = end_date - timedelta(weeks=12)
-        
-        df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
-        
-        if len(df_filtered) == 0:
-            return None
-        
-        heatmap_data = np.zeros((7, 12))
-        
-        for _, row in df_filtered.iterrows():
-            date = row['Date']
-            week = min((end_date - date).days // 7, 11)
-            day_of_week = date.weekday()
-            if week < 12 and day_of_week < 7:
-                heatmap_data[day_of_week, 11 - week] += 1
-        
-        return heatmap_data, (start_date, end_date)
-    except Exception as e:
-        return None
+# ==================== DATA PROCESSING ====================
+def process_workout_data(df):
+    """Process and clean workout data."""
+    if len(df) == 0:
+        return df
+    
+    # Convert date column
+    df['Date'] = pd.to_datetime(df['Date'])
+    
+    # Convert numeric columns
+    numeric_cols = ['Actual_Load_kg', 'Reps_Per_Set', 'Sets_Completed']
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    return df
+
+
+# ==================== STATISTICS ====================
+def get_user_stats(df, user):
+    """Calculate statistics for a user."""
+    user_df = df[df['User'] == user] if 'User' in df.columns else df
+    
+    if len(user_df) == 0:
+        return {
+            'total_sessions': 0,
+            'total_volume': 0,
+            'avg_weight': 0,
+            'max_weight': 0
+        }
+    
+    stats = {
+        'total_sessions': len(user_df['Date'].dt.date.unique()) if 'Date' in user_df.columns else 0,
+        'total_volume': (user_df['Actual_Load_kg'] * user_df['Reps_Per_Set'] * user_df['Sets_Completed']).sum() if all(col in user_df.columns for col in ['Actual_Load_kg', 'Reps_Per_Set', 'Sets_Completed']) else 0,
+        'avg_weight': user_df['Actual_Load_kg'].mean() if 'Actual_Load_kg' in user_df.columns else 0,
+        'max_weight': user_df['Actual_Load_kg'].max() if 'Actual_Load_kg' in user_df.columns else 0
+    }
+    
+    return stats
