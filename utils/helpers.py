@@ -5,14 +5,13 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 import io
 
 # ==================== CONFIG ====================
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
-USER_LIST = ["Oscar", "Ian"]  # Initial users
+USER_LIST = ["Oscar", "Ian"]
 
 EXERCISE_PLAN = {
     "20mm Edge": {
@@ -81,7 +80,7 @@ def init_session_state():
         st.session_state.goals = {}
 
 # ==================== GOOGLE SHEETS ====================
-@st.cache_resource
+@st.cache_resource(ttl=600)
 def get_google_sheet():
     """Connect to Google Sheets - returns the spreadsheet object"""
     try:
@@ -119,7 +118,6 @@ def load_data_from_sheets(worksheet, user=None):
 def save_workout_to_sheets(worksheet, row_data):
     """Append a new workout to the Sheet1"""
     try:
-        # Convert all numeric values to native Python types
         clean_data = {}
         for key, value in row_data.items():
             if isinstance(value, (np.integer, np.int64)):
@@ -147,7 +145,6 @@ def load_users_from_sheets(spreadsheet):
                 return users if users else USER_LIST.copy()
         return USER_LIST.copy()
     except Exception as e:
-        st.warning(f"Could not load users from sheet, using defaults: {e}")
         return USER_LIST.copy()
 
 def get_bodyweight(spreadsheet, user):
@@ -160,7 +157,6 @@ def get_bodyweight(spreadsheet, user):
             if record.get("User") == user:
                 return float(record.get("Bodyweight_kg", 78.0))
         
-        # If not found, return default
         return 78.0
     except:
         return 78.0
@@ -171,14 +167,11 @@ def set_bodyweight(spreadsheet, user, bodyweight):
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         records = bw_sheet.get_all_records()
         
-        # Find user row
         for idx, record in enumerate(records):
             if record.get("User") == user:
-                # Update bodyweight (row is idx+2 because of header and 0-indexing)
                 bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
                 return True
         
-        # If user not found, append new row
         bw_sheet.append_row([user, float(bodyweight)])
         return True
     except Exception as e:
@@ -188,7 +181,6 @@ def set_bodyweight(spreadsheet, user, bodyweight):
 def get_user_1rm(spreadsheet, user, exercise, arm):
     """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
-        # First try to get from UserProfile sheet
         profile_sheet = spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
         
@@ -201,27 +193,23 @@ def get_user_1rm(spreadsheet, user, exercise, arm):
     except:
         pass
     
-    # Fall back to workout history - find max weight from workouts
     try:
         workout_sheet = spreadsheet.worksheet("Sheet1")
         df = load_data_from_sheets(workout_sheet, user=user)
         if len(df) > 0:
-            # Filter for this exercise and arm
             df_filtered = df[
                 (df['Exercise'].str.contains(exercise, na=False)) & 
                 (df['Arm'] == arm)
             ]
             
             if len(df_filtered) > 0:
-                # Convert to numeric and find max
                 df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
                 max_weight = df_filtered['Actual_Load_kg'].max()
                 if pd.notna(max_weight) and max_weight > 0:
                     return float(max_weight)
-    except Exception as e:
+    except:
         pass
     
-    # If nothing found, return defaults
     return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
 
 def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
@@ -230,10 +218,8 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
         profile_sheet = spreadsheet.worksheet("UserProfile")
         records = profile_sheet.get_all_records()
         
-        # Find user row
         for idx, record in enumerate(records):
             if record.get("User") == user:
-                # Update the specific 1RM column
                 key = f"{exercise}_{arm}_1RM"
                 headers = list(record.keys())
                 if key in headers:
@@ -241,11 +227,9 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
                     profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
                     return True
         
-        # If user not found in UserProfile, add them
         headers = profile_sheet.row_values(1)
-        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]  # Default values
+        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
         
-        # Update the specific 1RM
         key = f"{exercise}_{arm}_1RM"
         if key in headers:
             col_idx = headers.index(key)
@@ -255,21 +239,17 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
         return True
         
     except Exception as e:
-        st.error(f"Error updating 1RM: {e}")
         return False
 
 def add_new_user(spreadsheet, username, bodyweight=78.0):
     """Add a new user to all necessary sheets"""
     try:
-        # 1. Add to Users sheet
         users_sheet = spreadsheet.worksheet("Users")
         users_sheet.append_row([username])
         
-        # 2. Add to Bodyweights sheet
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         bw_sheet.append_row([username, float(bodyweight)])
         
-        # 3. Add to UserProfile sheet with default 1RMs
         profile_sheet = spreadsheet.worksheet("UserProfile")
         profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
         
@@ -334,7 +314,6 @@ def create_heatmap(df):
         if len(df) == 0:
             return None
         
-        # Create 12-week heatmap data
         df_copy = df.copy()
         df_copy['Date'] = pd.to_datetime(df_copy['Date'])
         
@@ -346,7 +325,6 @@ def create_heatmap(df):
         if len(df_filtered) == 0:
             return None
         
-        # Create heatmap grid (7 days x 12 weeks)
         heatmap_data = np.zeros((7, 12))
         
         for _, row in df_filtered.iterrows():
@@ -358,63 +336,4 @@ def create_heatmap(df):
         
         return heatmap_data, (start_date, end_date)
     except Exception as e:
-        st.error(f"Error creating heatmap: {e}")
-        return None
-
-def generate_workout_summary_image(df, user, time_period):
-    """Generate social media summary image"""
-    try:
-        if len(df) == 0:
-            return None
-        
-        # Filter data by time period
-        df_copy = df.copy()
-        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
-        cutoff_date = datetime.now() - timedelta(days=time_period)
-        df_filtered = df_copy[df_copy['Date'] >= cutoff_date]
-        
-        if len(df_filtered) == 0:
-            return None
-        
-        # Create figure
-        fig, ax = plt.subplots(figsize=(10.8, 19.2), facecolor='#1a1a2e')
-        ax.set_facecolor('#1a1a2e')
-        ax.axis('off')
-        
-        # Add title
-        ax.text(0.5, 0.95, f"🏆 {user}'s Training Summary", 
-                ha='center', va='top', fontsize=32, color='white', weight='bold')
-        
-        ax.text(0.5, 0.90, f"Last {time_period} Days", 
-                ha='center', va='top', fontsize=20, color='#888')
-        
-        # Calculate stats
-        total_sessions = len(df_filtered['Date'].unique())
-        total_volume = (df_filtered['Actual_Load_kg'] * 
-                       pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') * 
-                       pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce')).sum()
-        
-        # Add stats
-        y_pos = 0.75
-        stats = [
-            (f"💪 {total_sessions}", "Training Sessions"),
-            (f"🏋️ {total_volume:.0f}kg", "Total Volume"),
-        ]
-        
-        for value, label in stats:
-            ax.text(0.5, y_pos, value, ha='center', va='center', 
-                   fontsize=36, color='white', weight='bold')
-            ax.text(0.5, y_pos - 0.05, label, ha='center', va='center', 
-                   fontsize=18, color='#888')
-            y_pos -= 0.15
-        
-        # Save to buffer
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', dpi=150, facecolor='#1a1a2e', bbox_inches='tight')
-        buf.seek(0)
-        plt.close()
-        
-        return buf
-    except Exception as e:
-        st.error(f"Error generating summary: {e}")
         return None
