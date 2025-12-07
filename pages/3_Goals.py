@@ -104,8 +104,12 @@ if workout_sheet:
     goals_data = goals_sheet.get_all_records()
     goals_df = pd.DataFrame(goals_data)
     
+    # Filter active goals - FIX: handle different data types for Completed
     if len(goals_df) > 0:
-        active_goals = goals_df[(goals_df['User'] == selected_user) & (goals_df['Completed'] == False)]
+        # Convert Completed to string and check for various "false" values
+        goals_df['Completed_str'] = goals_df['Completed'].astype(str).str.lower()
+        active_goals = goals_df[(goals_df['User'] == selected_user) & 
+                                (goals_df['Completed_str'].isin(['false', '0', '', 'no']))]
     else:
         active_goals = pd.DataFrame()
     
@@ -146,7 +150,7 @@ if workout_sheet:
                 if st.button(f"✅ Mark as Complete & Celebrate", key=f"complete_{idx}"):
                     # Update goal as completed
                     row_num = idx + 2  # +2 because of header and 0-indexing
-                    goals_sheet.update_cell(row_num, 5, True)  # Completed column
+                    goals_sheet.update_cell(row_num, 5, "TRUE")  # Completed column (as string)
                     goals_sheet.update_cell(row_num, 7, datetime.now().strftime("%Y-%m-%d"))  # Date completed
                     st.balloons()
                     st.rerun()
@@ -228,7 +232,7 @@ if workout_sheet:
             goal_exercise,
             goal_arm,
             goal_weight,
-            False,  # Not completed
+            "FALSE",  # Not completed (as string)
             datetime.now().strftime("%Y-%m-%d"),
             ""  # Date completed (empty)
         ])
@@ -275,7 +279,9 @@ if workout_sheet:
     
     # ==================== COMPLETED GOALS HISTORY ====================
     if len(goals_df) > 0:
-        completed_goals = goals_df[(goals_df['User'] == selected_user) & (goals_df['Completed'] == True)]
+        # Filter completed goals - handle different true values
+        completed_goals = goals_df[(goals_df['User'] == selected_user) & 
+                                   (goals_df['Completed_str'].isin(['true', '1', 'yes', 'TRUE']))]
         
         if len(completed_goals) > 0:
             st.markdown("### 🏆 Completed Goals")
