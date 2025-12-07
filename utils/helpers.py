@@ -53,7 +53,7 @@ def get_google_sheet():
         ]
         
         # Load credentials from Streamlit secrets
-        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds_dict = dict(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         
         # Authorize and open spreadsheet
