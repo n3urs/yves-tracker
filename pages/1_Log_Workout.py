@@ -8,7 +8,16 @@ st.set_page_config(page_title="Log Workout", page_icon="📝", layout="wide")
 
 init_session_state()
 
-st.title("📝 Log Workout")
+# ==================== HEADER ====================
+st.markdown("""
+    <div style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+    padding: 30px 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(102,126,234,0.4);'>
+        <h1 style='color: white; font-size: 42px; margin: 0;'>📝 Log Workout</h1>
+        <p style='color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 8px;'>
+            Record your training session and track your progress
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
 # Connect to sheet
 spreadsheet = get_google_sheet()
@@ -53,55 +62,134 @@ if not spreadsheet:
     st.error("⚠️ Could not connect to Google Sheets. Please check your configuration.")
 else:
     # ==================== TABS FOR WORKOUT vs 1RM TEST ====================
-    tab1, tab2 = st.tabs(["🏋️ Log Training Session", "🎯 Update 1RM"])
+    tab1, tab2 = st.tabs(["🏋️ **Log Training Session**", "🎯 **Update 1RM**"])
 
     # ==================== TAB 1: REGULAR WORKOUT ====================
     with tab1:
-        st.markdown("---")
-        st.subheader("🏋️ Log Your Session")
-
-        # Exercise selection (NO 1RM tests here)
-        exercise = st.selectbox(
-            "Exercise:",
-            ["20mm Edge", "Pinch", "Wrist Roller"],
-            key="exercise_select"
-        )
+        # Exercise selection with visual cards
+        st.markdown("### 🎯 Select Exercise")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        # Initialize selection in session state
+        if "selected_exercise" not in st.session_state:
+            st.session_state.selected_exercise = "20mm Edge"
+        
+        with col1:
+            if st.button("🖐️ 20mm Edge", use_container_width=True, 
+                        type="primary" if st.session_state.selected_exercise == "20mm Edge" else "secondary"):
+                st.session_state.selected_exercise = "20mm Edge"
+                st.rerun()
+        
+        with col2:
+            if st.button("🤏 Pinch", use_container_width=True,
+                        type="primary" if st.session_state.selected_exercise == "Pinch" else "secondary"):
+                st.session_state.selected_exercise = "Pinch"
+                st.rerun()
+        
+        with col3:
+            if st.button("💪 Wrist Roller", use_container_width=True,
+                        type="primary" if st.session_state.selected_exercise == "Wrist Roller" else "secondary"):
+                st.session_state.selected_exercise = "Wrist Roller"
+                st.rerun()
+        
+        exercise = st.session_state.selected_exercise
 
         # Get 1RMs from sheet
         current_1rm_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
         current_1rm_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
         
-        # Show current 1RMs
-        col_info_L, col_info_R = st.columns(2)
-        with col_info_L:
-            st.info(f"📊 Left 1RM: **{current_1rm_L} kg**")
-        with col_info_R:
-            st.info(f"📊 Right 1RM: **{current_1rm_R} kg**")
+        st.markdown("---")
         
-        # Target percentage
+        # Show current 1RMs in colorful cards
+        st.markdown("### 💪 Your Current 1RMs")
+        col_info_L, col_info_R = st.columns(2)
+        
+        with col_info_L:
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(79,172,254,0.3);'>
+                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>👈 Left Arm</div>
+                    <div style='font-size: 36px; font-weight: bold; color: white;'>{current_1rm_L} kg</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_info_R:
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(240,147,251,0.3);'>
+                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>👉 Right Arm</div>
+                    <div style='font-size: 36px; font-weight: bold; color: white;'>{current_1rm_R} kg</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Target percentage with visual indicator
+        st.markdown("### 🎚️ Training Intensity")
         target_pct = st.slider(
             "Target % of 1RM:",
             min_value=50,
             max_value=100,
             value=80,
             step=5,
-            key="target_pct_slider"
+            key="target_pct_slider",
+            help="Lower % = more reps, higher % = heavier weight"
         )
+        
+        # Intensity indicator
+        if target_pct >= 90:
+            intensity_color = "#ef4444"
+            intensity_label = "🔥 MAX EFFORT"
+        elif target_pct >= 80:
+            intensity_color = "#f59e0b"
+            intensity_label = "💪 HEAVY"
+        elif target_pct >= 70:
+            intensity_color = "#10b981"
+            intensity_label = "✅ MODERATE"
+        else:
+            intensity_color = "#3b82f6"
+            intensity_label = "🏃 LIGHT"
+        
+        st.markdown(f"""
+            <div style='background: {intensity_color}; padding: 10px 20px; border-radius: 8px; 
+            text-align: center; color: white; font-weight: bold; margin-bottom: 15px;'>
+                {intensity_label} - {target_pct}% Intensity
+            </div>
+        """, unsafe_allow_html=True)
+        
         prescribed_load_L = current_1rm_L * (target_pct / 100)
         prescribed_load_R = current_1rm_R * (target_pct / 100)
         
+        # Prescribed loads
+        st.markdown("### 🎯 Prescribed Loads")
         col_prescribed_L, col_prescribed_R = st.columns(2)
-        with col_prescribed_L:
-            st.success(f"🎯 Left Prescribed: **{prescribed_load_L:.1f} kg**")
-        with col_prescribed_R:
-            st.success(f"🎯 Right Prescribed: **{prescribed_load_R:.1f} kg**")
         
-        # Option to use same weight or different weights
+        with col_prescribed_L:
+            st.markdown(f"""
+                <div style='background: rgba(79,172,254,0.15); border-left: 4px solid #4facfe; 
+                padding: 15px; border-radius: 8px;'>
+                    <div style='font-size: 12px; color: #888; margin-bottom: 5px;'>👈 Left Prescribed</div>
+                    <div style='font-size: 28px; font-weight: bold; color: #4facfe;'>{prescribed_load_L:.1f} kg</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_prescribed_R:
+            st.markdown(f"""
+                <div style='background: rgba(240,147,251,0.15); border-left: 4px solid #f093fb; 
+                padding: 15px; border-radius: 8px;'>
+                    <div style='font-size: 12px; color: #888; margin-bottom: 5px;'>👉 Right Prescribed</div>
+                    <div style='font-size: 28px; font-weight: bold; color: #f093fb;'>{prescribed_load_R:.1f} kg</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
         st.markdown("---")
+        
+        # Weight input section
+        st.markdown("### ⚖️ Actual Weight Lifted")
         use_same_weight = st.checkbox("✅ Use same weight for both arms", value=True, key="same_weight_toggle")
         
         if use_same_weight:
-            # Single input for both arms
             actual_load = st.number_input(
                 "💪 Weight Lifted (kg) - Both Arms:",
                 min_value=0.0,
@@ -109,12 +197,11 @@ else:
                 value=(prescribed_load_L + prescribed_load_R) / 2,
                 step=0.25,
                 key="actual_load_both",
-                help="Enter the total weight you lifted (same for both arms)"
+                help="Enter the weight you actually lifted"
             )
             actual_load_L = actual_load
             actual_load_R = actual_load
         else:
-            # Separate inputs for each arm
             col_L, col_R = st.columns(2)
             
             with col_L:
@@ -124,8 +211,7 @@ else:
                     max_value=200.0,
                     value=prescribed_load_L,
                     step=0.25,
-                    key="actual_load_L",
-                    help="Weight lifted with left arm"
+                    key="actual_load_L"
                 )
             
             with col_R:
@@ -135,32 +221,55 @@ else:
                     max_value=200.0,
                     value=prescribed_load_R,
                     step=0.25,
-                    key="actual_load_R",
-                    help="Weight lifted with right arm"
+                    key="actual_load_R"
                 )
         
-        # Workout details
         st.markdown("---")
-        st.subheader("📝 Workout Details")
+        
+        # Workout details in organized cards
+        st.markdown("### 📝 Workout Details")
         
         col_reps, col_sets, col_rpe = st.columns(3)
         
         with col_reps:
-            reps_per_set = st.number_input("Reps per set:", min_value=1, max_value=20, value=5, step=1, key="reps_input")
+            st.markdown("""
+                <div style='text-align: center; padding: 10px; background: rgba(103,126,234,0.1); 
+                border-radius: 8px; margin-bottom: 10px;'>
+                    <div style='font-size: 24px;'>🔢</div>
+                    <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                </div>
+            """, unsafe_allow_html=True)
+            reps_per_set = st.number_input("", min_value=1, max_value=20, value=5, step=1, key="reps_input", label_visibility="collapsed")
         
         with col_sets:
-            sets_completed = st.number_input("Sets completed:", min_value=1, max_value=10, value=3, step=1, key="sets_input")
+            st.markdown("""
+                <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); 
+                border-radius: 8px; margin-bottom: 10px;'>
+                    <div style='font-size: 24px;'>📚</div>
+                    <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                </div>
+            """, unsafe_allow_html=True)
+            sets_completed = st.number_input("", min_value=1, max_value=10, value=3, step=1, key="sets_input", label_visibility="collapsed")
         
         with col_rpe:
-            rpe = st.slider("RPE (Rate of Perceived Exertion):", min_value=1, max_value=10, value=7, step=1, key="rpe_slider")
+            st.markdown("""
+                <div style='text-align: center; padding: 10px; background: rgba(250,112,154,0.1); 
+                border-radius: 8px; margin-bottom: 10px;'>
+                    <div style='font-size: 24px;'>😤</div>
+                    <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                </div>
+            """, unsafe_allow_html=True)
+            rpe = st.slider("", min_value=1, max_value=10, value=7, step=1, key="rpe_slider", label_visibility="collapsed")
         
-        # Notes
-        notes = st.text_area("Notes (optional):", placeholder="How did it feel? Any observations?", key="notes_input")
+        st.markdown("---")
+        
+        # Notes section
+        st.markdown("### 📋 Session Notes")
+        notes = st.text_area("How did it feel?", placeholder="e.g., Felt strong today, left arm a bit tired...", key="notes_input", label_visibility="collapsed")
         
         # Quick note buttons
-        st.markdown("**Quick Notes:**")
+        st.markdown("**Quick Tags:**")
         
-        # Initialize quick notes in session state
         if "quick_note_append" not in st.session_state:
             st.session_state.quick_note_append = ""
         
@@ -173,23 +282,20 @@ else:
                     st.session_state.quick_note_append = note_text
                 st.rerun()
         
-        # Combine manual notes with quick notes
         if st.session_state.quick_note_append:
             final_notes = (notes + " " + st.session_state.quick_note_append).strip()
             st.info(f"📝 Notes to save: {final_notes}")
         else:
             final_notes = notes
         
-        # Clear quick notes button
         if st.session_state.quick_note_append:
-            if st.button("🗑️ Clear quick notes"):
+            if st.button("🗑️ Clear tags"):
                 st.session_state.quick_note_append = ""
                 st.rerun()
         
         # Submit button
         st.markdown("---")
         if st.button("✅ Log Workout", type="primary", use_container_width=True):
-            # Log LEFT arm
             workout_data_L = {
                 "User": selected_user,
                 "Date": datetime.now().strftime("%Y-%m-%d"),
@@ -205,7 +311,6 @@ else:
                 "Notes": final_notes
             }
             
-            # Log RIGHT arm
             workout_data_R = {
                 "User": selected_user,
                 "Date": datetime.now().strftime("%Y-%m-%d"),
@@ -221,7 +326,6 @@ else:
                 "Notes": final_notes
             }
             
-            # Save both workouts
             success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
             success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
             
@@ -234,32 +338,54 @@ else:
 
     # ==================== TAB 2: 1RM UPDATE ====================
     with tab2:
-        st.markdown("---")
-        st.subheader("🎯 Update Your 1RM")
-        st.caption("Test your max strength and update your training targets")
+        st.markdown("""
+            <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
+            padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;'>
+                <div style='font-size: 32px; margin-bottom: 10px;'>🎯</div>
+                <div style='font-size: 24px; font-weight: bold; color: white;'>Update Your 1RM</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>
+                    Test your max strength and update your training targets
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
         
         # Select exercise to test
+        st.markdown("### 🏋️ Select Exercise to Test")
         test_exercise = st.selectbox(
-            "Select Exercise to Test:",
+            "",
             ["20mm Edge", "Pinch", "Wrist Roller"],
-            key="test_exercise_select"
+            key="test_exercise_select",
+            label_visibility="collapsed"
         )
         
-        # Get current 1RMs
         current_1rm_L_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "L")
         current_1rm_R_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "R")
         
-        st.markdown("### Current 1RMs")
+        st.markdown("---")
+        st.markdown("### 📊 Current 1RMs")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.metric("Left Arm", f"{current_1rm_L_test} kg", delta=None)
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); 
+                padding: 25px; border-radius: 12px; text-align: center;'>
+                    <div style='font-size: 16px; color: #555; margin-bottom: 8px;'>👈 Left Arm Current</div>
+                    <div style='font-size: 40px; font-weight: bold; color: #333;'>{current_1rm_L_test} kg</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         with col2:
-            st.metric("Right Arm", f"{current_1rm_R_test} kg", delta=None)
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); 
+                padding: 25px; border-radius: 12px; text-align: center;'>
+                    <div style='font-size: 16px; color: #555; margin-bottom: 8px;'>👉 Right Arm Current</div>
+                    <div style='font-size: 40px; font-weight: bold; color: #333;'>{current_1rm_R_test} kg</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("---")
-        st.markdown("### Enter New 1RM Results")
+        st.markdown("### 🆕 Enter New 1RM Results")
         
         col_left, col_right = st.columns(2)
         
@@ -295,72 +421,65 @@ else:
             elif new_1rm_R < current_1rm_R_test:
                 st.warning(f"⚠️ Lower than current: -{current_1rm_R_test - new_1rm_R:.2f} kg")
         
-        # Optional: Log the 1RM test as a workout too
         st.markdown("---")
         log_test_as_workout = st.checkbox(
             "📝 Also log this as a workout entry",
             value=True,
-            help="This will record the test in your workout history"
+            help="Records the test in your workout history"
         )
         
-        # Test notes
         test_notes = st.text_area(
             "Test Notes (optional):",
-            placeholder="How did the test feel? Any observations?",
+            placeholder="How did the test feel?",
             key="test_notes"
         )
         
-        # Update button
         st.markdown("---")
-        col_btn1, col_btn2 = st.columns(2)
         
-        with col_btn1:
-            if st.button("🔄 Update 1RMs", type="primary", use_container_width=True):
-                success_L = update_user_1rm(spreadsheet, selected_user, test_exercise, "L", new_1rm_L)
-                success_R = update_user_1rm(spreadsheet, selected_user, test_exercise, "R", new_1rm_R)
+        if st.button("🔄 Update 1RMs", type="primary", use_container_width=True):
+            success_L = update_user_1rm(spreadsheet, selected_user, test_exercise, "L", new_1rm_L)
+            success_R = update_user_1rm(spreadsheet, selected_user, test_exercise, "R", new_1rm_R)
+            
+            if success_L and success_R:
+                st.success("✅ 1RMs updated successfully!")
                 
-                if success_L and success_R:
-                    st.success("✅ 1RMs updated successfully!")
+                if log_test_as_workout:
+                    workout_data_L = {
+                        "User": selected_user,
+                        "Date": datetime.now().strftime("%Y-%m-%d"),
+                        "Exercise": f"1RM Test - {test_exercise}",
+                        "Arm": "L",
+                        "1RM_Reference": new_1rm_L,
+                        "Target_Percentage": 100,
+                        "Prescribed_Load_kg": new_1rm_L,
+                        "Actual_Load_kg": new_1rm_L,
+                        "Reps_Per_Set": 1,
+                        "Sets_Completed": 1,
+                        "RPE": 10,
+                        "Notes": test_notes
+                    }
                     
-                    # Also log as workout if checkbox is checked
-                    if log_test_as_workout:
-                        workout_data_L = {
-                            "User": selected_user,
-                            "Date": datetime.now().strftime("%Y-%m-%d"),
-                            "Exercise": f"1RM Test - {test_exercise}",
-                            "Arm": "L",
-                            "1RM_Reference": new_1rm_L,
-                            "Target_Percentage": 100,
-                            "Prescribed_Load_kg": new_1rm_L,
-                            "Actual_Load_kg": new_1rm_L,
-                            "Reps_Per_Set": 1,
-                            "Sets_Completed": 1,
-                            "RPE": 10,
-                            "Notes": test_notes
-                        }
-                        
-                        workout_data_R = {
-                            "User": selected_user,
-                            "Date": datetime.now().strftime("%Y-%m-%d"),
-                            "Exercise": f"1RM Test - {test_exercise}",
-                            "Arm": "R",
-                            "1RM_Reference": new_1rm_R,
-                            "Target_Percentage": 100,
-                            "Prescribed_Load_kg": new_1rm_R,
-                            "Actual_Load_kg": new_1rm_R,
-                            "Reps_Per_Set": 1,
-                            "Sets_Completed": 1,
-                            "RPE": 10,
-                            "Notes": test_notes
-                        }
-                        
-                        save_workout_to_sheets(workout_sheet, workout_data_L)
-                        save_workout_to_sheets(workout_sheet, workout_data_R)
-                        st.success("📝 Test also logged in workout history!")
+                    workout_data_R = {
+                        "User": selected_user,
+                        "Date": datetime.now().strftime("%Y-%m-%d"),
+                        "Exercise": f"1RM Test - {test_exercise}",
+                        "Arm": "R",
+                        "1RM_Reference": new_1rm_R,
+                        "Target_Percentage": 100,
+                        "Prescribed_Load_kg": new_1rm_R,
+                        "Actual_Load_kg": new_1rm_R,
+                        "Reps_Per_Set": 1,
+                        "Sets_Completed": 1,
+                        "RPE": 10,
+                        "Notes": test_notes
+                    }
                     
-                    st.balloons()
-                else:
-                    st.error("❌ Failed to update 1RMs. Please try again.")
+                    save_workout_to_sheets(workout_sheet, workout_data_L)
+                    save_workout_to_sheets(workout_sheet, workout_data_R)
+                    st.success("📝 Test also logged in workout history!")
+                
+                st.balloons()
+            else:
+                st.error("❌ Failed to update 1RMs. Please try again.")
         
-        with col_btn2:
-            st.caption("💡 Tip: Test your 1RM every 3-4 weeks")
+        st.caption("💡 Tip: Test your 1RM every 3-4 weeks for accurate training targets")
