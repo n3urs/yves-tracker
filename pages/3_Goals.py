@@ -4,6 +4,7 @@ sys.path.append('..')
 from utils.helpers import *
 import pandas as pd
 from datetime import datetime, timedelta
+import time
 
 st.set_page_config(page_title="Goals", page_icon="🎯", layout="wide")
 
@@ -92,152 +93,167 @@ if workout_sheet:
     # ==================== WEIGHT GOALS ====================
     st.markdown("### 🎯 Your Weight Goals")
     
-    # Initialize goals sheet if it doesn't exist
+    # Initialize goals sheet - IMPROVED ERROR HANDLING
     try:
-        goals_sheet = spreadsheet.worksheet("Goals")
-    except:
-        # Create new sheet
-        goals_sheet = spreadsheet.add_worksheet(title="Goals", rows=100, cols=10)
-        goals_sheet.append_row(["User", "Exercise", "Arm", "Target_Weight", "Completed", "Date_Set", "Date_Completed"])
+        # Try to get existing Goals worksheet
+        all_sheets = [ws.title for ws in spreadsheet.worksheets()]
+        
+        if "Goals" in all_sheets:
+            goals_sheet = spreadsheet.worksheet("Goals")
+        else:
+            # Only create if it doesn't exist
+            time.sleep(0.5)  # Prevent rate limiting
+            goals_sheet = spreadsheet.add_worksheet(title="Goals", rows=100, cols=10)
+            goals_sheet.append_row(["User", "Exercise", "Arm", "Target_Weight", "Completed", "Date_Set", "Date_Completed"])
+    except Exception as e:
+        st.error(f"Error accessing Goals sheet: {e}")
+        goals_sheet = None
     
-    # Load active goals
-    goals_data = goals_sheet.get_all_records()
-    goals_df = pd.DataFrame(goals_data)
-    
-    # Filter active goals - FIXED: handle empty dataframe and different data types
-    if len(goals_df) > 0 and 'Completed' in goals_df.columns:
-        # Convert Completed to string and check for various "false" values
-        goals_df['Completed_str'] = goals_df['Completed'].astype(str).str.lower()
-        active_goals = goals_df[(goals_df['User'] == selected_user) & 
-                                (goals_df['Completed_str'].isin(['false', '0', '', 'no']))]
-    else:
-        active_goals = pd.DataFrame()
-    
-    # Display active goals with progress
-    if len(active_goals) > 0:
-        for idx, goal in active_goals.iterrows():
-            exercise = goal['Exercise']
-            arm = goal['Arm']
-            target = float(goal['Target_Weight'])
-            
-            # Get current 1RM
-            current = get_user_1rm(spreadsheet, selected_user, exercise, arm)
-            
-            # Calculate progress
-            if current >= target:
-                # Goal achieved!
-                progress_pct = 100
-                bar_color = "#4ade80"
-                status = "🎉 ACHIEVED!"
+    if goals_sheet:
+        # Load active goals
+        try:
+            goals_data = goals_sheet.get_all_records()
+            goals_df = pd.DataFrame(goals_data)
+        except Exception as e:
+            st.error(f"Error loading goals: {e}")
+            goals_df = pd.DataFrame()
+        
+        # Filter active goals - handle empty dataframe and different data types
+        if len(goals_df) > 0 and 'Completed' in goals_df.columns:
+            # Convert Completed to string and check for various "false" values
+            goals_df['Completed_str'] = goals_df['Completed'].astype(str).str.lower()
+            active_goals = goals_df[(goals_df['User'] == selected_user) & 
+                                    (goals_df['Completed_str'].isin(['false', '0', '', 'no']))]
+        else:
+            active_goals = pd.DataFrame()
+        
+        # Display active goals with progress
+        if len(active_goals) > 0:
+            for idx, goal in active_goals.iterrows():
+                exercise = goal['Exercise']
+                arm = goal['Arm']
+                target = float(goal['Target_Weight'])
                 
-                st.markdown(f"""
-                    <div style='background: linear-gradient(135deg, #4ade80 0%, #10b981 100%); 
-                    padding: 25px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 6px 20px rgba(74,222,128,0.4);'>
-                        <div style='font-size: 32px; text-align: center; margin-bottom: 10px;'>🎉</div>
-                        <div style='font-size: 24px; font-weight: bold; color: white; text-align: center;'>
-                            Goal Achieved!
-                        </div>
-                        <div style='font-size: 18px; color: rgba(255,255,255,0.9); text-align: center; margin-top: 8px;'>
-                            {exercise} ({arm} arm): {target} kg
-                        </div>
-                        <div style='font-size: 16px; color: rgba(255,255,255,0.8); text-align: center; margin-top: 5px;'>
-                            You hit {current} kg - that's {current - target:.1f} kg over your goal! 💪
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                # Get current 1RM
+                current = get_user_1rm(spreadsheet, selected_user, exercise, arm)
                 
-                # Dismiss button
-                if st.button(f"✅ Mark as Complete & Celebrate", key=f"complete_{idx}"):
-                    # Update goal as completed
-                    row_num = idx + 2  # +2 because of header and 0-indexing
-                    goals_sheet.update_cell(row_num, 5, "TRUE")  # Completed column (as string)
-                    goals_sheet.update_cell(row_num, 7, datetime.now().strftime("%Y-%m-%d"))  # Date completed
-                    st.balloons()
-                    st.rerun()
-            else:
-                # Still working towards goal
-                progress_pct = (current / target) * 100
-                remaining = target - current
-                
-                if progress_pct >= 90:
-                    bar_color = "#fbbf24"
-                    status_emoji = "🔥"
-                elif progress_pct >= 70:
-                    bar_color = "#3b82f6"
-                    status_emoji = "💪"
+                # Calculate progress
+                if current >= target:
+                    # Goal achieved!
+                    st.markdown(f"""
+                        <div style='background: linear-gradient(135deg, #4ade80 0%, #10b981 100%); 
+                        padding: 25px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 6px 20px rgba(74,222,128,0.4);'>
+                            <div style='font-size: 32px; text-align: center; margin-bottom: 10px;'>🎉</div>
+                            <div style='font-size: 24px; font-weight: bold; color: white; text-align: center;'>
+                                Goal Achieved!
+                            </div>
+                            <div style='font-size: 18px; color: rgba(255,255,255,0.9); text-align: center; margin-top: 8px;'>
+                                {exercise} ({arm} arm): {target} kg
+                            </div>
+                            <div style='font-size: 16px; color: rgba(255,255,255,0.8); text-align: center; margin-top: 5px;'>
+                                You hit {current} kg - that's {current - target:.1f} kg over your goal! 💪
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Dismiss button
+                    if st.button(f"✅ Mark as Complete & Celebrate", key=f"complete_{idx}"):
+                        # Update goal as completed
+                        row_num = idx + 2  # +2 because of header and 0-indexing
+                        goals_sheet.update_cell(row_num, 5, "TRUE")  # Completed column (as string)
+                        goals_sheet.update_cell(row_num, 7, datetime.now().strftime("%Y-%m-%d"))  # Date completed
+                        st.balloons()
+                        time.sleep(1)  # Brief delay before rerun
+                        st.rerun()
                 else:
-                    bar_color = "#8b5cf6"
-                    status_emoji = "📈"
-                
-                arm_emoji = "👈" if arm == "L" else "👉"
-                
-                st.markdown(f"""
-                    <div style='background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 15px;'>
-                        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
-                            <div>
-                                <div style='font-size: 20px; font-weight: bold; color: white;'>
-                                    {status_emoji} {exercise} - {arm_emoji} {arm} Arm
+                    # Still working towards goal
+                    progress_pct = (current / target) * 100
+                    remaining = target - current
+                    
+                    if progress_pct >= 90:
+                        bar_color = "#fbbf24"
+                        status_emoji = "🔥"
+                    elif progress_pct >= 70:
+                        bar_color = "#3b82f6"
+                        status_emoji = "💪"
+                    else:
+                        bar_color = "#8b5cf6"
+                        status_emoji = "📈"
+                    
+                    arm_emoji = "👈" if arm == "L" else "👉"
+                    
+                    st.markdown(f"""
+                        <div style='background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; margin-bottom: 15px;'>
+                            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;'>
+                                <div>
+                                    <div style='font-size: 20px; font-weight: bold; color: white;'>
+                                        {status_emoji} {exercise} - {arm_emoji} {arm} Arm
+                                    </div>
+                                    <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 5px;'>
+                                        Current: {current} kg → Target: {target} kg
+                                    </div>
                                 </div>
-                                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 5px;'>
-                                    Current: {current} kg → Target: {target} kg
+                                <div style='text-align: right;'>
+                                    <div style='font-size: 28px; font-weight: bold; color: {bar_color};'>{progress_pct:.0f}%</div>
+                                    <div style='font-size: 12px; color: rgba(255,255,255,0.6);'>{remaining:.1f} kg to go</div>
                                 </div>
                             </div>
-                            <div style='text-align: right;'>
-                                <div style='font-size: 28px; font-weight: bold; color: {bar_color};'>{progress_pct:.0f}%</div>
-                                <div style='font-size: 12px; color: rgba(255,255,255,0.6);'>{remaining:.1f} kg to go</div>
+                            <div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 16px; overflow: hidden;'>
+                                <div style='background: {bar_color}; height: 100%; width: {progress_pct}%; transition: width 0.3s ease;'></div>
                             </div>
                         </div>
-                        <div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 16px; overflow: hidden;'>
-                            <div style='background: {bar_color}; height: 100%; width: {progress_pct}%; transition: width 0.3s ease;'></div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Delete goal button
-                if st.button(f"🗑️ Remove Goal", key=f"delete_{idx}"):
-                    row_num = idx + 2
-                    goals_sheet.delete_rows(row_num)
-                    st.rerun()
-    else:
-        st.info("📝 No active goals set. Create one below!")
-    
-    st.markdown("---")
-    
-    # ==================== CREATE NEW GOAL ====================
-    st.markdown("### ➕ Set a New Goal")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        goal_exercise = st.selectbox("Exercise:", ["20mm Edge", "Pinch", "Wrist Roller"], key="goal_exercise")
-    
-    with col2:
-        goal_arm = st.selectbox("Arm:", ["L", "R"], key="goal_arm")
-    
-    with col3:
-        current_1rm = get_user_1rm(spreadsheet, selected_user, goal_exercise, goal_arm)
-        goal_weight = st.number_input(
-            f"Target Weight (kg) - Current: {current_1rm} kg",
-            min_value=float(current_1rm),
-            max_value=200.0,
-            value=float(current_1rm) + 5.0,
-            step=0.25,
-            key="goal_weight"
-        )
-    
-    if st.button("🎯 Create Goal", type="primary", use_container_width=True):
-        # Add goal to sheet
-        goals_sheet.append_row([
-            selected_user,
-            goal_exercise,
-            goal_arm,
-            goal_weight,
-            "FALSE",  # Not completed (as string)
-            datetime.now().strftime("%Y-%m-%d"),
-            ""  # Date completed (empty)
-        ])
-        st.success(f"✅ Goal created! Target: {goal_weight} kg on {goal_exercise} ({goal_arm} arm)")
-        st.rerun()
+                    """, unsafe_allow_html=True)
+                    
+                    # Delete goal button
+                    if st.button(f"🗑️ Remove Goal", key=f"delete_{idx}"):
+                        row_num = idx + 2
+                        goals_sheet.delete_rows(row_num)
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            st.info("📝 No active goals set. Create one below!")
+        
+        st.markdown("---")
+        
+        # ==================== CREATE NEW GOAL ====================
+        st.markdown("### ➕ Set a New Goal")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            goal_exercise = st.selectbox("Exercise:", ["20mm Edge", "Pinch", "Wrist Roller"], key="goal_exercise")
+        
+        with col2:
+            goal_arm = st.selectbox("Arm:", ["L", "R"], key="goal_arm")
+        
+        with col3:
+            current_1rm = get_user_1rm(spreadsheet, selected_user, goal_exercise, goal_arm)
+            goal_weight = st.number_input(
+                f"Target Weight (kg) - Current: {current_1rm} kg",
+                min_value=float(current_1rm),
+                max_value=200.0,
+                value=float(current_1rm) + 5.0,
+                step=0.25,
+                key="goal_weight"
+            )
+        
+        if st.button("🎯 Create Goal", type="primary", use_container_width=True):
+            # Add goal to sheet
+            try:
+                goals_sheet.append_row([
+                    selected_user,
+                    goal_exercise,
+                    goal_arm,
+                    goal_weight,
+                    "FALSE",  # Not completed (as string)
+                    datetime.now().strftime("%Y-%m-%d"),
+                    ""  # Date completed (empty)
+                ])
+                st.success(f"✅ Goal created! Target: {goal_weight} kg on {goal_exercise} ({goal_arm} arm)")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error creating goal: {e}")
     
     st.markdown("---")
     
@@ -278,7 +294,7 @@ if workout_sheet:
     st.markdown("---")
     
     # ==================== COMPLETED GOALS HISTORY ====================
-    if len(goals_df) > 0 and 'Completed_str' in goals_df.columns:
+    if goals_sheet and len(goals_df) > 0 and 'Completed_str' in goals_df.columns:
         # Filter completed goals - handle different true values
         completed_goals = goals_df[(goals_df['User'] == selected_user) & 
                                    (goals_df['Completed_str'].isin(['true', '1', 'yes', 'TRUE']))]
