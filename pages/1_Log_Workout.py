@@ -48,23 +48,26 @@ if new_bw != current_bw and spreadsheet:
     set_bodyweight(spreadsheet, selected_user, new_bw)
     st.sidebar.success(f"✅ Bodyweight updated to {new_bw}kg")
 
-# ==================== TABS FOR WORKOUT vs 1RM TEST ====================
-tab1, tab2 = st.tabs(["🏋️ Log Training Session", "🎯 Update 1RM"])
+# Check if connected before showing tabs
+if not spreadsheet:
+    st.error("⚠️ Could not connect to Google Sheets. Please check your configuration.")
+else:
+    # ==================== TABS FOR WORKOUT vs 1RM TEST ====================
+    tab1, tab2 = st.tabs(["🏋️ Log Training Session", "🎯 Update 1RM"])
 
-# ==================== TAB 1: REGULAR WORKOUT ====================
-with tab1:
-    st.markdown("---")
-    st.subheader("🏋️ Log Your Session")
+    # ==================== TAB 1: REGULAR WORKOUT ====================
+    with tab1:
+        st.markdown("---")
+        st.subheader("🏋️ Log Your Session")
 
-    # Exercise selection (NO 1RM tests here)
-    exercise = st.selectbox(
-        "Exercise:",
-        ["20mm Edge", "Pinch", "Wrist Roller"],
-        key="exercise_select"
-    )
+        # Exercise selection (NO 1RM tests here)
+        exercise = st.selectbox(
+            "Exercise:",
+            ["20mm Edge", "Pinch", "Wrist Roller"],
+            key="exercise_select"
+        )
 
-    # Get 1RMs from sheet
-    if spreadsheet:
+        # Get 1RMs from sheet
         current_1rm_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
         current_1rm_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
         
@@ -164,7 +167,6 @@ with tab1:
         quick_cols = st.columns(len(QUICK_NOTES))
         for idx, (emoji_label, note_text) in enumerate(QUICK_NOTES.items()):
             if quick_cols[idx].button(emoji_label, key=f"quick_{note_text}"):
-                # Append to quick_note_append instead
                 if st.session_state.quick_note_append:
                     st.session_state.quick_note_append += " " + note_text
                 else:
@@ -224,27 +226,25 @@ with tab1:
             success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
             
             if success_L and success_R:
-                # Clear quick notes after successful save
                 st.session_state.quick_note_append = ""
                 st.success("🎉 Workout logged successfully for both arms!")
                 st.balloons()
             else:
                 st.error("❌ Failed to save workout. Please try again.")
 
-# ==================== TAB 2: 1RM UPDATE ====================
-with tab2:
-    st.markdown("---")
-    st.subheader("🎯 Update Your 1RM")
-    st.caption("Test your max strength and update your training targets")
-    
-    # Select exercise to test
-    test_exercise = st.selectbox(
-        "Select Exercise to Test:",
-        ["20mm Edge", "Pinch", "Wrist Roller"],
-        key="test_exercise_select"
-    )
-    
-    if spreadsheet:
+    # ==================== TAB 2: 1RM UPDATE ====================
+    with tab2:
+        st.markdown("---")
+        st.subheader("🎯 Update Your 1RM")
+        st.caption("Test your max strength and update your training targets")
+        
+        # Select exercise to test
+        test_exercise = st.selectbox(
+            "Select Exercise to Test:",
+            ["20mm Edge", "Pinch", "Wrist Roller"],
+            key="test_exercise_select"
+        )
+        
         # Get current 1RMs
         current_1rm_L_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "L")
         current_1rm_R_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "R")
@@ -364,6 +364,3 @@ with tab2:
         
         with col_btn2:
             st.caption("💡 Tip: Test your 1RM every 3-4 weeks")
-
-else:
-    st.error("⚠️ Could not connect to Google Sheets. Please check your configuration.")
