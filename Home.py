@@ -9,6 +9,20 @@ st.set_page_config(page_title="Yves Climbing Tracker", page_icon="🧗", layout=
 
 init_session_state()
 
+# Current date banner
+today = datetime.now()
+friendly_date = today.strftime("%A %d %B %Y")  # e.g. Monday 08 December 2025
+
+st.markdown(
+    f"""
+    <div style="text-align: center; color: rgba(255,255,255,0.9); margin-top: -10px; margin-bottom: 10px;">
+        <span style="font-size: 16px;">📅 {friendly_date}</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 # ==================== HEADER WITH BANNER ====================
 st.markdown("""
     <div style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
