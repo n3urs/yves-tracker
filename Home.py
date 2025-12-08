@@ -83,22 +83,23 @@ if workout_sheet:
                 </div>
             """, unsafe_allow_html=True)
         
-        # Total volume (excluding 1RM tests)
+                # Total volume (excluding 1RM tests)
         with col3:
-        # Filter out 1RM tests
-        df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
+            # Filter out 1RM tests
+            df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
+            
+            total_volume = (pd.to_numeric(df_volume['Actual_Load_kg'], errors='coerce') *
+                           pd.to_numeric(df_volume['Reps_Per_Set'], errors='coerce') *
+                           pd.to_numeric(df_volume['Sets_Completed'], errors='coerce')).sum()
         
-        total_volume = (pd.to_numeric(df_volume['Actual_Load_kg'], errors='coerce') *
-                       pd.to_numeric(df_volume['Reps_Per_Set'], errors='coerce') *
-                       pd.to_numeric(df_volume['Sets_Completed'], errors='coerce')).sum()
-        
-        st.markdown(f"""
-            <div style='text-align: center; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(250,112,154,0.4);'>
-                <div style='font-size: 36px; font-weight: bold; color: white;'>{total_volume:,.0f}</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Total Volume (kg)</div>
-            </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+                <div style='text-align: center; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(250,112,154,0.4);'>
+                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_volume:,.0f}</div>
+                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Total Volume (kg)</div>
+                </div>
+            """, unsafe_allow_html=True)
+
 
         
         # Avg RPE
