@@ -8,8 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 
-# DELETE THIS LINE COMPLETELY: init_session_state()
-
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
@@ -188,6 +186,20 @@ def set_bodyweight(spreadsheet, user, bodyweight):
         st.error(f"Error updating bodyweight: {e}")
         return False
 
+def get_user_1rms(spreadsheet, user, exercise, arm):
+    """Get user's 1RM from UserProfile sheet"""
+    try:
+        records = _load_sheet_data("UserProfile")
+        for record in records:
+            if record.get("User") == user:
+                key = f"{exercise}_{arm}_1RM"
+                value = record.get(key, None)
+                if value and value > 0:
+                    return float(value)
+    except:
+        pass
+    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
+
 def get_user_1rm(spreadsheet, user, exercise, arm):
     """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
@@ -345,65 +357,3 @@ def create_heatmap(df):
         return heatmap_data, (start_date, end_date)
     except Exception as e:
         return None
-
-def get_bodyweight(spreadsheet, user):
-    """Get user's bodyweight from Bodyweights sheet"""
-    try:
-        records = load_sheet_data("Bodyweights")
-        for record in records:
-            if record.get("User") == user:
-                return float(record.get("Bodyweight(kg)", 78.0))
-        return 78.0
-    except:
-        return 78.0
-
-def set_bodyweight(spreadsheet, user, bodyweight):
-    """Update user's bodyweight in Bodyweights sheet"""
-    try:
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        records = bw_sheet.get_all_records()
-        
-        for idx, record in enumerate(records):
-            if record.get("User") == user:
-                bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
-                load_sheet_data.clear()
-                return True
-        
-        bw_sheet.append_row([user, float(bodyweight)])
-        load_sheet_data.clear()
-        return True
-    except Exception as e:
-        st.error(f"Error updating bodyweight: {e}")
-        return False
-
-def get_user_1rms(spreadsheet, user, exercise, arm):
-    """Get user's 1RM from UserProfile sheet"""
-    try:
-        records = load_sheet_data("UserProfile")
-        for record in records:
-            if record.get("User") == user:
-                key = f"{exercise}_{arm}_1RM"
-                value = record.get(key, None)
-                if value and value > 0:
-                    return float(value)
-    except:
-        pass
-    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
-
-def add_new_user(spreadsheet, username, bodyweight=78.0):
-    """Add a new user to all necessary sheets"""
-    try:
-        users_sheet = spreadsheet.worksheet("Users")
-        users_sheet.append_row([username])
-        
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        bw_sheet.append_row([username, float(bodyweight)])
-        
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
-        
-        load_sheet_data.clear()
-        return True, "User created successfully!"
-    except Exception as e:
-        return False, f"Error creating user: {e}"
-
