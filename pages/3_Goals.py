@@ -49,15 +49,19 @@ if workout_sheet:
     # ==================== WEEKLY WORKOUT TRACKER ====================
     st.markdown("### 📅 This Week's Progress")
     
-    # Calculate this week's sessions
-    today = datetime.now()
+    
+
+    # WEEKLY WORKOUT TRACKER (date-only, same as Home)
+    today = datetime.now().date()
     week_start = today - timedelta(days=today.weekday())  # Monday
-    df['Date'] = pd.to_datetime(df['Date'])
-    df_week = df[df['Date'] >= week_start]
-    sessions_this_week = len(df_week['Date'].dt.date.unique()) if len(df) > 0 else 0
+    
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
+    df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today)]
+    sessions_this_week = len(df_week["Date"].unique()) if len(df_week) > 0 else 0
     
     weekly_target = 3  # Default target
-    progress_pct = min((sessions_this_week / weekly_target) * 100, 100)
+    progress_pct = min(sessions_this_week / weekly_target * 100, 100)
+
     
     # Visual progress bar
     if sessions_this_week >= weekly_target:
