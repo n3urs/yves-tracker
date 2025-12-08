@@ -116,18 +116,30 @@ if workout_sheet:
         
         # This week's sessions - ALSO FIXED
         with col5:
-            today = datetime.now()
+            # Use date-only comparison so all workouts on the same calendar day count
+            today = datetime.now().date()
             week_start = today - timedelta(days=today.weekday())
-            df_week = df[df['Date'] >= week_start]
-            sessions_this_week = len(df_week['Date'].dt.date.unique())  # Count unique dates
-            
-            st.markdown(f"""
-                <div style='text-align: center; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); 
-                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(168,237,234,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: #333;'>{sessions_this_week}</div>
-                    <div style='font-size: 14px; color: #555; margin-top: 5px;'>This Week</div>
+        
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
+            df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today)]
+            sessions_this_week = len(df_week["Date"].unique())
+        
+            st.markdown(
+                f"""
+                <div style="text-align: center; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+                            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(168,237,234,0.4);">
+                    <div style="font-size: 36px; font-weight: bold; color: #333;">
+                        {sessions_this_week}
+                    </div>
+                    <div style="font-size: 14px; color: #555; margin-top: 5px;">
+                        This Week
+                    </div>
                 </div>
-            """, unsafe_allow_html=True)
+                """,
+                unsafe_allow_html=True,
+            )
+
+
         
         st.markdown("---")
         
