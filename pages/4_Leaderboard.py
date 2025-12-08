@@ -151,9 +151,13 @@ if workout_sheet:
         st.markdown("## 📊 Total Training Volume")
         st.caption("All-time cumulative volume across all exercises")
         
-        df['Volume'] = (pd.to_numeric(df['Actual_Load_kg'], errors='coerce') * 
-                       pd.to_numeric(df['Reps_Per_Set'], errors='coerce') * 
-                       pd.to_numeric(df['Sets_Completed'], errors='coerce'))
+            # Filter out 1RM tests
+        df_filtered = df[~df['Exercise'].str.contains('1RM Test', na=False)]
+        
+        df_filtered['Volume'] = (pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce') *
+                                 pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') *
+                                 pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce'))
+
         
         volume_leaderboard = df.groupby('User')['Volume'].sum().sort_values(ascending=False).reset_index()
         volume_leaderboard.columns = ['User', 'Max Load (kg)']  # Rename for compatibility
