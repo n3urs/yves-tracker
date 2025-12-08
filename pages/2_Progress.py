@@ -104,17 +104,23 @@ if workout_sheet:
                 </div>
             """, unsafe_allow_html=True)
         
+            # Total volume (excluding 1RM tests)
         with col4:
-            total_volume = (pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce') * 
-                           pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') * 
+            # Filter out 1RM tests
+            df_filtered = df[~df['Exercise'].str.contains('1RM Test', na=False)]
+            
+            total_volume = (pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce') *
+                           pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') *
                            pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce')).sum()
+            
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); 
+                <div style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
                 padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(48,207,208,0.4);'>
                     <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>Total Volume</div>
                     <div style='font-size: 36px; font-weight: bold; color: white;'>{total_volume:.0f} kg</div>
                 </div>
             """, unsafe_allow_html=True)
+
         
         st.markdown("---")
         
