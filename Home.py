@@ -277,27 +277,30 @@ st.markdown("### 📖 How to Use This Tracker")
 
 with st.expander("💪 **Exercise Technique Tips**", expanded=False):
     st.markdown("""
-**20mm Edge Cable Lift**
-
-- Clip the weight pin to a 20 mm edge on the cable machine.
-- Take a solid half‑crimp with fingers on the edge, thumb over the index finger.
-- Stand tall with shoulders packed and elbow slightly bent, then lift the weight by pulling the elbow down.
-- Lower the weight smoothly back to the start without dropping or swinging.
-
-**Pinch Cable Lift**
-
-- Attach a pinch block to the cable and grip it between thumb and fingers.
-- Keep wrist neutral and arm mostly straight beside your body.
-- Stand stable, brace your core, and lift the weight by driving from the shoulder while squeezing the pinch hard.
-- Pause briefly at the top, then lower the plates under control.
-
-**Wrist Roller Cable Lift (Forearm Reps)**
-
-- Attach the wrist roller handle to the cable and grab it with one hand.
-- Set your forearm so the wrist can move freely (e.g. elbow by your side, forearm roughly horizontal).
-- Lift the plates by bending at the wrist only, focusing on smooth flexion and extension to move through full range.
-- Control the lowering phase; avoid using the shoulder or swinging the pin.
-    """)
+    **Lifting Edge (18–20 mm pickup)**
+    
+    - Clip a portable edge or hangboard to a lifting pin loaded with plates on the floor.
+    - Stand so the device is roughly under your armpit, arm in line with the front of your body.
+    - Take a solid half‑crimp on the edge with a comfortable, slightly rounded radius.
+    - Brace your trunk, bend the knees, then lift by driving through the legs while keeping the shoulder packed and the arm close.
+    - Set the weight back down between reps; focus on crisp, controlled pickups rather than long holds.
+    
+    **Pinch Block Pickup**
+    
+    - Attach a pinch block to the same style of lifting pin and plates.
+    - Place the thumb deep along the side of the block and keep the fingers a bit straighter than a normal climbing grip.
+    - Slightly pronate the wrist so the block “cams” into the hand and feels locked in.
+    - Stand over the pin, arm close to the body, and lift mainly from the legs while maintaining that precise pinch.
+    - Put the weight down between reps and reset your grip each time so every lift is consistent.
+    
+    **Wrist Wrench / Heavy Roller Pickup**
+    
+    - Connect the wrist‑wrench or heavy‑roller handle directly to a short lifting pin with plates.
+    - Stand so the handle hangs near the front of your thigh with the arm mostly straight and shoulder relaxed.
+    - Avoid using a long rope and “rolling” the weight; instead, keep the connection short so the lift comes from driving through the legs.
+    - Maintain a strong wrist and open‑hand position against the handle as you pick the weight up and set it back down.
+    - Use smooth, powerful reps to develop forearm and wrist strength that carries over to slopers and open‑hand grips.
+        """)
 
 
 with st.expander("🎓 **Getting Started Guide**", expanded=False):
