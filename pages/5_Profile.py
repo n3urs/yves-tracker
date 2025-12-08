@@ -10,6 +10,7 @@ from utils.helpers import (
     set_bodyweight,
     get_user_1rms,
     add_new_user,
+    delete_user,
     USER_LIST
 )
 
