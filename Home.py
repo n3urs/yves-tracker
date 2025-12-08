@@ -154,48 +154,48 @@ if workout_sheet:
             )
 
             # ==== Next workout suggestion (alternate Pinch / Wrist Roller) ====
-        next_workout = None
-        try:
-            df_ex = df[df["Exercise"].isin(["Pinch", "Wrist Roller"])].copy()
-            if len(df_ex) > 0:
-                df_ex["Date"] = pd.to_datetime(df_ex["Date"], errors="coerce")
-                last_row = df_ex.sort_values("Date").iloc[-1]
-                last_ex = last_row["Exercise"]
-                next_workout = "Wrist Roller" if last_ex == "Pinch" else "Pinch"
-            else:
-                next_workout = "Pinch"
-        except Exception:
             next_workout = None
-    
-        if next_workout:
-            st.markdown(
-                f"""
-                <div style="margin-top: 20px; margin-bottom: 10px;">
-                    <div style="
-                        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-                        padding: 18px 24px;
-                        border-radius: 14px;
-                        box-shadow: 0 6px 18px rgba(79,172,254,0.4);
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    ">
-                        <div>
-                            <div style="font-size: 14px; color: rgba(255,255,255,0.85);">
-                                Next planned session
+            try:
+                df_ex = df[df["Exercise"].isin(["Pinch", "Wrist Roller"])].copy()
+                if len(df_ex) > 0:
+                    df_ex["Date"] = pd.to_datetime(df_ex["Date"], errors="coerce")
+                    last_row = df_ex.sort_values("Date").iloc[-1]
+                    last_ex = last_row["Exercise"]
+                    next_workout = "Wrist Roller" if last_ex == "Pinch" else "Pinch"
+                else:
+                    next_workout = "Pinch"
+            except Exception:
+                next_workout = None
+        
+            if next_workout:
+                st.markdown(
+                    f"""
+                    <div style="margin-top: 20px; margin-bottom: 10px;">
+                        <div style="
+                            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                            padding: 18px 24px;
+                            border-radius: 14px;
+                            box-shadow: 0 6px 18px rgba(79,172,254,0.4);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        ">
+                            <div>
+                                <div style="font-size: 14px; color: rgba(255,255,255,0.85);">
+                                    Next planned session
+                                </div>
+                                <div style="font-size: 22px; font-weight: 700; color: #ffffff; margin-top: 4px;">
+                                    {next_workout}
+                                </div>
                             </div>
-                            <div style="font-size: 22px; font-weight: 700; color: #ffffff; margin-top: 4px;">
-                                {next_workout}
+                            <div style="font-size: 32px;">
+                                💡
                             </div>
-                        </div>
-                        <div style="font-size: 32px;">
-                            💡
                         </div>
                     </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                    """,
+                    unsafe_allow_html=True,
+                )
 
     st.markdown("---")
 
