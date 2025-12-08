@@ -62,7 +62,7 @@ if workout_sheet:
     # ==================== PERSONAL STATS OVERVIEW ====================
     st.markdown(f"## 💪 {selected_user}'s Training Profile")
     
-        if len(df) > 0:
+    if len(df) > 0:
         # Filter out 1RM tests
         df = df[~df['Exercise'].str.contains('1RM Test', na=False)]
         
