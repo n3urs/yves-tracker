@@ -6,12 +6,13 @@ from utils.helpers import (
     get_google_sheet,
     load_users_from_sheets,
     load_data_from_sheets,
-    getbodyweight,              # ✅ Correct
-    setbodyweight,              # ✅ Correct
-    getuser1rms,                # ✅ Correct
-    addnewuser,                 # ✅ Correct
+    getbodyweightspreadsheet,     # ✅ No underscores!
+    setbodyweightspreadsheet,     # ✅ No underscores!
+    getuser1rmspreadsheet,        # ✅ No underscores!
+    addnewuserspreadsheet,        # ✅ No underscores!
     USER_LIST
 )
+
 
 
 import pandas as pd
