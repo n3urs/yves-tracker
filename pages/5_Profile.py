@@ -6,12 +6,13 @@ from utils.helpers import (
     get_google_sheet,
     load_users_from_sheets,
     load_data_from_sheets,
-    get_bodyweight_spreadsheet,
-    set_bodyweight_spreadsheet,
-    get_user_1rm_spreadsheet,
-    add_new_user_spreadsheet,
+    getbodyweight,              # ✅ Correct
+    setbodyweight,              # ✅ Correct
+    getuser1rms,                # ✅ Correct
+    addnewuser,                 # ✅ Correct
     USER_LIST
 )
+
 
 import pandas as pd
 import plotly.graph_objects as go
