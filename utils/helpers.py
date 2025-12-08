@@ -357,3 +357,50 @@ def create_heatmap(df):
         return heatmap_data, (start_date, end_date)
     except Exception as e:
         return None
+
+
+def delete_user(spreadsheet, username):
+    """Delete a user from all sheets"""
+    try:
+        # Delete from Users sheet
+        users_sheet = spreadsheet.worksheet("Users")
+        users_data = users_sheet.get_all_values()
+        for idx, row in enumerate(users_data):
+            if len(row) > 0 and row[0] == username:
+                users_sheet.delete_rows(idx + 1)
+                break
+        
+        # Delete from Bodyweights sheet
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_data = bw_sheet.get_all_values()
+        for idx, row in enumerate(bw_data):
+            if len(row) > 0 and row[0] == username:
+                bw_sheet.delete_rows(idx + 1)
+                break
+        
+        # Delete from UserProfile sheet
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        profile_data = profile_sheet.get_all_values()
+        for idx, row in enumerate(profile_data):
+            if len(row) > 0 and row[0] == username:
+                profile_sheet.delete_rows(idx + 1)
+                break
+        
+        # Delete workout data from Sheet1
+        workout_sheet = spreadsheet.worksheet("Sheet1")
+        workout_data = workout_sheet.get_all_values()
+        rows_to_delete = []
+        for idx, row in enumerate(workout_data):
+            if len(row) > 0 and row[0] == username:  # Assuming User is first column
+                rows_to_delete.append(idx + 1)
+        
+        # Delete rows in reverse order to avoid index shifting
+        for row_idx in sorted(rows_to_delete, reverse=True):
+            workout_sheet.delete_rows(row_idx)
+        
+        _load_sheet_data.clear()
+        
+        return True, f"User '{username}' deleted successfully!"
+    except Exception as e:
+        return False, f"Error deleting user: {e}"
+
