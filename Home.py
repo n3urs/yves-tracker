@@ -267,7 +267,38 @@ with col3:
 
 # ==================== HOW TO USE GUIDE ====================
 st.markdown("---")
+
+
+
+
+
 st.markdown("### 📖 How to Use This Tracker")
+
+
+with st.expander("Exercise Technique Tips", expanded=False):
+    st.markdown("""
+**20mm Edge Cable Lift**
+
+- Clip the weight pin to a 20 mm edge on the cable machine.
+- Take a solid half‑crimp with fingers on the edge, thumb over the index finger.
+- Stand tall with shoulders packed and elbow slightly bent, then lift the weight by pulling the elbow down.
+- Lower the weight smoothly back to the start without dropping or swinging.
+
+**Pinch Cable Lift**
+
+- Attach a pinch block to the cable and grip it between thumb and fingers.
+- Keep wrist neutral and arm mostly straight beside your body.
+- Stand stable, brace your core, and lift the weight by driving from the shoulder while squeezing the pinch hard.
+- Pause briefly at the top, then lower the plates under control.
+
+**Wrist Roller Cable Lift (Forearm Reps)**
+
+- Attach the wrist roller handle to the cable and grab it with one hand.
+- Set your forearm so the wrist can move freely (e.g. elbow by your side, forearm roughly horizontal).
+- Lift the plates by bending at the wrist only, focusing on smooth flexion and extension to move through full range.
+- Control the lowering phase; avoid using the shoulder or swinging the pin.
+    """)
+
 
 with st.expander("🎓 **Getting Started Guide**", expanded=False):
     st.markdown("""
