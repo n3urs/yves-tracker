@@ -6,11 +6,12 @@ from utils.helpers import (
     get_google_sheet,
     load_users_from_sheets,
     load_data_from_sheets,
+    get_bodyweight,      # Add these 4 functions
+    set_bodyweight,
+    get_user_1rms,
+    add_new_user,
     USER_LIST
 )
-
-
-
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -181,8 +182,8 @@ if workout_sheet:
     
     for idx, (col, exercise, color) in enumerate(zip([col1, col2, col3], exercises_display, colors)):
         with col:
-            val_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
-            val_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+            val_L = get_user_1rms(spreadsheet, selected_user, exercise, "L")  # Fixed function name
+            val_R = get_user_1rms(spreadsheet, selected_user, exercise, "R")  # Fixed function name
             
             left_vals.append(val_L)
             right_vals.append(val_R)
@@ -275,38 +276,38 @@ if workout_sheet:
     
     st.markdown("---")
     
-          # ==================== CREATE NEW USER ====================
+    # ==================== CREATE NEW USER ====================
     st.markdown("### ➕ Create New User")
-
-col_user1, col_user2, col_user3 = st.columns([2, 2, 1])
-
-with col_user1:
-    new_username = st.text_input("Username:", placeholder="Enter new username", key="new_user_input")
-
-with col_user2:
-    initial_bw = st.number_input("Initial Bodyweight (kg):", min_value=40.0, max_value=150.0, value=78.0, step=0.5, key="new_user_bw")
-
-with col_user3:
-    st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
-    if st.button("Create User", use_container_width=True):
-        if new_username and new_username.strip() != "":
-            if not spreadsheet:
-                st.error("Could not connect to Google Sheets.")
-            else:
-                cleaned_username = new_username.strip()
-                
-                # Get current users to prevent duplicates
-                current_users = load_users_from_sheets(spreadsheet)
-                if cleaned_username in current_users:
-                    st.error(f"User '{cleaned_username}' already exists!")
+    
+    col_user1, col_user2, col_user3 = st.columns([2, 2, 1])
+    
+    with col_user1:
+        new_username = st.text_input("Username:", placeholder="Enter new username", key="new_user_input")
+    
+    with col_user2:
+        initial_bw = st.number_input("Initial Bodyweight (kg):", min_value=40.0, max_value=150.0, value=78.0, step=0.5, key="new_user_bw")
+    
+    with col_user3:
+        st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
+        if st.button("Create User", use_container_width=True):
+            if new_username and new_username.strip() != "":
+                if not spreadsheet:
+                    st.error("Could not connect to Google Sheets.")
                 else:
-                    ok, msg = add_new_user_spreadsheet(spreadsheet, cleaned_username, initial_bw)
-                    if ok:
-                        st.success(msg)
-                        st.info("Refreshing to load new user...")
-                        st.balloons()
-                        st.rerun()
+                    cleaned_username = new_username.strip()
+                    
+                    # Get current users to prevent duplicates
+                    current_users = load_users_from_sheets(spreadsheet)
+                    if cleaned_username in current_users:
+                        st.error(f"User '{cleaned_username}' already exists!")
                     else:
-                        st.error(msg)
-        else:
-            st.error("Please enter a username!")
+                        ok, msg = add_new_user(spreadsheet, cleaned_username, initial_bw)  # Fixed function name
+                        if ok:
+                            st.success(msg)
+                            st.info("Refreshing to load new user...")
+                            st.balloons()
+                            st.rerun()
+                        else:
+                            st.error(msg)
+            else:
+                st.error("Please enter a username!")
