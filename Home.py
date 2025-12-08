@@ -275,7 +275,7 @@ st.markdown("---")
 st.markdown("### 📖 How to Use This Tracker")
 
 
-with st.expander(""💪 **Exercise Technique Tips**", expanded=False):
+with st.expander(""**Exercise Technique Tips**", expanded=False):
     st.markdown("""
 **20mm Edge Cable Lift**
 
