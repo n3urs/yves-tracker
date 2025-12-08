@@ -18,6 +18,11 @@ if workout_sheet:
     df = load_data_from_sheets(workout_sheet)
     
     if len(df) > 0:
+        # Filter out 1RM tests
+        df = df[~df['Exercise'].str.contains('1RM Test', na=False)]
+        
+      
+
         
         # Helper function to create podium display
         def create_podium(leaderboard_data, title, emoji):
@@ -29,7 +34,9 @@ if workout_sheet:
                 return
             
             # Podium for top 3
-            if len(leaderboard_data) >= 3:
+            if len(df) > 0:
+               
+
                 # Create columns for podium (2nd, 1st, 3rd positions)
                 col2, col1, col3 = st.columns([1, 1, 1])
                 
