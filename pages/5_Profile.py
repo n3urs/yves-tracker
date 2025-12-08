@@ -313,3 +313,42 @@ with col_user3:
         else:
             st.error("❌ Please enter a username!")
 
+
+st.markdown("---")
+
+# ==================== DELETE USER ====================
+st.markdown("### 🗑️ Delete User")
+
+st.warning("⚠️ **Warning:** Deleting a user will remove all their data from the system. This action cannot be undone!")
+
+col_del1, col_del2 = st.columns([3, 1])
+
+with col_del1:
+    user_to_delete = st.selectbox(
+        "Select user to delete:",
+        available_users,
+        key="delete_user_selector"
+    )
+
+with col_del2:
+    st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
+    if st.button("🗑️ Delete User", use_container_width=True, type="secondary"):
+        if user_to_delete:
+            # Prevent deleting if it's the only user
+            if len(available_users) <= 1:
+                st.error("❌ Cannot delete the last user!")
+            else:
+                # Confirm deletion
+                if st.session_state.get("confirm_delete") != user_to_delete:
+                    st.session_state.confirm_delete = user_to_delete
+                    st.warning(f"⚠️ Click 'Delete User' again to confirm deletion of **{user_to_delete}**")
+                else:
+                    ok, msg = delete_user(spreadsheet, user_to_delete)
+                    if ok:
+                        st.success(f"✅ User **{user_to_delete}** has been deleted")
+                        st.session_state.confirm_delete = None
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {msg}")
+
+
