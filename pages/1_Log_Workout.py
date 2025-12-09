@@ -484,25 +484,37 @@ else:
         
         st.caption("💡 Tip: Test your 1RM every 3-4 weeks for accurate training targets")
 
-    # ==================== NEW: LOG OTHER ACTIVITIES ====================
+   # ==================== NEW: LOG OTHER ACTIVITIES ====================
     st.markdown("---")
     st.markdown("### 🏔️ Log Other Training Activities")
-
+    
     st.info("Track climbing sessions and work pullups to see your full training calendar!")
-
+    
     tab_climb, tab_work = st.tabs(["🧗 Log Climbing Session", "💪 Log Work Pullups"])
-
+    
     with tab_climb:
         st.markdown("**Record a climbing session**")
         
-        climb_duration = st.number_input(
-            "Duration (minutes)",
-            min_value=5,
-            max_value=480,
-            value=60,
-            step=5,
-            key="climb_duration"
-        )
+        col_date, col_duration = st.columns(2)
+        
+        with col_date:
+            climb_date = st.date_input(
+                "Session date",
+                value=datetime.now().date(),
+                max_value=datetime.now().date(),
+                key="climb_date",
+                help="Select the date of your climbing session"
+            )
+        
+        with col_duration:
+            climb_duration = st.number_input(
+                "Duration (minutes)",
+                min_value=5,
+                max_value=480,
+                value=60,
+                step=5,
+                key="climb_duration"
+            )
         
         climb_notes = st.text_area(
             "Session notes (optional)",
@@ -511,14 +523,22 @@ else:
         )
         
         if st.button("Log Climbing Session", type="primary", use_container_width=True, key="log_climb"):
-            if log_activity_to_sheets(spreadsheet, selected_user, "Climbing", climb_duration, climb_notes):
-                st.success(f"✅ Climbing session logged! ({climb_duration} min)")
+            if log_activity_to_sheets(spreadsheet, selected_user, "Climbing", climb_duration, climb_notes, climb_date):
+                st.success(f"✅ Climbing session logged for {climb_date.strftime('%Y-%m-%d')}! ({climb_duration} min)")
                 st.balloons()
             else:
                 st.error("Failed to log climbing session.")
-
+    
     with tab_work:
         st.markdown("**Quick log for pullups at work**")
+        
+        work_date = st.date_input(
+            "Session date",
+            value=datetime.now().date(),
+            max_value=datetime.now().date(),
+            key="work_date",
+            help="Select the date you did pullups"
+        )
         
         work_notes = st.text_input(
             "Notes (optional)",
@@ -527,7 +547,7 @@ else:
         )
         
         if st.button("Log Work Pullups", type="primary", use_container_width=True, key="log_work"):
-            if log_activity_to_sheets(spreadsheet, selected_user, "Work", None, work_notes):
-                st.success("✅ Work pullups logged!")
+            if log_activity_to_sheets(spreadsheet, selected_user, "Work", None, work_notes, work_date):
+                st.success(f"✅ Work pullups logged for {work_date.strftime('%Y-%m-%d')}!")
             else:
                 st.error("Failed to log work pullups.")
