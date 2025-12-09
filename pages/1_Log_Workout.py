@@ -95,33 +95,52 @@ else:
         
         exercise = st.session_state.selected_exercise
 
-        # Get 1RMs from sheet
-        current_1rm_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
-        current_1rm_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+       # Get working max (auto-updated from recent lifts)
+        current_1rm_L = get_working_max(spreadsheet, selected_user, exercise, "L")
+        current_1rm_R = get_working_max(spreadsheet, selected_user, exercise, "R")
+        
+        # Get stored baseline for comparison
+        stored_1rm_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
+        stored_1rm_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
         
         st.markdown("---")
         
-        # Show current 1RMs in colorful cards
-        st.markdown("### 💪 Your Current 1RMs")
-        col_info_L, col_info_R = st.columns(2)
-        
+        # Show working max with indicator
+        st.markdown("### 💪 Your Current Strength")
+        st.caption("📊 Auto-updated based on recent performance (last 8 weeks)")
+
+       col_info_L, col_info_R = st.columns(2)
+
         with col_info_L:
+            # Indicator if estimated > stored
+            if current_1rm_L > stored_1rm_L + 1:
+                indicator = f'<div style="font-size: 11px; color: #4ade80; margin-top: 3px;">📈 +{current_1rm_L - stored_1rm_L:.1f}kg from baseline</div>'
+            else:
+                indicator = f'<div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px;">✓ From test</div>'
+            
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(79,172,254,0.3);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>👈 Left Arm</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{current_1rm_L} kg</div>
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(79,172,254,0.3);">
+                    <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;">💪 Left Arm</div>
+                    <div style="font-size: 36px; font-weight: bold; color: white;">{current_1rm_L:.1f} kg</div>
+                    {indicator}
                 </div>
             """, unsafe_allow_html=True)
         
         with col_info_R:
+            # Indicator if estimated > stored
+            if current_1rm_R > stored_1rm_R + 1:
+                indicator = f'<div style="font-size: 11px; color: #4ade80; margin-top: 3px;">📈 +{current_1rm_R - stored_1rm_R:.1f}kg from baseline</div>'
+            else:
+                indicator = f'<div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px;">✓ From test</div>'
+            
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(240,147,251,0.3);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>👉 Right Arm</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{current_1rm_R} kg</div>
+                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(240,147,251,0.3);">
+                    <div style="font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;">💪 Right Arm</div>
+                    <div style="font-size: 36px; font-weight: bold; color: white;">{current_1rm_R:.1f} kg</div>
+                    {indicator}
                 </div>
             """, unsafe_allow_html=True)
+
         
         st.markdown("---")
         
