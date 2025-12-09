@@ -460,7 +460,6 @@ def get_working_max(spreadsheet, user, exercise, arm, weeks=8):
     """
     Calculate working max based on recent best performance.
     Returns the higher of: stored 1RM or estimated from recent lifts (last 8 weeks).
-    This gives a more accurate "current strength" than an old 1RM test.
     """
     # Get stored 1RM (baseline from tests)
     stored_1rm = get_user_1rm(spreadsheet, user, exercise, arm)
@@ -503,4 +502,3 @@ def get_working_max(spreadsheet, user, exercise, arm, weeks=8):
         pass
     
     return stored_1rm
-
