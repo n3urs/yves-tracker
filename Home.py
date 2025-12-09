@@ -11,7 +11,7 @@ init_session_state()
 
 # Current date banner
 today = datetime.now()
-friendly_date = today.strftime("%A %d %B %Y")  # e.g. Monday 08 December 2025
+friendly_date = today.strftime("%A %d %B %Y")
 
 st.markdown(
     f"""
@@ -21,7 +21,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
 
 # ==================== HEADER WITH BANNER ====================
 st.markdown("""
@@ -57,11 +56,6 @@ st.session_state.current_user = st.sidebar.selectbox(
 
 selected_user = st.session_state.current_user
 
-# Add refresh button in sidebar
-if st.sidebar.button("🔄 Refresh Data", help="Clear cache and reload from Google Sheets"):
-    _load_sheet_data.clear()
-    st.rerun()
-
 # ==================== PERSONALIZED WELCOME ====================
 st.markdown(f"## Welcome back, {selected_user}! 👋")
 
@@ -74,10 +68,10 @@ if workout_sheet:
         
         col1, col2, col3, col4, col5 = st.columns(5)
         
-        # Total SESSIONS (unique dates) - FIXED
+        # Total SESSIONS (unique dates)
         with col1:
             df['Date'] = pd.to_datetime(df['Date'])
-            total_sessions = len(df['Date'].dt.date.unique())  # Count unique dates
+            total_sessions = len(df['Date'].dt.date.unique())
             
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
@@ -92,8 +86,6 @@ if workout_sheet:
             last_workout = df['Date'].max()
             days_since = (pd.Timestamp.now() - last_workout).days
             
-            color = "#4ade80" if days_since <= 2 else "#fb923c" if days_since <= 5 else "#f87171"
-            
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
                 padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(79,172,254,0.4);'>
@@ -104,7 +96,6 @@ if workout_sheet:
         
         # Total volume (excluding 1RM tests)
         with col3:
-            # Filter out 1RM tests
             df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
             
             total_volume = (pd.to_numeric(df_volume['Actual_Load_kg'], errors='coerce') *
@@ -131,9 +122,8 @@ if workout_sheet:
                 </div>
             """, unsafe_allow_html=True)
         
-        # This week's sessions - ALSO FIXED
+        # This week's sessions
         with col5:
-            # Use date-only comparison so all workouts on the same calendar day count
             today_date = datetime.now().date()
             week_start = today_date - timedelta(days=today_date.weekday())
         
@@ -156,7 +146,7 @@ if workout_sheet:
                 unsafe_allow_html=True,
             )
 
-        # ==== Next workout suggestion (alternate Pinch / Wrist Roller) ====
+        # Next workout suggestion
         next_workout = None
         try:
             df_ex = df[df["Exercise"].isin(["Pinch", "Wrist Roller"])].copy()
@@ -200,46 +190,40 @@ if workout_sheet:
                 unsafe_allow_html=True,
             )
 
-
-
         st.markdown("---")
         st.markdown("### 📅 Training Activity Calendar")
         
-        # Load all activities for the user
+        # Load all activities
         if spreadsheet:
             activity_df = load_activity_log(spreadsheet, selected_user)
             workout_df = df if len(df) > 0 else pd.DataFrame()
             
-            # Build combined calendar data
             calendar_data = {}
             
-            # Add gym workouts (from Sheet1)
+            # Add gym workouts
             if len(workout_df) > 0:
                 workout_df["Date"] = pd.to_datetime(workout_df["Date"], errors="coerce").dt.date
                 for date in workout_df["Date"].dropna().unique():
                     calendar_data[str(date)] = "Gym"
             
-            # Add climbing and work activities (from ActivityLog)
+            # Add climbing and work
             if len(activity_df) > 0:
                 activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
                 for _, row in activity_df.iterrows():
                     date_str = str(row["Date"])
                     activity_type = row["ActivityType"]
-                    # If already has gym entry, keep it (gym takes priority in color)
                     if date_str not in calendar_data:
                         calendar_data[date_str] = activity_type
             
-            # Generate year calendar (last 365 days)
+            # Generate calendar
             today_cal = datetime.now().date()
             start_date = today_cal - timedelta(days=364)
             
-            # Build calendar squares first
             squares_list = []
             for i in range(365):
                 current_date = start_date + timedelta(days=i)
                 date_str = str(current_date)
                 
-                # Determine color based on activity type
                 if date_str in calendar_data:
                     activity = calendar_data[date_str]
                     if activity == "Gym":
@@ -258,14 +242,11 @@ if workout_sheet:
                     color = "#2d2d2d"
                     label = "Rest"
                 
-                # Create square HTML - INCREASED SIZE
                 square = f'<div title="{current_date.strftime("%Y-%m-%d")} - {label}" style="width: 18px; height: 18px; background: {color}; border-radius: 3px;"></div>'
                 squares_list.append(square)
             
-            # Join all squares and wrap in container - INCREASED WIDTH AND GAP
             calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 20px 0;">' + ''.join(squares_list) + '</div>'
             
-            # Legend - INCREASED SIZE
             legend_html = """
             <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 30px; font-size: 16px; justify-content: center;'>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Arm Lifting)</div>
@@ -275,10 +256,8 @@ if workout_sheet:
             </div>
             """
             
-            # Render calendar
             st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
             
-            # Quick stats below calendar - LARGER FONT
             gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
             climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
             work_days = sum(1 for v in calendar_data.values() if v == "Work")
@@ -290,12 +269,10 @@ if workout_sheet:
                 st.metric("🧗 Climbing Days (365d)", climb_days)
             with col3:
                 st.metric("💪 Work Days (365d)", work_days)
-        
 
         st.markdown("---")
-
         
-        # ==================== CURRENT STRENGTH (WORKING MAX) ====================
+        # CURRENT STRENGTH (WORKING MAX)
         st.markdown("### 💪 Your Current Strength")
         st.caption("📊 Based on recent training performance (auto-updated from last 8 weeks)")
         
@@ -307,7 +284,6 @@ if workout_sheet:
             stored_edge_L = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
             stored_edge_R = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
             
-            # Check if estimated
             if edge_L > stored_edge_L + 1:
                 indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{edge_L - stored_edge_L:.1f}kg from baseline</div>'
             else:
@@ -343,7 +319,6 @@ if workout_sheet:
             stored_pinch_L = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
             stored_pinch_R = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
             
-            # Check if estimated
             if pinch_L > stored_pinch_L + 1:
                 indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{pinch_L - stored_pinch_L:.1f}kg from baseline</div>'
             else:
@@ -379,7 +354,6 @@ if workout_sheet:
             stored_wrist_L = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
             stored_wrist_R = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
             
-            # Check if estimated
             if wrist_L > stored_wrist_L + 1:
                 indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{wrist_L - stored_wrist_L:.1f}kg from baseline</div>'
             else:
@@ -465,7 +439,6 @@ with col3:
 
 # ==================== HOW TO USE GUIDE ====================
 st.markdown("---")
-
 st.markdown("### 📖 How to Use This Tracker")
 
 with st.expander("💪 **Exercise Technique Tips**", expanded=False):
@@ -493,7 +466,7 @@ with st.expander("💪 **Exercise Technique Tips**", expanded=False):
     - Avoid using a long rope and "rolling" the weight; instead, keep the connection short so the lift comes from driving through the legs.
     - Maintain a strong wrist and open‑hand position against the handle as you pick the weight up and set it back down.
     - Use smooth, powerful reps to develop forearm and wrist strength that carries over to slopers and open‑hand grips.
-        """)
+    """)
 
 with st.expander("🎓 **Getting Started Guide**", expanded=False):
     st.markdown("""
