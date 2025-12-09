@@ -57,6 +57,11 @@ st.session_state.current_user = st.sidebar.selectbox(
 
 selected_user = st.session_state.current_user
 
+# Add refresh button in sidebar
+if st.sidebar.button("🔄 Refresh Data", help="Clear cache and reload from Google Sheets"):
+    _load_sheet_data.clear()
+    st.rerun()
+
 # ==================== PERSONALIZED WELCOME ====================
 st.markdown(f"## Welcome back, {selected_user}! 👋")
 
@@ -289,16 +294,29 @@ if workout_sheet:
 
         st.markdown("---")
 
-
         
-        # Current 1RMs Display
-        st.markdown("### 💪 Your Current 1RMs")
+        # ==================== CURRENT STRENGTH (WORKING MAX) ====================
+        st.markdown("### 💪 Your Current Strength")
+        st.caption("📊 Based on recent training performance (auto-updated from last 8 weeks)")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            edge_L = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
-            edge_R = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
+            edge_L = get_working_max(spreadsheet, selected_user, "20mm Edge", "L")
+            edge_R = get_working_max(spreadsheet, selected_user, "20mm Edge", "R")
+            stored_edge_L = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
+            stored_edge_R = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
+            
+            # Check if estimated
+            if edge_L > stored_edge_L + 1:
+                indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{edge_L - stored_edge_L:.1f}kg from baseline</div>'
+            else:
+                indicator_L = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                
+            if edge_R > stored_edge_R + 1:
+                indicator_R = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{edge_R - stored_edge_R:.1f}kg from baseline</div>'
+            else:
+                indicator_R = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
             
             st.markdown(f"""
                 <div style='background: rgba(255,215,0,0.1); border-left: 5px solid #FFD700; 
@@ -307,19 +325,34 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between;'>
                         <div>
                             <div style='font-size: 12px; color: #888;'>Left</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{edge_L} kg</div>
+                            <div style='font-size: 28px; font-weight: bold;'>{edge_L:.1f} kg</div>
+                            {indicator_L}
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 12px; color: #888;'>Right</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{edge_R} kg</div>
+                            <div style='font-size: 28px; font-weight: bold;'>{edge_R:.1f} kg</div>
+                            {indicator_R}
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col2:
-            pinch_L = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
-            pinch_R = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
+            pinch_L = get_working_max(spreadsheet, selected_user, "Pinch", "L")
+            pinch_R = get_working_max(spreadsheet, selected_user, "Pinch", "R")
+            stored_pinch_L = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
+            stored_pinch_R = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
+            
+            # Check if estimated
+            if pinch_L > stored_pinch_L + 1:
+                indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{pinch_L - stored_pinch_L:.1f}kg from baseline</div>'
+            else:
+                indicator_L = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                
+            if pinch_R > stored_pinch_R + 1:
+                indicator_R = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{pinch_R - stored_pinch_R:.1f}kg from baseline</div>'
+            else:
+                indicator_R = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
             
             st.markdown(f"""
                 <div style='background: rgba(192,192,192,0.1); border-left: 5px solid #C0C0C0; 
@@ -328,19 +361,34 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between;'>
                         <div>
                             <div style='font-size: 12px; color: #888;'>Left</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{pinch_L} kg</div>
+                            <div style='font-size: 28px; font-weight: bold;'>{pinch_L:.1f} kg</div>
+                            {indicator_L}
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 12px; color: #888;'>Right</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{pinch_R} kg</div>
+                            <div style='font-size: 28px; font-weight: bold;'>{pinch_R:.1f} kg</div>
+                            {indicator_R}
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
         
         with col3:
-            wrist_L = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
-            wrist_R = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
+            wrist_L = get_working_max(spreadsheet, selected_user, "Wrist Roller", "L")
+            wrist_R = get_working_max(spreadsheet, selected_user, "Wrist Roller", "R")
+            stored_wrist_L = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
+            stored_wrist_R = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
+            
+            # Check if estimated
+            if wrist_L > stored_wrist_L + 1:
+                indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{wrist_L - stored_wrist_L:.1f}kg from baseline</div>'
+            else:
+                indicator_L = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                
+            if wrist_R > stored_wrist_R + 1:
+                indicator_R = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{wrist_R - stored_wrist_R:.1f}kg from baseline</div>'
+            else:
+                indicator_R = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
             
             st.markdown(f"""
                 <div style='background: rgba(205,127,50,0.1); border-left: 5px solid #CD7F32; 
@@ -349,11 +397,13 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between;'>
                         <div>
                             <div style='font-size: 12px; color: #888;'>Left</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{wrist_L} kg</div>
+                            <div style='font-size: 28px; font-weight: bold;'>{wrist_L:.1f} kg</div>
+                            {indicator_L}
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 12px; color: #888;'>Right</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{wrist_R} kg</div>
+                            <div style='font-size: 28px; font-weight: bold;'>{wrist_R:.1f} kg</div>
+                            {indicator_R}
                         </div>
                     </div>
                 </div>
@@ -450,7 +500,7 @@ with st.expander("🎓 **Getting Started Guide**", expanded=False):
     #### 1️⃣ **Log Your Workouts**
     - Go to **Log Workout** page
     - Select your exercise (20mm Edge, Pinch, or Wrist Roller)
-    - The app will show your current 1RM and calculate target weights
+    - The app will show your current strength and calculate target weights
     - Enter the weight you lifted, reps, sets, and RPE
     - Add notes about how it felt
     - Click "Log Workout" to save!
@@ -466,7 +516,7 @@ with st.expander("🎓 **Getting Started Guide**", expanded=False):
     - Check the **Goals** page for:
         - Weekly training schedule
         - Technique tips for each exercise
-        - Current 1RMs
+        - Current strength levels
         - Training consistency tracker
     
     #### 4️⃣ **Compete on the Leaderboard**
@@ -479,13 +529,14 @@ with st.expander("🎓 **Getting Started Guide**", expanded=False):
     #### 5️⃣ **Manage Your Profile**
     - Use **Profile** page to:
         - Update your bodyweight
-        - View all your current 1RMs
+        - View all your current strength levels
         - Create new users for your climbing crew
     
     ---
     
     #### 💡 **Pro Tips**
-    - **1RM Tests**: Log "1RM Test" exercises periodically to update your max lifts
+    - **1RM Tests**: Log "1RM Test" exercises every 3-4 weeks to update your baseline
+    - **Auto-Updates**: Your strength estimates update automatically based on recent training
     - **Consistency**: Train 3-6x per week following the schedule
     - **Recovery**: Watch your RPE trends - if consistently high, take a rest day
     - **Progression**: Aim to increase weight by 2.5-5kg every 2-3 weeks
@@ -501,17 +552,23 @@ with st.expander("❓ **FAQ - Frequently Asked Questions**", expanded=False):
     - 9 = Could do 1 more rep
     - 10 = Absolute maximum effort
     
+    **Q: How does the strength calculation work?**  
+    A: The app uses your recent training loads (last 8 weeks) to estimate your current strength using the Epley formula. If you haven't done a 1RM test recently but have been lifting heavier in training, it will show your estimated strength is higher than your baseline test.
+    
     **Q: How often should I test my 1RM?**  
-    A: Every 3-4 weeks. Too frequent testing can be fatiguing.
+    A: Every 3-4 weeks. The app auto-estimates between tests, but periodic testing keeps your baseline accurate.
     
     **Q: What if I can't hit the prescribed weight?**  
-    A: That's fine! Enter what you actually lifted. The app tracks everything.
+    A: That's fine! Enter what you actually lifted. The app tracks everything and adjusts.
     
     **Q: Can multiple people use this tracker?**  
     A: Yes! Go to Profile → Create New User to add climbing partners.
     
     **Q: What do the plate calculations mean?**  
     A: The app shows exactly which weight plates to load on each side of the cable machine.
+    
+    **Q: Why does it show "+X kg from baseline"?**  
+    A: This means your recent training suggests you're stronger than your last test. Consider doing a new 1RM test to confirm!
     """)
 
 st.markdown("---")
