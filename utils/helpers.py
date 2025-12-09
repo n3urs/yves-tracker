@@ -404,3 +404,50 @@ def delete_user(spreadsheet, username):
     except Exception as e:
         return False, f"Error deleting user: {e}"
 
+def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, notes=""):
+    """
+    Log a simple activity (Climbing, Work Pullups, or Gym) to ActivityLog sheet.
+    activity_type: "Gym", "Climbing", "Work"
+    """
+    try:
+        # Get or create ActivityLog sheet
+        all_sheets = [ws.title for ws in spreadsheet.worksheets()]
+        if "ActivityLog" in all_sheets:
+            activity_sheet = spreadsheet.worksheet("ActivityLog")
+        else:
+            activity_sheet = spreadsheet.add_worksheet(title="ActivityLog", rows=1000, cols=6)
+            activity_sheet.append_row(["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+        
+        # Prepare row
+        row_data = {
+            "User": user,
+            "Date": datetime.now().strftime("%Y-%m-%d"),
+            "ActivityType": activity_type,
+            "DurationMin": duration_min if duration_min else "",
+            "Notes": notes,
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        activity_sheet.append_row(list(row_data.values()))
+        load_sheet_data.clear()  # Clear cache
+        return True
+    except Exception as e:
+        st.error(f"Error logging activity: {e}")
+        return False
+
+
+def load_activity_log(spreadsheet, user=None):
+    """Load activity log from ActivityLog sheet, optionally filtered by user."""
+    try:
+        data = load_sheet_data("ActivityLog")
+        if data:
+            df = pd.DataFrame(data)
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
+            return df
+        else:
+            return pd.DataFrame(columns=["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+    except Exception as e:
+        return pd.DataFrame(columns=["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+
+
