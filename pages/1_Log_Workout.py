@@ -483,3 +483,51 @@ else:
                 st.error("❌ Failed to update 1RMs. Please try again.")
         
         st.caption("💡 Tip: Test your 1RM every 3-4 weeks for accurate training targets")
+
+    # ==================== NEW: LOG OTHER ACTIVITIES ====================
+    st.markdown("---")
+    st.markdown("### 🏔️ Log Other Training Activities")
+
+    st.info("Track climbing sessions and work pullups to see your full training calendar!")
+
+    tab_climb, tab_work = st.tabs(["🧗 Log Climbing Session", "💪 Log Work Pullups"])
+
+    with tab_climb:
+        st.markdown("**Record a climbing session**")
+        
+        climb_duration = st.number_input(
+            "Duration (minutes)",
+            min_value=5,
+            max_value=480,
+            value=60,
+            step=5,
+            key="climb_duration"
+        )
+        
+        climb_notes = st.text_area(
+            "Session notes (optional)",
+            placeholder="e.g., Boulderryn, felt strong on V5s",
+            key="climb_notes"
+        )
+        
+        if st.button("Log Climbing Session", type="primary", use_container_width=True, key="log_climb"):
+            if log_activity_to_sheets(spreadsheet, selected_user, "Climbing", climb_duration, climb_notes):
+                st.success(f"✅ Climbing session logged! ({climb_duration} min)")
+                st.balloons()
+            else:
+                st.error("Failed to log climbing session.")
+
+    with tab_work:
+        st.markdown("**Quick log for pullups at work**")
+        
+        work_notes = st.text_input(
+            "Notes (optional)",
+            placeholder="e.g., 3 sets during lunch break",
+            key="work_notes"
+        )
+        
+        if st.button("Log Work Pullups", type="primary", use_container_width=True, key="log_work"):
+            if log_activity_to_sheets(spreadsheet, selected_user, "Work", None, work_notes):
+                st.success("✅ Work pullups logged!")
+            else:
+                st.error("Failed to log work pullups.")
