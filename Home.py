@@ -199,94 +199,93 @@ if workout_sheet:
 
 
         st.markdown("---")
-    st.markdown("### 📅 Training Activity Calendar")
-    
-    # Load all activities for the user
-    if spreadsheet:
-        activity_df = load_activity_log(spreadsheet, selected_user)
-        workout_df = df if len(df) > 0 else pd.DataFrame()
+        st.markdown("### 📅 Training Activity Calendar")
         
-        # Build combined calendar data
-        calendar_data = {}
-        
-        # Add gym workouts (from Sheet1)
-        if len(workout_df) > 0:
-            workout_df["Date"] = pd.to_datetime(workout_df["Date"], errors="coerce").dt.date
-            for date in workout_df["Date"].dropna().unique():
-                calendar_data[str(date)] = "Gym"
-        
-        # Add climbing and work activities (from ActivityLog)
-        if len(activity_df) > 0:
-            activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
-            for _, row in activity_df.iterrows():
-                date_str = str(row["Date"])
-                activity_type = row["ActivityType"]
-                # If already has gym entry, keep it (gym takes priority in color)
-                if date_str not in calendar_data:
-                    calendar_data[date_str] = activity_type
-        
-        # Generate year calendar (last 365 days)
-        today = datetime.now().date()
-        start_date = today - timedelta(days=364)
-        
-        # Build HTML for calendar (GitHub-style grid)
-        calendar_html = "<div style='display: flex; flex-wrap: wrap; gap: 3px; max-width: 900px;'>"
-        
-        for i in range(365):
-            current_date = start_date + timedelta(days=i)
-            date_str = str(current_date)
+        # Load all activities for the user
+        if spreadsheet:
+            activity_df = load_activity_log(spreadsheet, selected_user)
+            workout_df = df if len(df) > 0 else pd.DataFrame()
             
-            # Determine color based on activity type
-            if date_str in calendar_data:
-                activity = calendar_data[date_str]
-                if activity == "Gym":
-                    color = "#667eea"  # Purple for gym
-                    label = "Gym"
-                elif activity == "Climbing":
-                    color = "#4ade80"  # Green for climbing
-                    label = "Climbing"
-                elif activity == "Work":
-                    color = "#fb923c"  # Orange for work pullups
-                    label = "Work"
+            # Build combined calendar data
+            calendar_data = {}
+            
+            # Add gym workouts (from Sheet1)
+            if len(workout_df) > 0:
+                workout_df["Date"] = pd.to_datetime(workout_df["Date"], errors="coerce").dt.date
+                for date in workout_df["Date"].dropna().unique():
+                    calendar_data[str(date)] = "Gym"
+            
+            # Add climbing and work activities (from ActivityLog)
+            if len(activity_df) > 0:
+                activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
+                for _, row in activity_df.iterrows():
+                    date_str = str(row["Date"])
+                    activity_type = row["ActivityType"]
+                    # If already has gym entry, keep it (gym takes priority in color)
+                    if date_str not in calendar_data:
+                        calendar_data[date_str] = activity_type
+            
+            # Generate year calendar (last 365 days)
+            today_cal = datetime.now().date()
+            start_date = today_cal - timedelta(days=364)
+            
+            # Build calendar squares first
+            squares_list = []
+            for i in range(365):
+                current_date = start_date + timedelta(days=i)
+                date_str = str(current_date)
+                
+                # Determine color based on activity type
+                if date_str in calendar_data:
+                    activity = calendar_data[date_str]
+                    if activity == "Gym":
+                        color = "#667eea"
+                        label = "Gym"
+                    elif activity == "Climbing":
+                        color = "#4ade80"
+                        label = "Climbing"
+                    elif activity == "Work":
+                        color = "#fb923c"
+                        label = "Work"
+                    else:
+                        color = "#667eea"
+                        label = "Gym"
                 else:
-                    color = "#667eea"
-                    label = "Gym"
-            else:
-                color = "#2d2d2d"  # Dark gray for rest days
-                label = "Rest"
+                    color = "#2d2d2d"
+                    label = "Rest"
+                
+                # Create square HTML
+                square = f'<div title="{current_date.strftime("%Y-%m-%d")} - {label}" style="width: 12px; height: 12px; background: {color}; border-radius: 2px;"></div>'
+                squares_list.append(square)
             
-            # Create square with tooltip
-            calendar_html += f"""
-            <div title="{current_date.strftime('%Y-%m-%d')} - {label}" 
-                 style="width: 12px; height: 12px; background: {color}; border-radius: 2px;"></div>
+            # Join all squares and wrap in container
+            calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 3px; max-width: 900px;">' + ''.join(squares_list) + '</div>'
+            
+            # Legend
+            legend_html = """
+            <div style='margin-top: 15px; display: flex; gap: 20px; font-size: 14px;'>
+                <div><span style='display: inline-block; width: 12px; height: 12px; background: #667eea; border-radius: 2px; margin-right: 5px;'></span>Gym (Arm Lifting)</div>
+                <div><span style='display: inline-block; width: 12px; height: 12px; background: #4ade80; border-radius: 2px; margin-right: 5px;'></span>Climbing</div>
+                <div><span style='display: inline-block; width: 12px; height: 12px; background: #fb923c; border-radius: 2px; margin-right: 5px;'></span>Work Pullups</div>
+                <div><span style='display: inline-block; width: 12px; height: 12px; background: #2d2d2d; border-radius: 2px; margin-right: 5px;'></span>Rest</div>
+            </div>
             """
-        
-        calendar_html += "</div>"
-        
-        # Legend
-        legend_html = """
-        <div style='margin-top: 15px; display: flex; gap: 20px; font-size: 14px;'>
-            <div><span style='display: inline-block; width: 12px; height: 12px; background: #667eea; border-radius: 2px; margin-right: 5px;'></span>Gym (Arm Lifting)</div>
-            <div><span style='display: inline-block; width: 12px; height: 12px; background: #4ade80; border-radius: 2px; margin-right: 5px;'></span>Climbing</div>
-            <div><span style='display: inline-block; width: 12px; height: 12px; background: #fb923c; border-radius: 2px; margin-right: 5px;'></span>Work Pullups</div>
-            <div><span style='display: inline-block; width: 12px; height: 12px; background: #2d2d2d; border-radius: 2px; margin-right: 5px;'></span>Rest</div>
-        </div>
-        """
-        
-        st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
-        
-        # Quick stats below calendar
-        gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
-        climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
-        work_days = sum(1 for v in calendar_data.values() if v == "Work")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("🏋️ Gym Days (365d)", gym_days)
-        with col2:
-            st.metric("🧗 Climbing Days (365d)", climb_days)
-        with col3:
-            st.metric("💪 Work Days (365d)", work_days)
+            
+            # Render calendar
+            st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
+            
+            # Quick stats below calendar
+            gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
+            climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
+            work_days = sum(1 for v in calendar_data.values() if v == "Work")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("🏋️ Gym Days (365d)", gym_days)
+            with col2:
+                st.metric("🧗 Climbing Days (365d)", climb_days)
+            with col3:
+                st.metric("💪 Work Days (365d)", work_days)
 
         
         # Current 1RMs Display
