@@ -195,7 +195,6 @@ if workout_sheet:
                 unsafe_allow_html=True,
             )
 
-        st.markdown("---")
 
 
         st.markdown("---")
@@ -286,6 +285,10 @@ if workout_sheet:
                 st.metric("🧗 Climbing Days (365d)", climb_days)
             with col3:
                 st.metric("💪 Work Days (365d)", work_days)
+
+
+        st.markdown("---")
+
 
         
         # Current 1RMs Display
