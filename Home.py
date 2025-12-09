@@ -253,27 +253,27 @@ if workout_sheet:
                     color = "#2d2d2d"
                     label = "Rest"
                 
-                # Create square HTML
-                square = f'<div title="{current_date.strftime("%Y-%m-%d")} - {label}" style="width: 12px; height: 12px; background: {color}; border-radius: 2px;"></div>'
+                # Create square HTML - INCREASED SIZE
+                square = f'<div title="{current_date.strftime("%Y-%m-%d")} - {label}" style="width: 18px; height: 18px; background: {color}; border-radius: 3px;"></div>'
                 squares_list.append(square)
             
-            # Join all squares and wrap in container
-            calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 3px; max-width: 900px;">' + ''.join(squares_list) + '</div>'
+            # Join all squares and wrap in container - INCREASED WIDTH AND GAP
+            calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 20px 0;">' + ''.join(squares_list) + '</div>'
             
-            # Legend
+            # Legend - INCREASED SIZE
             legend_html = """
-            <div style='margin-top: 15px; display: flex; gap: 20px; font-size: 14px;'>
-                <div><span style='display: inline-block; width: 12px; height: 12px; background: #667eea; border-radius: 2px; margin-right: 5px;'></span>Gym (Arm Lifting)</div>
-                <div><span style='display: inline-block; width: 12px; height: 12px; background: #4ade80; border-radius: 2px; margin-right: 5px;'></span>Climbing</div>
-                <div><span style='display: inline-block; width: 12px; height: 12px; background: #fb923c; border-radius: 2px; margin-right: 5px;'></span>Work Pullups</div>
-                <div><span style='display: inline-block; width: 12px; height: 12px; background: #2d2d2d; border-radius: 2px; margin-right: 5px;'></span>Rest</div>
+            <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 30px; font-size: 16px; justify-content: center;'>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Arm Lifting)</div>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #4ade80; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Climbing</div>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #fb923c; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Work Pullups</div>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #2d2d2d; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Rest</div>
             </div>
             """
             
             # Render calendar
             st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
             
-            # Quick stats below calendar
+            # Quick stats below calendar - LARGER FONT
             gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
             climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
             work_days = sum(1 for v in calendar_data.values() if v == "Work")
@@ -285,7 +285,7 @@ if workout_sheet:
                 st.metric("🧗 Climbing Days (365d)", climb_days)
             with col3:
                 st.metric("💪 Work Days (365d)", work_days)
-
+        
 
         st.markdown("---")
 
