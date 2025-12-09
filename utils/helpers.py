@@ -455,3 +455,52 @@ def load_activity_log(spreadsheet, user=None):
             return pd.DataFrame(columns=["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
     except Exception as e:
         return pd.DataFrame(columns=["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+
+def get_working_max(spreadsheet, user, exercise, arm, weeks=8):
+    """
+    Calculate working max based on recent best performance.
+    Returns the higher of: stored 1RM or estimated from recent lifts (last 8 weeks).
+    This gives a more accurate "current strength" than an old 1RM test.
+    """
+    # Get stored 1RM (baseline from tests)
+    stored_1rm = get_user_1rm(spreadsheet, user, exercise, arm)
+    
+    # Get best recent lift and estimate 1RM from it
+    try:
+        data = _load_sheet_data("Sheet1")
+        if data:
+            df = pd.DataFrame(data)
+            cutoff_date = datetime.now() - timedelta(weeks=weeks)
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            
+            # Filter for this exercise, arm, recent dates, and exclude 1RM tests
+            df_filtered = df[
+                (df['User'] == user) &
+                (df['Exercise'].str.contains(exercise, na=False)) &
+                (df['Arm'] == arm) &
+                (df['Date'] >= cutoff_date) &
+                (~df['Exercise'].str.contains('1RM Test', na=False))
+            ]
+            
+            if len(df_filtered) > 0:
+                # Convert to numeric
+                df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
+                df_filtered['Reps_Per_Set'] = pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce')
+                
+                # Calculate estimated 1RM for each set using Epley formula
+                df_filtered['Estimated_1RM'] = df_filtered.apply(
+                    lambda row: estimate_1rm_epley(row['Actual_Load_kg'], row['Reps_Per_Set']) 
+                    if pd.notna(row['Actual_Load_kg']) and pd.notna(row['Reps_Per_Set']) else 0,
+                    axis=1
+                )
+                
+                best_estimated = df_filtered['Estimated_1RM'].max()
+                
+                if pd.notna(best_estimated) and best_estimated > 0:
+                    # Return the higher of stored or estimated
+                    return max(stored_1rm, best_estimated)
+    except:
+        pass
+    
+    return stored_1rm
+
