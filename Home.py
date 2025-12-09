@@ -97,7 +97,7 @@ if workout_sheet:
                 </div>
             """, unsafe_allow_html=True)
         
-                # Total volume (excluding 1RM tests)
+        # Total volume (excluding 1RM tests)
         with col3:
             # Filter out 1RM tests
             df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
@@ -113,8 +113,6 @@ if workout_sheet:
                     <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Total Volume (kg)</div>
                 </div>
             """, unsafe_allow_html=True)
-
-
         
         # Avg RPE
         with col4:
@@ -131,11 +129,11 @@ if workout_sheet:
         # This week's sessions - ALSO FIXED
         with col5:
             # Use date-only comparison so all workouts on the same calendar day count
-            today = datetime.now().date()
-            week_start = today - timedelta(days=today.weekday())
+            today_date = datetime.now().date()
+            week_start = today_date - timedelta(days=today_date.weekday())
         
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
-            df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today)]
+            df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today_date)]
             sessions_this_week = len(df_week["Date"].unique())
         
             st.markdown(
@@ -197,12 +195,6 @@ if workout_sheet:
                 unsafe_allow_html=True,
             )
 
-    st.markdown("---")
-
-    st.markdown("### 💪 Your Current 1RMs")
-    col1, col2, col3 = st.columns(3)
-
-        
         st.markdown("---")
         
         # Current 1RMs Display
@@ -330,12 +322,7 @@ with col3:
 # ==================== HOW TO USE GUIDE ====================
 st.markdown("---")
 
-
-
-
-
 st.markdown("### 📖 How to Use This Tracker")
-
 
 with st.expander("💪 **Exercise Technique Tips**", expanded=False):
     st.markdown("""
@@ -351,7 +338,7 @@ with st.expander("💪 **Exercise Technique Tips**", expanded=False):
     
     - Attach a pinch block to the same style of lifting pin and plates.
     - Place the thumb deep along the side of the block and keep the fingers a bit straighter than a normal climbing grip.
-    - Slightly pronate the wrist so the block “cams” into the hand and feels locked in.
+    - Slightly pronate the wrist so the block "cams" into the hand and feels locked in.
     - Stand over the pin, arm close to the body, and lift mainly from the legs while maintaining that precise pinch.
     - Put the weight down between reps and reset your grip each time so every lift is consistent.
     
@@ -359,11 +346,10 @@ with st.expander("💪 **Exercise Technique Tips**", expanded=False):
     
     - Connect the wrist‑wrench or heavy‑roller handle directly to a short lifting pin with plates.
     - Stand so the handle hangs near the front of your thigh with the arm mostly straight and shoulder relaxed.
-    - Avoid using a long rope and “rolling” the weight; instead, keep the connection short so the lift comes from driving through the legs.
+    - Avoid using a long rope and "rolling" the weight; instead, keep the connection short so the lift comes from driving through the legs.
     - Maintain a strong wrist and open‑hand position against the handle as you pick the weight up and set it back down.
     - Use smooth, powerful reps to develop forearm and wrist strength that carries over to slopers and open‑hand grips.
         """)
-
 
 with st.expander("🎓 **Getting Started Guide**", expanded=False):
     st.markdown("""
