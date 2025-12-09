@@ -404,10 +404,11 @@ def delete_user(spreadsheet, username):
         return False, f"Error deleting user: {e}"
 
 # ==================== ACTIVITY LOGGING ====================
-def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, notes=""):
+def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, notes="", session_date=None):
     """
     Log a simple activity (Climbing, Work Pullups, or Gym) to ActivityLog sheet.
     activity_type: "Gym", "Climbing", "Work"
+    session_date: datetime.date object (defaults to today)
     """
     try:
         # Get or create ActivityLog sheet
@@ -418,10 +419,14 @@ def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, 
             activity_sheet = spreadsheet.add_worksheet(title="ActivityLog", rows=1000, cols=6)
             activity_sheet.append_row(["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
         
+        # Use provided date or default to today
+        if session_date is None:
+            session_date = datetime.now().date()
+        
         # Prepare row
         row_data = [
             user,
-            datetime.now().strftime("%Y-%m-%d"),
+            session_date.strftime("%Y-%m-%d"),
             activity_type,
             duration_min if duration_min else "",
             notes,
@@ -434,6 +439,7 @@ def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, 
     except Exception as e:
         st.error(f"Error logging activity: {e}")
         return False
+
 
 
 def load_activity_log(spreadsheet, user=None):
