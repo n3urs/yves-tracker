@@ -42,19 +42,20 @@ workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
 # Load users
 if spreadsheet:
     available_users = load_users_from_sheets(spreadsheet)
+    user_pins = load_user_pins_from_sheets(spreadsheet)
 else:
     available_users = USER_LIST.copy()
+    user_pins = {user: "0000" for user in available_users}
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
-st.session_state.current_user = st.sidebar.selectbox(
-    "Select User:",
+selected_user = user_selectbox_with_pin(
     available_users,
-    index=available_users.index(st.session_state.current_user) if st.session_state.current_user in available_users else 0,
-    key="user_selector_home"
+    user_pins,
+    selector_key="user_selector_home",
+    label="Select User:"
 )
-
-selected_user = st.session_state.current_user
+st.session_state.current_user = selected_user
 
 # ==================== PERSONALIZED WELCOME ====================
 st.markdown(f"## Welcome back, {selected_user}! 👋")

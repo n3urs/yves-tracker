@@ -12,6 +12,7 @@ PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
 USER_LIST = ["Oscar", "Ian"]
+PIN_LENGTH = 4
 
 EXERCISE_PLAN = {
     "20mm Edge": {
@@ -158,6 +159,71 @@ def load_users_from_sheets(spreadsheet):
     except Exception as e:
         return USER_LIST.copy()
 
+def _normalize_pin_value(pin_value):
+    """Convert sheet value to a cleaned 4-digit PIN string or None."""
+    if pin_value is None:
+        return None
+    try:
+        pin_str = str(pin_value).strip()
+    except Exception:
+        return None
+    if not pin_str:
+        return None
+    if pin_str.endswith('.0') and pin_str.replace('.', '', 1).isdigit():
+        pin_str = pin_str[:-2]
+    pin_str = pin_str.replace(' ', '')
+    if pin_str.isdigit():
+        # Preserve leading zeros if the sheet stores the pin as an int
+        return pin_str.zfill(PIN_LENGTH)
+    return None
+
+def load_user_pins_from_sheets(spreadsheet):
+    """Return a dict mapping usernames to their 4-digit PINs."""
+    pins = {user: None for user in USER_LIST}
+    if not spreadsheet:
+        return pins
+    try:
+        data = _load_sheet_data("Users")
+        for record in data:
+            username = record.get("Username")
+            if username:
+                pins[username] = _normalize_pin_value(record.get("PIN"))
+        return pins
+    except Exception:
+        return pins
+
+def user_selectbox_with_pin(available_users, user_pins, selector_key, label="Select User:"):
+    """Render a sidebar selectbox that requires a PIN before switching profiles."""
+    if not available_users:
+        return None
+
+    if "current_user" not in st.session_state or st.session_state.current_user not in available_users:
+        st.session_state.current_user = available_users[0]
+
+    if selector_key not in st.session_state:
+        st.session_state[selector_key] = st.session_state.current_user
+
+    selected_candidate = st.sidebar.selectbox(label, available_users, key=selector_key)
+    st.sidebar.caption(f"Active profile: {st.session_state.current_user}")
+
+    if selected_candidate != st.session_state.current_user:
+        pin_key = f"{selector_key}_pin"
+        pin_value = st.sidebar.text_input("Enter 4-digit PIN to switch", type="password", max_chars=PIN_LENGTH, key=pin_key)
+        if st.sidebar.button("Switch Profile", key=f"{selector_key}_switch"):
+            stored_pin = user_pins.get(selected_candidate)
+            if not stored_pin:
+                st.sidebar.error("No PIN found for this user. Add a PIN in the Users sheet (PIN column).")
+            elif not pin_value or len(pin_value) != PIN_LENGTH or not pin_value.isdigit():
+                st.sidebar.error("PIN must be exactly 4 digits.")
+            elif pin_value == stored_pin:
+                st.session_state.current_user = selected_candidate
+                st.sidebar.success(f"Switched to {selected_candidate}")
+                st.rerun()
+            else:
+                st.sidebar.error("Incorrect PIN. Try again.")
+
+    return st.session_state.current_user
+
 def get_bodyweight(spreadsheet, user):
     """Get user's bodyweight from Bodyweights sheet"""
     try:
@@ -262,11 +328,14 @@ def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
     except Exception as e:
         return False
 
-def add_new_user(spreadsheet, username, bodyweight=78.0):
-    """Add a new user to all necessary sheets"""
+def add_new_user(spreadsheet, username, bodyweight=78.0, pin=None):
+    """Add a new user with required PIN to all necessary sheets."""
     try:
+        if not pin or len(str(pin)) != PIN_LENGTH or not str(pin).isdigit():
+            return False, "PIN must be a 4-digit number."
+        cleaned_pin = str(pin).zfill(PIN_LENGTH)
         users_sheet = spreadsheet.worksheet("Users")
-        users_sheet.append_row([username])
+        users_sheet.append_row([username, cleaned_pin])
         
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         bw_sheet.append_row([username, float(bodyweight)])

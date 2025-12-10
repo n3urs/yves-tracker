@@ -5,13 +5,16 @@ from utils.helpers import (
     init_session_state,
     get_google_sheet,
     load_users_from_sheets,
+    load_user_pins_from_sheets,
+    user_selectbox_with_pin,
     load_data_from_sheets,
-    get_bodyweight,      # Add these 4 functions
+    get_bodyweight,
     set_bodyweight,
     get_user_1rms,
     add_new_user,
     delete_user,
-    USER_LIST
+    USER_LIST,
+    PIN_LENGTH,
 )
 
 import pandas as pd
@@ -41,19 +44,20 @@ workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
 # Load users
 if spreadsheet:
     available_users = load_users_from_sheets(spreadsheet)
+    user_pins = load_user_pins_from_sheets(spreadsheet)
 else:
     available_users = USER_LIST.copy()
+    user_pins = {user: "0000" for user in available_users}
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
-st.session_state.current_user = st.sidebar.selectbox(
-    "Select User:",
+selected_user = user_selectbox_with_pin(
     available_users,
-    index=available_users.index(st.session_state.current_user) if st.session_state.current_user in available_users else 0,
-    key="user_selector_profile"
+    user_pins,
+    selector_key="user_selector_profile",
+    label="Select User:"
 )
-
-selected_user = st.session_state.current_user
+st.session_state.current_user = selected_user
 
 if workout_sheet:
     # Load data
@@ -283,8 +287,9 @@ if workout_sheet:
     
    # ==================== CREATE NEW USER ====================
 st.markdown("### ➕ Create New User")
+st.caption("Pins are stored in the `Users` sheet (column `PIN` next to `Username`). Keep them private!")
 
-col_user1, col_user2, col_user3 = st.columns([2, 2, 1])
+col_user1, col_user2, col_user3, col_user4 = st.columns([2, 1.5, 1.2, 1])
 
 with col_user1:
     new_username = st.text_input("Username:", placeholder="Enter new username", key="new_user_input")
@@ -293,9 +298,16 @@ with col_user2:
     initial_bw = st.number_input("Initial Bodyweight (kg):", min_value=40.0, max_value=150.0, value=78.0, step=0.5, key="new_user_bw")
 
 with col_user3:
+    new_user_pin = st.text_input(f"4-digit PIN:", max_chars=PIN_LENGTH, type="password", key="new_user_pin")
+
+with col_user4:
     st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
     if st.button("Create User", use_container_width=True):
-        if new_username and new_username.strip() != "":
+        if not new_username or new_username.strip() == "":
+            st.error("❌ Please enter a username!")
+        elif not new_user_pin or len(new_user_pin) != PIN_LENGTH or not new_user_pin.isdigit():
+            st.error("❌ PIN must be exactly 4 digits.")
+        else:
             if not spreadsheet:
                 st.error("❌ Could not connect to Google Sheets.")
             else:
@@ -306,17 +318,15 @@ with col_user3:
                 if cleaned_username in current_users:
                     st.error(f"❌ User '{cleaned_username}' already exists!")
                 else:
-                    ok, msg = add_new_user(spreadsheet, cleaned_username, initial_bw)
+                    ok, msg = add_new_user(spreadsheet, cleaned_username, initial_bw, pin=new_user_pin)
                     if ok:
                         st.success(f"✅ {msg}")
-                        st.success(f"🎉 Welcome **{cleaned_username}**! Initial bodyweight set to **{initial_bw} kg**")
+                        st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
                         st.balloons()
                         st.info("🔄 Refreshing to load new user...")
                         st.rerun()
                     else:
                         st.error(f"❌ {msg}")
-        else:
-            st.error("❌ Please enter a username!")
 
 
 st.markdown("---")
@@ -355,5 +365,3 @@ with col_del2:
                         st.rerun()
                     else:
                         st.error(f"❌ {msg}")
-
-
