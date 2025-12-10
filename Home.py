@@ -27,7 +27,7 @@ st.markdown("""
     <div style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
     padding: 40px 20px; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);'>
         <h1 style='color: white; font-size: 48px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>
-            🧗 Yves Climbing Tracker
+            🧗 Yves Climbing Tracke
         </h1>
         <p style='color: rgba(255,255,255,0.9); font-size: 20px; margin-top: 10px;'>
             Build unbreakable finger strength, track your gains, dominate the leaderboard
