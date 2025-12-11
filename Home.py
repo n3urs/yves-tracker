@@ -57,6 +57,10 @@ selected_user = user_selectbox_with_pin(
 )
 st.session_state.current_user = selected_user
 
+if selected_user == USER_PLACEHOLDER:
+    st.info("🔒 Select a profile from the sidebar and enter the PIN to unlock your dashboard.")
+    st.stop()
+
 # ==================== PERSONALIZED WELCOME ====================
 st.markdown(f"## Welcome back, {selected_user}! 👋")
 
@@ -65,15 +69,32 @@ if workout_sheet:
     df = load_data_from_sheets(workout_sheet, user=selected_user)
     
     if len(df) > 0:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        df['DateOnly'] = df['Date'].dt.date
+        valid_dates = df['DateOnly'].dropna()
+        total_sessions = len(valid_dates.unique())
+        unique_dates_sorted = sorted(valid_dates.unique())
+        current_streak = calculate_training_streak(unique_dates_sorted)
+        last_workout = df['Date'].dropna().max()
+        days_since = (pd.Timestamp.now() - last_workout).days if pd.notna(last_workout) else None
+        df['WeekID'] = df['Date'].dt.to_period('W')
+        active_weeks = len(df['WeekID'].dropna().unique())
+
+        if days_since is not None and days_since >= INACTIVITY_THRESHOLD_DAYS:
+            st.warning(f"⏰ It's been {days_since} days since your last logged workout. Head to **Log Workout** to keep the streak alive!")
+        elif days_since is None:
+            st.info("No dated workouts yet. Log your first session to start earning badges!")
+        
         st.markdown("### 📊 Your Stats at a Glance")
         
         col1, col2, col3, col4, col5 = st.columns(5)
-        
-        # Total SESSIONS (unique dates)
+        df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
+        total_volume = (pd.to_numeric(df_volume['Actual_Load_kg'], errors='coerce') *
+                        pd.to_numeric(df_volume['Reps_Per_Set'], errors='coerce') *
+                        pd.to_numeric(df_volume['Sets_Completed'], errors='coerce')).sum()
+
+        # Total sessions card
         with col1:
-            df['Date'] = pd.to_datetime(df['Date'])
-            total_sessions = len(df['Date'].dt.date.unique())
-            
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
                 padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(240,147,251,0.4);'>
@@ -84,25 +105,17 @@ if workout_sheet:
         
         # Last workout
         with col2:
-            last_workout = df['Date'].max()
-            days_since = (pd.Timestamp.now() - last_workout).days
-            
+            days_display = days_since if days_since is not None else "--"
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
                 padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(79,172,254,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{days_since}</div>
+                    <div style='font-size: 36px; font-weight: bold; color: white;'>{days_display}</div>
                     <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Days Since Last</div>
                 </div>
             """, unsafe_allow_html=True)
         
         # Total volume (excluding 1RM tests)
         with col3:
-            df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
-            
-            total_volume = (pd.to_numeric(df_volume['Actual_Load_kg'], errors='coerce') *
-                           pd.to_numeric(df_volume['Reps_Per_Set'], errors='coerce') *
-                           pd.to_numeric(df_volume['Sets_Completed'], errors='coerce')).sum()
-        
             st.markdown(f"""
                 <div style='text-align: center; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
                 padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(250,112,154,0.4);'>
@@ -127,10 +140,8 @@ if workout_sheet:
         with col5:
             today_date = datetime.now().date()
             week_start = today_date - timedelta(days=today_date.weekday())
-        
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
-            df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today_date)]
-            sessions_this_week = len(df_week["Date"].unique())
+            df_week = df[(df["DateOnly"] >= week_start) & (df["DateOnly"] <= today_date)]
+            sessions_this_week = len(df_week["DateOnly"].dropna().unique())
         
             st.markdown(
                 f"""
@@ -146,6 +157,16 @@ if workout_sheet:
                 """,
                 unsafe_allow_html=True,
             )
+
+        badge_stats = {
+            "total_sessions": total_sessions,
+            "sessions_this_week": sessions_this_week,
+            "total_volume": total_volume,
+            "current_streak": current_streak,
+            "days_since_last": days_since,
+            "active_weeks": active_weeks,
+        }
+        badges = evaluate_badges(badge_stats)
 
         # Next workout suggestion
         next_workout = None
@@ -190,6 +211,55 @@ if workout_sheet:
                 """,
                 unsafe_allow_html=True,
             )
+
+        st.markdown("### 🏅 Badge Showcase")
+        st.caption("Hit milestones to collect badges. Locked badges show your progress.")
+        badge_cols = st.columns(3)
+        for idx, badge in enumerate(badges):
+            col = badge_cols[idx % len(badge_cols)]
+            with col:
+                earned = badge["earned"]
+                maxed_out = badge.get("maxed_out", False)
+                current_level = badge.get("current_level", 0)
+                total_levels = badge.get("total_levels", 0)
+                next_target = badge.get("next_target")
+                metric_value = badge.get("progress_value") or 0
+                unit = badge.get("unit", "")
+                level_label = f"Lv. {current_level}" if earned else "Lv. 0"
+                progress_html = ""
+                if next_target and badge.get("progress_ratio") is not None and not maxed_out:
+                    pct = min(max(badge["progress_ratio"] * 100, 0), 100)
+                    progress_html = f"""
+<div style='margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.8); text-align: center;'>
+    {metric_value:.0f} / {next_target} {unit} • {pct:.0f}%
+</div>
+<div style='height: 6px; background: rgba(255,255,255,0.2); border-radius: 999px; overflow: hidden; margin-top: 4px;'>
+    <div style='height: 100%; width: {pct}%; background: linear-gradient(90deg, #f093fb, #f5576c);'></div>
+</div>
+                    """.strip()
+                next_info = ""
+                if maxed_out:
+                    next_info = "<div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 8px; text-align: center;'>All tiers complete!</div>"
+                elif next_target:
+                    next_info = f"<div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 8px; text-align: center;'>Next goal: {next_target} {unit}</div>"
+                style = "opacity:1; filter:none;" if earned else "opacity:0.55; filter:grayscale(0.4);"
+                st.markdown(
+                    f"""
+                    <div style='position: relative; background: rgba(0,0,0,0.35); padding: 18px; border-radius: 18px; margin-bottom: 18px;
+                                border: 2px solid {"#38bdf8" if earned else "rgba(255,255,255,0.15)"}; {style} box-shadow: 0 8px 25px rgba(0,0,0,0.4);'>
+                        <div style='position: absolute; top: 12px; left: 16px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.8);'>
+                            {level_label}
+                        </div>
+                        <div style='font-size: 42px; text-align: center;'>{badge["emoji"]}</div>
+                        <div style='font-size: 18px; font-weight: 700; text-align: center; margin-top: 6px;'>{badge["name"]}</div>
+                        <div style='font-size: 13px; color: rgba(255,255,255,0.85); margin-top: 8px; text-align: center;'>{badge["description"]}</div>
+                        {next_info}
+                        {progress_html}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+        st.caption("Badges unlock automatically as you train. Keep logging sessions to collect them all!")
 
         st.markdown("---")
         st.markdown("### 📅 Training Activity Calendar")

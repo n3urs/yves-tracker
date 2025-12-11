@@ -41,6 +41,10 @@ selected_user = user_selectbox_with_pin(
 )
 st.session_state.current_user = selected_user
 
+if selected_user == USER_PLACEHOLDER:
+    st.info("🔒 Select a profile from the sidebar to log a workout.")
+    st.stop()
+
 # Bodyweight input
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚖️ Bodyweight")

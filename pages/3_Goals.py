@@ -43,6 +43,10 @@ selected_user = user_selectbox_with_pin(
 )
 st.session_state.current_user = selected_user
 
+if selected_user == USER_PLACEHOLDER:
+    st.info("🔒 Select a profile from the sidebar to view training goals.")
+    st.stop()
+
 if workout_sheet:
     # Load data
     df = load_data_from_sheets(workout_sheet, user=selected_user)

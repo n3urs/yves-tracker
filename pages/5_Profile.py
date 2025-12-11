@@ -15,6 +15,7 @@ from utils.helpers import (
     delete_user,
     USER_LIST,
     PIN_LENGTH,
+    USER_PLACEHOLDER,
 )
 
 import pandas as pd
@@ -58,6 +59,10 @@ selected_user = user_selectbox_with_pin(
     label="Select User:"
 )
 st.session_state.current_user = selected_user
+
+if selected_user == USER_PLACEHOLDER:
+    st.info("🔒 Select a profile from the sidebar to view and edit account details.")
+    st.stop()
 
 if workout_sheet:
     # Load data

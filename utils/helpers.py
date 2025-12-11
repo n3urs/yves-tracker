@@ -13,6 +13,71 @@ PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 QUICK_NOTES = {"💪 Strong": "Strong", "😴 Tired": "Tired", "🤕 Hand pain": "Hand pain", "😤 Hard": "Hard", "✨ Great": "Great"}
 USER_LIST = ["Oscar", "Ian"]
 PIN_LENGTH = 4
+USER_PLACEHOLDER = "🔒 Select a profile"
+INACTIVITY_THRESHOLD_DAYS = 5
+
+BADGE_RULES = [
+    {
+        "id": "active_weeks",
+        "name": "Consistency Roots",
+        "description": "Weeks with at least one logged workout.",
+        "emoji": "🌱",
+        "metric": "active_weeks",
+        "comparison": ">=",
+        "levels": [1, 2, 4, 8, 16, 32, 52],
+        "unit": "weeks",
+    },
+    {
+        "id": "ten_sessions",
+        "name": "Log Machine",
+        "description": "Total workouts completed over time.",
+        "emoji": "💯",
+        "metric": "total_sessions",
+        "comparison": ">=",
+        "levels": [10, 20, 50, 100, 150, 250, 400],
+        "unit": "sessions",
+    },
+    {
+        "id": "streak_five",
+        "name": "Consistency Champ",
+        "description": "Training streak milestones.",
+        "emoji": "🔥",
+        "metric": "current_streak",
+        "comparison": ">=",
+        "levels": [5, 10, 20, 30, 50],
+        "unit": "sessions",
+    },
+    {
+        "id": "weekly_warrior",
+        "name": "Weekly Warrior",
+        "description": "Sessions completed this week.",
+        "emoji": "📅",
+        "metric": "sessions_this_week",
+        "comparison": ">=",
+        "levels": [3, 5, 8, 12, 16],
+        "unit": "sessions",
+    },
+    {
+        "id": "volume_beast",
+        "name": "Volume Beast",
+        "description": "Total training volume moved.",
+        "emoji": "🚀",
+        "metric": "total_volume",
+        "comparison": ">=",
+        "levels": [25000, 50000, 100000, 200000, 400000, 800000],
+        "unit": "kg",
+    },
+    {
+        "id": "fresh_session",
+        "name": "Fresh Session",
+        "description": "Keep workouts recent.",
+        "emoji": "⚡️",
+        "metric": "days_since_last",
+        "comparison": "<=",
+        "levels": [4, 3, 2, 1],
+        "unit": "days",
+    },
+]
 
 EXERCISE_PLAN = {
     "20mm Edge": {
@@ -69,7 +134,7 @@ EXERCISE_PLAN = {
 def init_session_state():
     """Initialize session state variables if they don't exist"""
     if "current_user" not in st.session_state:
-        st.session_state.current_user = USER_LIST[0]
+        st.session_state.current_user = USER_PLACEHOLDER
     if "bodyweights" not in st.session_state:
         st.session_state.bodyweights = {user: 78.0 for user in USER_LIST}
     if "saved_1rms" not in st.session_state:
@@ -180,6 +245,7 @@ def _normalize_pin_value(pin_value):
 def load_user_pins_from_sheets(spreadsheet):
     """Return a dict mapping usernames to their 4-digit PINs."""
     pins = {user: None for user in USER_LIST}
+    pins[USER_PLACEHOLDER] = None
     if not spreadsheet:
         return pins
     try:
@@ -194,21 +260,34 @@ def load_user_pins_from_sheets(spreadsheet):
 
 def user_selectbox_with_pin(available_users, user_pins, selector_key, label="Select User:"):
     """Render a sidebar selectbox that requires a PIN before switching profiles."""
-    if not available_users:
-        return None
+    options = [USER_PLACEHOLDER] + available_users
 
-    if "current_user" not in st.session_state or st.session_state.current_user not in available_users:
-        st.session_state.current_user = available_users[0]
-
-    if selector_key not in st.session_state:
+    # Ensure session defaults exist before widgets render
+    if "current_user" not in st.session_state or st.session_state.current_user not in options:
+        st.session_state.current_user = USER_PLACEHOLDER
+    if selector_key not in st.session_state or st.session_state[selector_key] not in options:
         st.session_state[selector_key] = st.session_state.current_user
 
-    selected_candidate = st.sidebar.selectbox(label, available_users, key=selector_key)
-    st.sidebar.caption(f"Active profile: {st.session_state.current_user}")
+    active_user = st.session_state.current_user
+    selected_candidate = st.sidebar.selectbox(label, options, key=selector_key)
 
-    if selected_candidate != st.session_state.current_user:
+    display_active = "🔒 Locked" if active_user == USER_PLACEHOLDER else active_user
+    st.sidebar.caption(f"Active profile: {display_active}")
+
+    if selected_candidate == USER_PLACEHOLDER:
+        if active_user != USER_PLACEHOLDER:
+            st.session_state.current_user = USER_PLACEHOLDER
+        st.sidebar.info("Select a profile and enter its PIN to view data.")
+        return USER_PLACEHOLDER
+
+    if selected_candidate != active_user:
         pin_key = f"{selector_key}_pin"
-        pin_value = st.sidebar.text_input("Enter 4-digit PIN to switch", type="password", max_chars=PIN_LENGTH, key=pin_key)
+        pin_value = st.sidebar.text_input(
+            "Enter 4-digit PIN to switch",
+            type="password",
+            max_chars=PIN_LENGTH,
+            key=pin_key
+        )
         if st.sidebar.button("Switch Profile", key=f"{selector_key}_switch"):
             stored_pin = user_pins.get(selected_candidate)
             if not stored_pin:
@@ -223,6 +302,72 @@ def user_selectbox_with_pin(available_users, user_pins, selector_key, label="Sel
                 st.sidebar.error("Incorrect PIN. Try again.")
 
     return st.session_state.current_user
+
+def calculate_training_streak(unique_dates):
+    """Return streak length allowing <=3 days between logged sessions."""
+    if not unique_dates:
+        return 0
+    streak = 1
+    for idx in range(len(unique_dates) - 1, 0, -1):
+        if (unique_dates[idx] - unique_dates[idx - 1]).days <= 3:
+            streak += 1
+        else:
+            break
+    return streak
+
+def evaluate_badges(stats):
+    """Determine which performance badges are earned based on stats dict."""
+    evaluated = []
+    for rule in BADGE_RULES:
+        value = stats.get(rule["metric"])
+        comparison = rule.get("comparison", ">=")
+        levels = rule.get("levels")
+        if not levels:
+            target = rule.get("target")
+            levels = [target] if target is not None else []
+        if comparison == "<=":
+            levels = sorted(levels, reverse=True)
+        else:
+            levels = sorted(levels)
+        total_levels = len(levels)
+        current_level = 0
+        if value is not None and total_levels > 0:
+            if comparison == ">=":
+                for threshold in levels:
+                    if value >= threshold:
+                        current_level += 1
+                    else:
+                        break
+            elif comparison == "<=":
+                for threshold in levels:
+                    if value <= threshold:
+                        current_level += 1
+                    else:
+                        break
+        earned_any = current_level > 0
+        maxed_out = total_levels > 0 and current_level >= total_levels
+        next_target = levels[current_level] if current_level < total_levels else None
+        current_target = levels[current_level - 1] if current_level > 0 else None
+        progress_ratio = None
+        if comparison == ">=" and next_target and value is not None and next_target > 0:
+            progress_ratio = value / next_target
+        evaluated.append({
+            "id": rule["id"],
+            "name": rule["name"],
+            "description": rule["description"],
+            "emoji": rule["emoji"],
+            "comparison": comparison,
+            "unit": rule.get("unit", ""),
+            "earned": earned_any,
+            "maxed_out": maxed_out,
+            "current_level": current_level,
+            "total_levels": total_levels,
+            "current_target": current_target,
+            "next_target": next_target,
+            "progress_ratio": progress_ratio,
+            "progress_value": value
+        })
+    return evaluated
 
 def get_bodyweight(spreadsheet, user):
     """Get user's bodyweight from Bodyweights sheet"""
