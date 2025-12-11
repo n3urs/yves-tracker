@@ -2,6 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('.')
 from utils.helpers import *
+from utils.helpers import USER_PLACEHOLDER
 from datetime import datetime
 
 st.set_page_config(page_title="Log Workout", page_icon="📝", layout="wide")

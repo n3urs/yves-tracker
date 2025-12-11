@@ -2,6 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('.')
 from utils.helpers import *
+from utils.helpers import USER_PLACEHOLDER
 import pandas as pd
 from datetime import datetime, timedelta
 
