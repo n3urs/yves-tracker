@@ -1,14 +1,34 @@
 import streamlit as st
 import sys
-sys.path.append('.')
-from utils.helpers import *
-from utils.helpers import USER_PLACEHOLDER
+from textwrap import dedent
 import pandas as pd
 from datetime import datetime, timedelta
+sys.path.append('.')
+from utils.helpers import (
+    init_session_state,
+    inject_global_styles,
+    USER_PLACEHOLDER,
+    USER_LIST,
+    INACTIVITY_THRESHOLD_DAYS,
+    get_google_sheet,
+    load_users_from_sheets,
+    load_user_pins_from_sheets,
+    user_selectbox_with_pin,
+    load_data_from_sheets,
+    load_activity_log,
+    calculate_training_streak,
+    get_bodyweight,
+    get_user_1rm,
+    get_working_max,
+    calculate_relative_strength,
+    estimate_1rm_epley,
+    calculate_plates
+)
 
 st.set_page_config(page_title="Yves Climbing Tracker", page_icon="🧗", layout="wide")
 
 init_session_state()
+inject_global_styles()
 
 # Current date banner
 today = datetime.now()
@@ -26,11 +46,12 @@ st.markdown(
 # ==================== HEADER WITH BANNER ====================
 st.markdown("""
     <div style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-    padding: 40px 20px; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);'>
-        <h1 style='color: white; font-size: 48px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>
+    padding: 32px 24px; border-radius: 20px; margin-bottom: 24px; box-shadow: 0 15px 40px rgba(102,126,234,0.5);
+    border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);'>
+        <h1 style='color: white; font-size: 44px; margin: 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.3);'>
             🧗 Yves Climbing Tracker
         </h1>
-        <p style='color: rgba(255,255,255,0.9); font-size: 20px; margin-top: 10px;'>
+        <p style='color: rgba(255,255,255,0.95); font-size: 17px; margin-top: 10px; font-weight: 400;'>
             Build unbreakable finger strength, track your gains, dominate the leaderboard
         </p>
     </div>
@@ -63,7 +84,6 @@ if selected_user == USER_PLACEHOLDER:
     st.stop()
 
 # ==================== PERSONALIZED WELCOME ====================
-st.markdown(f"## Welcome back, {selected_user}! 👋")
 
 # ==================== QUICK STATS OVERVIEW ====================
 if workout_sheet:
@@ -86,90 +106,15 @@ if workout_sheet:
         elif days_since is None:
             st.info("No dated workouts yet. Log your first session to start earning badges!")
         
-        st.markdown("### 📊 Your Stats at a Glance")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
         df_volume = df[~df['Exercise'].str.contains('1RM Test', na=False)]
         total_volume = (pd.to_numeric(df_volume['Actual_Load_kg'], errors='coerce') *
                         pd.to_numeric(df_volume['Reps_Per_Set'], errors='coerce') *
                         pd.to_numeric(df_volume['Sets_Completed'], errors='coerce')).sum()
+        today_date = datetime.now().date()
+        week_start = today_date - timedelta(days=today_date.weekday())
+        df_week = df[(df["DateOnly"] >= week_start) & (df["DateOnly"] <= today_date)]
+        sessions_this_week = len(df_week["DateOnly"].dropna().unique())
 
-        # Total sessions card
-        with col1:
-            st.markdown(f"""
-                <div style='text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(240,147,251,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_sessions}</div>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Training Sessions</div>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # Last workout
-        with col2:
-            days_display = days_since if days_since is not None else "--"
-            st.markdown(f"""
-                <div style='text-align: center; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(79,172,254,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{days_display}</div>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Days Since Last</div>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # Total volume (excluding 1RM tests)
-        with col3:
-            st.markdown(f"""
-                <div style='text-align: center; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(250,112,154,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_volume:,.0f}</div>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Total Volume (kg)</div>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # Avg RPE
-        with col4:
-            avg_rpe = df['RPE'].mean() if 'RPE' in df.columns else 0
-            
-            st.markdown(f"""
-                <div style='text-align: center; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); 
-                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(48,207,208,0.4);'>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{avg_rpe:.1f}/10</div>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 5px;'>Average RPE</div>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        # This week's sessions
-        with col5:
-            today_date = datetime.now().date()
-            week_start = today_date - timedelta(days=today_date.weekday())
-            df_week = df[(df["DateOnly"] >= week_start) & (df["DateOnly"] <= today_date)]
-            sessions_this_week = len(df_week["DateOnly"].dropna().unique())
-        
-            st.markdown(
-                f"""
-                <div style="text-align: center; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-                            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(168,237,234,0.4);">
-                    <div style="font-size: 36px; font-weight: bold; color: #333;">
-                        {sessions_this_week}
-                    </div>
-                    <div style="font-size: 14px; color: #555; margin-top: 5px;">
-                        This Week
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        badge_stats = {
-            "total_sessions": total_sessions,
-            "sessions_this_week": sessions_this_week,
-            "total_volume": total_volume,
-            "current_streak": current_streak,
-            "days_since_last": days_since,
-            "active_weeks": active_weeks,
-        }
-        badges = evaluate_badges(badge_stats)
-
-        # Next workout suggestion
         next_workout = None
         try:
             df_ex = df[df["Exercise"].isin(["Pinch", "Wrist Roller"])].copy()
@@ -182,85 +127,52 @@ if workout_sheet:
                 next_workout = "Pinch"
         except Exception:
             next_workout = None
-    
-        if next_workout:
-            st.markdown(
+
+        hero_status = (
+            "No sessions yet—log your first workout to get momentum."
+            if days_since is None
+            else ("Logged a session today. 🔥" if days_since == 0 else f"Last trained {days_since} day(s) ago.")
+        )
+        next_label = next_workout if next_workout else "Recovery Day"
+        next_hint = "Auto-suggested rotation" if next_workout else "Take it easy today"
+        hero_subtitle = f"{total_sessions} sessions • {active_weeks} active weeks"
+        hero_html = f'<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 20px; padding: 28px 32px; margin: 20px 0 30px; box-shadow: 0 8px 24px rgba(240,147,251,0.4); border: 1px solid rgba(255,255,255,0.1);"><div style="display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;"><div><div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Welcome back</div><div style="font-size: 32px; font-weight: 700; margin: 8px 0 12px; color: white;">{selected_user}! 👋</div><div style="font-size: 15px; line-height: 1.5; color: rgba(255,255,255,0.95);">{hero_status}</div><div style="margin-top: 10px; opacity: 0.85; font-size: 13px; color: rgba(255,255,255,0.9);">{hero_subtitle}</div></div><div style="text-align: right;"><div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Next focus</div><div style="font-size: 26px; font-weight: 700; margin: 8px 0 8px; color: white;">{next_label}</div><div style="font-size: 13px; opacity: 0.85; color: rgba(255,255,255,0.9);">{next_hint}</div></div></div></div>'
+        st.markdown(hero_html, unsafe_allow_html=True)
+
+        st.markdown("### 📊 Performance Dashboard")
+        avg_rpe = df['RPE'].mean() if 'RPE' in df.columns else 0
+        stat_cards = [
+            {"value": f"{total_sessions}", "label": "Training Sessions", "caption": "Unique workout days"},
+            {"value": f"{days_since if days_since is not None else '--'}", "label": "Days Since Last", "caption": "Keep the streak alive"},
+            {"value": f"{total_volume:,.0f}", "label": "Total Volume (kg)", "caption": "Logged load"},
+            {"value": f"{avg_rpe:.1f}/10", "label": "Average RPE", "caption": "Effort lately"},
+            {"value": f"{sessions_this_week}", "label": "This Week", "caption": "Sessions logged"},
+        ]
+        stat_cols = st.columns(len(stat_cards))
+        gradients = [
+            'linear-gradient(135deg, #5651e5 0%, #6b3fa0 100%)',
+            'linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%)',
+            'linear-gradient(135deg, #e1306c 0%, #f77737 100%)',
+            'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+            'linear-gradient(135deg, #56ab2f 0%, #a8e063 100%)'
+        ]
+        for i, (col, card) in enumerate(zip(stat_cols, stat_cards)):
+            gradient = gradients[i]
+            col.markdown(
                 f"""
-                <div style="margin-top: 20px; margin-bottom: 10px;">
-                    <div style="
-                        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-                        padding: 18px 24px;
-                        border-radius: 14px;
-                        box-shadow: 0 6px 18px rgba(79,172,254,0.4);
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    ">
-                        <div>
-                            <div style="font-size: 14px; color: rgba(255,255,255,0.85);">
-                                Next planned session
-                            </div>
-                            <div style="font-size: 22px; font-weight: 700; color: #ffffff; margin-top: 4px;">
-                                {next_workout}
-                            </div>
-                        </div>
-                        <div style="font-size: 32px;">
-                            💡
-                        </div>
-                    </div>
+                <div style='background: {gradient};
+                            border-radius: 16px;
+                            padding: 20px;
+                            text-align: center;
+                            box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+                            border: 1px solid rgba(255,255,255,0.1);'>
+                    <div style='font-size: 12px; color: rgba(255,255,255,0.9); font-weight: 500; margin-bottom: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>{card['label']}</div>
+                    <div style='font-size: 32px; font-weight: 700; color: white; margin: 6px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{card['value']}</div>
+                    <div style='font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>{card['caption']}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-
-        st.markdown("### 🏅 Badge Showcase")
-        st.caption("Hit milestones to collect badges. Locked badges show your progress.")
-        badge_cols = st.columns(3)
-        for idx, badge in enumerate(badges):
-            col = badge_cols[idx % len(badge_cols)]
-            with col:
-                earned = badge["earned"]
-                maxed_out = badge.get("maxed_out", False)
-                current_level = badge.get("current_level", 0)
-                total_levels = badge.get("total_levels", 0)
-                next_target = badge.get("next_target")
-                metric_value = badge.get("progress_value") or 0
-                unit = badge.get("unit", "")
-                level_label = f"Lv. {current_level}" if earned else "Lv. 0"
-                progress_html = ""
-                if next_target and badge.get("progress_ratio") is not None and not maxed_out:
-                    pct = min(max(badge["progress_ratio"] * 100, 0), 100)
-                    progress_html = f"""
-<div style='margin-top: 10px; font-size: 11px; color: rgba(255,255,255,0.8); text-align: center;'>
-    {metric_value:.0f} / {next_target} {unit} • {pct:.0f}%
-</div>
-<div style='height: 6px; background: rgba(255,255,255,0.2); border-radius: 999px; overflow: hidden; margin-top: 4px;'>
-    <div style='height: 100%; width: {pct}%; background: linear-gradient(90deg, #f093fb, #f5576c);'></div>
-</div>
-                    """.strip()
-                next_info = ""
-                if maxed_out:
-                    next_info = "<div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 8px; text-align: center;'>All tiers complete!</div>"
-                elif next_target:
-                    next_info = f"<div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 8px; text-align: center;'>Next goal: {next_target} {unit}</div>"
-                style = "opacity:1; filter:none;" if earned else "opacity:0.55; filter:grayscale(0.4);"
-                st.markdown(
-                    f"""
-                    <div style='position: relative; background: rgba(0,0,0,0.35); padding: 18px; border-radius: 18px; margin-bottom: 18px;
-                                border: 2px solid {"#38bdf8" if earned else "rgba(255,255,255,0.15)"}; {style} box-shadow: 0 8px 25px rgba(0,0,0,0.4);'>
-                        <div style='position: absolute; top: 12px; left: 16px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.8);'>
-                            {level_label}
-                        </div>
-                        <div style='font-size: 42px; text-align: center;'>{badge["emoji"]}</div>
-                        <div style='font-size: 18px; font-weight: 700; text-align: center; margin-top: 6px;'>{badge["name"]}</div>
-                        <div style='font-size: 13px; color: rgba(255,255,255,0.85); margin-top: 8px; text-align: center;'>{badge["description"]}</div>
-                        {next_info}
-                        {progress_html}
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-        st.caption("Badges unlock automatically as you train. Keep logging sessions to collect them all!")
 
         st.markdown("---")
         st.markdown("### 📅 Training Activity Calendar")
@@ -304,6 +216,9 @@ if workout_sheet:
                     elif activity == "Climbing":
                         color = "#4ade80"
                         label = "Climbing"
+                    elif activity == "Board":
+                        color = "#a855f7"
+                        label = "Board"
                     elif activity == "Work":
                         color = "#fb923c"
                         label = "Work"
@@ -320,8 +235,9 @@ if workout_sheet:
             calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 20px 0;">' + ''.join(squares_list) + '</div>'
             
             legend_html = """
-            <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 30px; font-size: 16px; justify-content: center;'>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Arm Lifting)</div>
+            <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 25px; font-size: 15px; justify-content: center; flex-wrap: wrap;'>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Finger Training)</div>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #a855f7; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Board Session</div>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #4ade80; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Climbing</div>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #fb923c; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Work Pullups</div>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #2d2d2d; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Rest</div>
@@ -331,15 +247,18 @@ if workout_sheet:
             st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
             
             gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
+            board_days = sum(1 for v in calendar_data.values() if v == "Board")
             climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
             work_days = sum(1 for v in calendar_data.values() if v == "Work")
             
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("🏋️ Gym Days (365d)", gym_days)
             with col2:
-                st.metric("🧗 Climbing Days (365d)", climb_days)
+                st.metric("🎯 Board Days (365d)", board_days)
             with col3:
+                st.metric("🧗 Climbing Days (365d)", climb_days)
+            with col4:
                 st.metric("💪 Work Days (365d)", work_days)
 
         st.markdown("---")
@@ -357,28 +276,29 @@ if workout_sheet:
             stored_edge_R = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
             
             if edge_L > stored_edge_L + 1:
-                indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{edge_L - stored_edge_L:.1f}kg from baseline</div>'
+                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{edge_L - stored_edge_L:.1f}kg from baseline</div>'
             else:
-                indicator_L = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                indicator_L = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
                 
             if edge_R > stored_edge_R + 1:
-                indicator_R = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{edge_R - stored_edge_R:.1f}kg from baseline</div>'
+                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{edge_R - stored_edge_R:.1f}kg from baseline</div>'
             else:
-                indicator_R = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                indicator_R = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
             
             st.markdown(f"""
-                <div style='background: rgba(255,215,0,0.1); border-left: 5px solid #FFD700; 
-                padding: 20px; border-radius: 10px; margin-bottom: 15px;'>
-                    <h4 style='margin: 0 0 15px 0; color: #FFD700;'>🖐️ 20mm Edge</h4>
-                    <div style='display: flex; justify-content: space-between;'>
+                <div style='background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); 
+                padding: 24px; border-radius: 16px; margin-bottom: 15px; box-shadow: 0 8px 24px rgba(79,172,254,0.4);
+                border: 1px solid rgba(255,255,255,0.15);'>
+                    <h4 style='margin: 0 0 18px 0; color: white; font-weight: 700; font-size: 18px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🖐️ 20mm Edge</h4>
+                    <div style='display: flex; justify-content: space-between; gap: 20px;'>
                         <div>
-                            <div style='font-size: 12px; color: #888;'>Left</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{edge_L:.1f} kg</div>
+                            <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>LEFT</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{edge_L:.1f} kg</div>
                             {indicator_L}
                         </div>
                         <div style='text-align: right;'>
-                            <div style='font-size: 12px; color: #888;'>Right</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{edge_R:.1f} kg</div>
+                            <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>RIGHT</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{edge_R:.1f} kg</div>
                             {indicator_R}
                         </div>
                     </div>
@@ -392,28 +312,29 @@ if workout_sheet:
             stored_pinch_R = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
             
             if pinch_L > stored_pinch_L + 1:
-                indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{pinch_L - stored_pinch_L:.1f}kg from baseline</div>'
+                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{pinch_L - stored_pinch_L:.1f}kg from baseline</div>'
             else:
-                indicator_L = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                indicator_L = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
                 
             if pinch_R > stored_pinch_R + 1:
-                indicator_R = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{pinch_R - stored_pinch_R:.1f}kg from baseline</div>'
+                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{pinch_R - stored_pinch_R:.1f}kg from baseline</div>'
             else:
-                indicator_R = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                indicator_R = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
             
             st.markdown(f"""
-                <div style='background: rgba(192,192,192,0.1); border-left: 5px solid #C0C0C0; 
-                padding: 20px; border-radius: 10px; margin-bottom: 15px;'>
-                    <h4 style='margin: 0 0 15px 0; color: #C0C0C0;'>🤏 Pinch</h4>
-                    <div style='display: flex; justify-content: space-between;'>
+                <div style='background: linear-gradient(135deg, #e1306c 0%, #f77737 100%); 
+                padding: 24px; border-radius: 16px; margin-bottom: 15px; box-shadow: 0 8px 24px rgba(250,112,154,0.4);
+                border: 1px solid rgba(255,255,255,0.15);'>
+                    <h4 style='margin: 0 0 18px 0; color: white; font-weight: 700; font-size: 18px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>🤏 Pinch</h4>
+                    <div style='display: flex; justify-content: space-between; gap: 20px;'>
                         <div>
-                            <div style='font-size: 12px; color: #888;'>Left</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{pinch_L:.1f} kg</div>
+                            <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>LEFT</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{pinch_L:.1f} kg</div>
                             {indicator_L}
                         </div>
                         <div style='text-align: right;'>
-                            <div style='font-size: 12px; color: #888;'>Right</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{pinch_R:.1f} kg</div>
+                            <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>RIGHT</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{pinch_R:.1f} kg</div>
                             {indicator_R}
                         </div>
                     </div>
@@ -427,28 +348,29 @@ if workout_sheet:
             stored_wrist_R = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
             
             if wrist_L > stored_wrist_L + 1:
-                indicator_L = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{wrist_L - stored_wrist_L:.1f}kg from baseline</div>'
+                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{wrist_L - stored_wrist_L:.1f}kg from baseline</div>'
             else:
-                indicator_L = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                indicator_L = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
                 
             if wrist_R > stored_wrist_R + 1:
-                indicator_R = f'<div style="font-size: 11px; color: #4ade80; margin-top: 5px;">📈 +{wrist_R - stored_wrist_R:.1f}kg from baseline</div>'
+                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{wrist_R - stored_wrist_R:.1f}kg from baseline</div>'
             else:
-                indicator_R = '<div style="font-size: 11px; color: #888; margin-top: 5px;">✓ From test</div>'
+                indicator_R = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
             
             st.markdown(f"""
-                <div style='background: rgba(205,127,50,0.1); border-left: 5px solid #CD7F32; 
-                padding: 20px; border-radius: 10px; margin-bottom: 15px;'>
-                    <h4 style='margin: 0 0 15px 0; color: #CD7F32;'>💪 Wrist Roller</h4>
-                    <div style='display: flex; justify-content: space-between;'>
+                <div style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); 
+                padding: 24px; border-radius: 16px; margin-bottom: 15px; box-shadow: 0 8px 24px rgba(48,207,208,0.4);
+                border: 1px solid rgba(255,255,255,0.15);'>
+                    <h4 style='margin: 0 0 18px 0; color: white; font-weight: 700; font-size: 18px;'>💪 Wrist Roller</h4>
+                    <div style='display: flex; justify-content: space-between; gap: 20px;'>
                         <div>
-                            <div style='font-size: 12px; color: #888;'>Left</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{wrist_L:.1f} kg</div>
+                            <div style='font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;'>Left</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white;'>{wrist_L:.1f} kg</div>
                             {indicator_L}
                         </div>
                         <div style='text-align: right;'>
-                            <div style='font-size: 12px; color: #888;'>Right</div>
-                            <div style='font-size: 28px; font-weight: bold;'>{wrist_R:.1f} kg</div>
+                            <div style='font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;'>Right</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white;'>{wrist_R:.1f} kg</div>
                             {indicator_R}
                         </div>
                     </div>
@@ -456,58 +378,37 @@ if workout_sheet:
             """, unsafe_allow_html=True)
         
     else:
+        empty_hero = f'<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 20px; padding: 32px; margin: 20px 0 30px; box-shadow: 0 8px 24px rgba(240,147,251,0.4); border: 1px solid rgba(255,255,255,0.1);"><div style="text-align: center;"><div style="font-size: 48px; margin-bottom: 16px;">👋</div><h2 style="color: white; font-weight: 700; font-size: 32px; margin: 0 0 12px 0;">Welcome {selected_user}!</h2><p style="color: rgba(255,255,255,0.95); font-size: 16px; margin: 8px 0;">No training data yet. Log your first workout to unlock stats.</p><p style="color: rgba(255,255,255,0.85); font-size: 14px; margin-top: 12px;">Your dashboard will populate automatically.</p></div></div>'
+        st.markdown(empty_hero, unsafe_allow_html=True)
         st.info("📝 No workout data yet. Head to **Log Workout** to get started!")
 
-# ==================== QUICK ACTIONS ====================
 st.markdown("---")
-st.markdown("### 🚀 Quick Actions")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("""
-        <a href='/Log_Workout' target='_self' style='text-decoration: none;'>
-            <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 30px; border-radius: 15px; text-align: center; cursor: pointer; 
-            transition: transform 0.2s; box-shadow: 0 6px 20px rgba(102,126,234,0.4);'>
-                <div style='font-size: 48px; margin-bottom: 10px;'>📝</div>
-                <div style='font-size: 20px; font-weight: bold; color: white;'>Log Workout</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 8px;'>
-                    Record your latest training session
-                </div>
+st.markdown("### ⚡ Quick Actions")
+quick_actions = [
+    {"emoji": "📝", "title": "Log Workout", "desc": "Capture your latest sets & notes.", "href": "/Log_Workout", "gradient": "linear-gradient(135deg, #5651e5 0%, #6b3fa0 100%)"},
+    {"emoji": "📈", "title": "View Progress", "desc": "Visualise PRs and trends.", "href": "/Progress", "gradient": "linear-gradient(135deg, #d946b5 0%, #e23670 100%)"},
+    {"emoji": "🎯", "title": "Training Plan", "desc": "Review the upcoming focus.", "href": "/Goals", "gradient": "linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%)"},
+]
+quick_cols = st.columns(len(quick_actions))
+for col, action in zip(quick_cols, quick_actions):
+    col.markdown(
+        f"""
+        <a href='{action['href']}' target='_self' style='text-decoration:none;'>
+            <div style='background: {action['gradient']};
+                        border: 1px solid rgba(255,255,255,0.1);
+                        border-radius: 16px;
+                        padding: 24px;
+                        text-align: center;
+                        box-shadow: 0 4px 12px rgba(102,126,234,0.3);
+                        color: #fff;'>
+                <div style='font-size: 36px; margin-bottom: 12px;'>{action['emoji']}</div>
+                <div style='font-size: 18px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{action['title']}</div>
+                <div style='font-size: 13px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>{action['desc']}</div>
             </div>
         </a>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-        <a href='/Progress' target='_self' style='text-decoration: none;'>
-            <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-            padding: 30px; border-radius: 15px; text-align: center; cursor: pointer; 
-            transition: transform 0.2s; box-shadow: 0 6px 20px rgba(240,147,251,0.4);'>
-                <div style='font-size: 48px; margin-bottom: 10px;'>📈</div>
-                <div style='font-size: 20px; font-weight: bold; color: white;'>View Progress</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 8px;'>
-                    Track your gains over time
-                </div>
-            </div>
-        </a>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-        <a href='/Goals' target='_self' style='text-decoration: none;'>
-            <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-            padding: 30px; border-radius: 15px; text-align: center; cursor: pointer; 
-            transition: transform 0.2s; box-shadow: 0 6px 20px rgba(79,172,254,0.4);'>
-                <div style='font-size: 48px; margin-bottom: 10px;'>🎯</div>
-                <div style='font-size: 20px; font-weight: bold; color: white;'>Training Plan</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.8); margin-top: 8px;'>
-                    View your weekly schedule
-                </div>
-            </div>
-        </a>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ==================== HOW TO USE GUIDE ====================
 st.markdown("---")
@@ -616,7 +517,7 @@ with st.expander("❓ **FAQ - Frequently Asked Questions**", expanded=False):
     A: This means your recent training suggests you're stronger than your last test. Consider doing a new 1RM test to confirm!
     """)
 
-st.markdown("---")
+st.markdown("<div class='section-divider'></div>", unsafe_allow_html=True)
 st.markdown("""
     <div style='text-align: center; color: #888; font-size: 14px; padding: 20px;'>
         💪 Built for climbers, by climbers | Keep crushing it! 🧗

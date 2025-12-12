@@ -8,13 +8,15 @@ from datetime import datetime
 st.set_page_config(page_title="Log Workout", page_icon="📝", layout="wide")
 
 init_session_state()
+inject_global_styles()
 
 # ==================== HEADER ====================
 st.markdown("""
-    <div style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-    padding: 30px 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(102,126,234,0.4);'>
-        <h1 style='color: white; font-size: 42px; margin: 0;'>📝 Log Workout</h1>
-        <p style='color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 8px;'>
+    <div class='page-header' style='text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+    padding: 32px 24px; border-radius: 20px; margin-bottom: 24px; box-shadow: 0 15px 40px rgba(102,126,234,0.5);
+    border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);'>
+        <h1 style='color: white; font-size: 44px; margin: 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.3);'>📝 Log Workout</h1>
+        <p style='color: rgba(255,255,255,0.95); font-size: 17px; margin-top: 10px; font-weight: 400;'>
             Record your training session and track your progress
         </p>
     </div>
@@ -101,118 +103,80 @@ else:
         current_1rm_L = get_working_max(spreadsheet, selected_user, exercise, "L")
         current_1rm_R = get_working_max(spreadsheet, selected_user, exercise, "R")
         
-        # Get stored baseline for comparison
-        stored_1rm_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
-        stored_1rm_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
-        
         st.markdown("---")
         
-        # Show working max with indicator
-        st.markdown("### 💪 Your Current Strength")
-        st.caption("📊 Auto-updated based on recent performance (last 8 weeks)")
+        # Get last workout data for both arms
+        last_workout_L = get_last_workout(spreadsheet, selected_user, exercise, "L")
+        last_workout_R = get_last_workout(spreadsheet, selected_user, exercise, "R")
+        
+        # Generate suggestions
+        suggestion_L = generate_workout_suggestion(last_workout_L)
+        suggestion_R = generate_workout_suggestion(last_workout_R)
+        
+        # Show last workout and suggestions
+        st.markdown("### 📋 Last Workout & Suggestions")
+        st.caption("💡 Smart recommendations based on your previous performance")
         
         col_info_L, col_info_R = st.columns(2)
         
         with col_info_L:
-            # Indicator if estimated > stored
-            if current_1rm_L > stored_1rm_L + 1:
-                indicator = f'<div style="font-size: 11px; color: #4ade80; margin-top: 3px;">📈 +{current_1rm_L - stored_1rm_L:.1f}kg from baseline</div>'
+            if last_workout_L:
+                weight_L = last_workout_L['weight']
+                rpe_L_val = last_workout_L['rpe']
+                emoji_L = suggestion_L['emoji']
+                sugg_title_L = suggestion_L['suggestion']
+                sugg_msg_L = suggestion_L['message']
+                
+                html_content = f'<div style="background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Left Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_L:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_L_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_L}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_L}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_L}</div></div></div></div>'
+                st.markdown(html_content, unsafe_allow_html=True)
             else:
-                indicator = f'<div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px;">✓ From test</div>'
-            
-            st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(79,172,254,0.3);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>💪 Left Arm</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{current_1rm_L:.1f} kg</div>
-                    {indicator}
-                </div>
-            """, unsafe_allow_html=True)
+                emoji_L = suggestion_L['emoji']
+                sugg_msg_L = suggestion_L['message']
+                html_content = f'<div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 32px 24px; border-radius: 16px; text-align: center; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="font-size: 18px; color: white; font-weight: 700; margin-bottom: 16px;">💪 Left Arm</div><div style="font-size: 48px; margin: 20px 0;">{emoji_L}</div><div style="font-size: 15px; color: white; font-weight: 600; line-height: 1.6;">{sugg_msg_L}</div></div>'
+                st.markdown(html_content, unsafe_allow_html=True)
         
         with col_info_R:
-            # Indicator if estimated > stored
-            if current_1rm_R > stored_1rm_R + 1:
-                indicator = f'<div style="font-size: 11px; color: #4ade80; margin-top: 3px;">📈 +{current_1rm_R - stored_1rm_R:.1f}kg from baseline</div>'
+            if last_workout_R:
+                weight_R = last_workout_R['weight']
+                rpe_R_val = last_workout_R['rpe']
+                emoji_R = suggestion_R['emoji']
+                sugg_title_R = suggestion_R['suggestion']
+                sugg_msg_R = suggestion_R['message']
+                
+                html_content = f'<div style="background: linear-gradient(135deg, #d946b5 0%, #e23670 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Right Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_R:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_R_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_R}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_R}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_R}</div></div></div></div>'
+                st.markdown(html_content, unsafe_allow_html=True)
             else:
-                indicator = f'<div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px;">✓ From test</div>'
-            
-            st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(240,147,251,0.3);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>💪 Right Arm</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{current_1rm_R:.1f} kg</div>
-                    {indicator}
-                </div>
-            """, unsafe_allow_html=True)
+                emoji_R = suggestion_R['emoji']
+                sugg_msg_R = suggestion_R['message']
+                html_content = f'<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 32px 24px; border-radius: 16px; text-align: center; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="font-size: 18px; color: white; font-weight: 700; margin-bottom: 16px;">💪 Right Arm</div><div style="font-size: 48px; margin: 20px 0;">{emoji_R}</div><div style="font-size: 15px; color: white; font-weight: 600; line-height: 1.6;">{sugg_msg_R}</div></div>'
+                st.markdown(html_content, unsafe_allow_html=True)
         
         st.markdown("---")
         
-        # Training Intensity
-        st.markdown("### 🎚️ Training Intensity")
-        target_pct = st.slider(
-            "Target % of 1RM:",
-            min_value=50,
-            max_value=100,
-            value=80,
-            step=5,
-            key="target_pct_slider",
-            help="Lower % = more reps, higher % = heavier weight"
-        )
+        # Use fixed 80% intensity
+        target_pct = 80
         
-        # Intensity indicator
-        if target_pct >= 90:
-            intensity_color = "#ef4444"
-            intensity_label = "MAX EFFORT"
-        elif target_pct >= 80:
-            intensity_color = "#f59e0b"
-            intensity_label = "HEAVY"
-        elif target_pct >= 70:
-            intensity_color = "#10b981"
-            intensity_label = "MODERATE"
+        # Calculate suggested loads based on last workout or 80% of 1RM
+        if last_workout_L and suggestion_L['weight_change'] != 0:
+            suggested_load_L = last_workout_L['weight'] + suggestion_L['weight_change']
         else:
-            intensity_color = "#3b82f6"
-            intensity_label = "LIGHT"
-        
-        st.markdown(f"""
-            <div style='background: {intensity_color}; padding: 10px 20px; border-radius: 8px; 
-            text-align: center; color: white; font-weight: bold; margin-bottom: 15px;'>
-                {intensity_label} - {target_pct}% Intensity
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # Prescribed loads
-        prescribed_load_L = current_1rm_L * (target_pct / 100)
-        prescribed_load_R = current_1rm_R * (target_pct / 100)
-        
-        st.markdown("### 🎯 Prescribed Loads")
-        col_prescribed_L, col_prescribed_R = st.columns(2)
-        
-        with col_prescribed_L:
-            st.markdown(f"""
-                <div style='background: rgba(79,172,254,0.15); border-left: 4px solid #4facfe; padding: 15px; border-radius: 8px;'>
-                    <div style='font-size: 12px; color: #888; margin-bottom: 5px;'>Left (Prescribed)</div>
-                    <div style='font-size: 28px; font-weight: bold; color: #4facfe;'>{prescribed_load_L:.1f} kg</div>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        with col_prescribed_R:
-            st.markdown(f"""
-                <div style='background: rgba(240,147,251,0.15); border-left: 4px solid #f093fb; padding: 15px; border-radius: 8px;'>
-                    <div style='font-size: 12px; color: #888; margin-bottom: 5px;'>Right (Prescribed)</div>
-                    <div style='font-size: 28px; font-weight: bold; color: #f093fb;'>{prescribed_load_R:.1f} kg</div>
-                </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
+            suggested_load_L = current_1rm_L * 0.8
+            
+        if last_workout_R and suggestion_R['weight_change'] != 0:
+            suggested_load_R = last_workout_R['weight'] + suggestion_R['weight_change']
+        else:
+            suggested_load_R = current_1rm_R * 0.8
         
         # Actual Weight Lifted
         st.markdown("### ⚖️ Actual Weight Lifted")
-        use_same_weight = st.checkbox("Use same weight for both arms", value=True, key="same_weight_toggle")
+        use_same_weight = st.checkbox("Log same workout for both arms (weight, reps, sets, RPE)", value=True, key="same_weight_toggle")
         
         if use_same_weight:
             actual_load = st.number_input(
                 "Weight Lifted (kg) - Both Arms:",
                 min_value=0.0,
                 max_value=200.0,
-                value=(prescribed_load_L + prescribed_load_R) / 2,
+                value=(suggested_load_L + suggested_load_R) / 2,
                 step=0.25,
                 key="actual_load_both",
                 help="Enter the weight you actually lifted"
@@ -226,7 +190,7 @@ else:
                     "Left Arm Weight (kg):",
                     min_value=0.0,
                     max_value=200.0,
-                    value=prescribed_load_L,
+                    value=suggested_load_L,
                     step=0.25,
                     key="actual_load_L"
                 )
@@ -235,7 +199,7 @@ else:
                     "Right Arm Weight (kg):",
                     min_value=0.0,
                     max_value=200.0,
-                    value=prescribed_load_R,
+                    value=suggested_load_R,
                     step=0.25,
                     key="actual_load_R"
                 )
@@ -244,34 +208,112 @@ else:
         
         # Workout Details
         st.markdown("### 📊 Workout Details")
-        col_reps, col_sets, col_rpe = st.columns(3)
         
-        with col_reps:
-            st.markdown("""
-                <div style='text-align: center; padding: 10px; background: rgba(103,126,234,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                    <div style='font-size: 24px;'>🔢</div>
-                    <div style='font-size: 12px; color: #888;'>Reps per Set</div>
-                </div>
-            """, unsafe_allow_html=True)
-            reps_per_set = st.number_input("", min_value=1, max_value=20, value=5, step=1, key="reps_input", label_visibility="collapsed")
+        # Get default values from last workout if available
+        default_reps_L = last_workout_L['reps'] if last_workout_L else 5
+        default_reps_R = last_workout_R['reps'] if last_workout_R else 5
+        default_sets_L = last_workout_L['sets'] if last_workout_L else 3
+        default_sets_R = last_workout_R['sets'] if last_workout_R else 3
+        default_rpe_L = last_workout_L['rpe'] if last_workout_L else 7
+        default_rpe_R = last_workout_R['rpe'] if last_workout_R else 7
         
-        with col_sets:
-            st.markdown("""
-                <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                    <div style='font-size: 24px;'>📚</div>
-                    <div style='font-size: 12px; color: #888;'>Sets Completed</div>
-                </div>
-            """, unsafe_allow_html=True)
-            sets_completed = st.number_input("", min_value=1, max_value=10, value=3, step=1, key="sets_input", label_visibility="collapsed")
-        
-        with col_rpe:
-            st.markdown("""
-                <div style='text-align: center; padding: 10px; background: rgba(250,112,154,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                    <div style='font-size: 24px;'>💥</div>
-                    <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
-                </div>
-            """, unsafe_allow_html=True)
-            rpe = st.slider("", min_value=1, max_value=10, value=7, step=1, key="rpe_slider", label_visibility="collapsed")
+        if use_same_weight:
+            # Same details for both arms
+            col_reps, col_sets, col_rpe = st.columns(3)
+            
+            with col_reps:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(103,126,234,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>🔢</div>
+                        <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                reps_per_set = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input", label_visibility="collapsed")
+                reps_per_set_L = reps_per_set
+                reps_per_set_R = reps_per_set
+            
+            with col_sets:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>📚</div>
+                        <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                sets_completed = st.number_input("", min_value=1, max_value=10, value=default_sets_L, step=1, key="sets_input", label_visibility="collapsed")
+                sets_completed_L = sets_completed
+                sets_completed_R = sets_completed
+            
+            with col_rpe:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(250,112,154,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>💥</div>
+                        <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                rpe = st.slider("", min_value=1, max_value=10, value=default_rpe_L, step=1, key="rpe_slider", label_visibility="collapsed")
+                rpe_L = rpe
+                rpe_R = rpe
+        else:
+            # Different details for each arm
+            st.markdown("#### Left Arm")
+            col_reps_L, col_sets_L, col_rpe_L = st.columns(3)
+            
+            with col_reps_L:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>🔢</div>
+                        <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                reps_per_set_L = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input_L", label_visibility="collapsed")
+            
+            with col_sets_L:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>📚</div>
+                        <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                sets_completed_L = st.number_input("", min_value=1, max_value=10, value=default_sets_L, step=1, key="sets_input_L", label_visibility="collapsed")
+            
+            with col_rpe_L:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>💥</div>
+                        <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                rpe_L = st.slider("", min_value=1, max_value=10, value=default_rpe_L, step=1, key="rpe_slider_L", label_visibility="collapsed")
+            
+            st.markdown("#### Right Arm")
+            col_reps_R, col_sets_R, col_rpe_R = st.columns(3)
+            
+            with col_reps_R:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>🔢</div>
+                        <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                reps_per_set_R = st.number_input("", min_value=1, max_value=20, value=default_reps_R, step=1, key="reps_input_R", label_visibility="collapsed")
+            
+            with col_sets_R:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>📚</div>
+                        <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                sets_completed_R = st.number_input("", min_value=1, max_value=10, value=default_sets_R, step=1, key="sets_input_R", label_visibility="collapsed")
+            
+            with col_rpe_R:
+                st.markdown("""
+                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                        <div style='font-size: 24px;'>💥</div>
+                        <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                rpe_R = st.slider("", min_value=1, max_value=10, value=default_rpe_R, step=1, key="rpe_slider_R", label_visibility="collapsed")
         
         st.markdown("---")
         
@@ -320,11 +362,11 @@ else:
                 "Arm": "L",
                 "1RM_Reference": current_1rm_L,
                 "Target_Percentage": target_pct,
-                "Prescribed_Load_kg": prescribed_load_L,
+                "Prescribed_Load_kg": suggested_load_L,
                 "Actual_Load_kg": actual_load_L,
-                "Reps_Per_Set": reps_per_set,
-                "Sets_Completed": sets_completed,
-                "RPE": rpe,
+                "Reps_Per_Set": reps_per_set_L,
+                "Sets_Completed": sets_completed_L,
+                "RPE": rpe_L,
                 "Notes": final_notes
             }
             
@@ -335,11 +377,11 @@ else:
                 "Arm": "R",
                 "1RM_Reference": current_1rm_R,
                 "Target_Percentage": target_pct,
-                "Prescribed_Load_kg": prescribed_load_R,
+                "Prescribed_Load_kg": suggested_load_R,
                 "Actual_Load_kg": actual_load_R,
-                "Reps_Per_Set": reps_per_set,
-                "Sets_Completed": sets_completed,
-                "RPE": rpe,
+                "Reps_Per_Set": reps_per_set_R,
+                "Sets_Completed": sets_completed_R,
+                "RPE": rpe_R,
                 "Notes": final_notes
             }
             
@@ -504,9 +546,9 @@ else:
 # ==================== LOG OTHER ACTIVITIES ====================
 st.markdown("---")
 st.markdown("### 🗓️ Log Other Training Activities")
-st.info("📌 Track climbing sessions and work pullups to see your full training calendar!")
+st.info("📌 Track all your training to see your full weekly progress and calendar!")
 
-tab_climb, tab_work = st.tabs(["🧗 Log Climbing Session", "💪 Log Work Pullups"])
+tab_climb, tab_board, tab_work = st.tabs(["🧗 Log Climbing Session", "🎯 Log Board Session", "💪 Log Work Pullups"])
 
 with tab_climb:
     st.markdown("**Record a climbing session**")
@@ -544,6 +586,43 @@ with tab_climb:
             st.balloons()
         else:
             st.error("❌ Failed to log climbing session.")
+
+with tab_board:
+    st.markdown("**Record a Kilter Board / training board session**")
+    
+    col_date, col_duration = st.columns(2)
+    
+    with col_date:
+        board_date = st.date_input(
+            "Session date:",
+            value=datetime.now().date(),
+            max_value=datetime.now().date(),
+            key="board_date",
+            help="Select the date of your board session"
+        )
+    
+    with col_duration:
+        board_duration = st.number_input(
+            "Duration (minutes):",
+            min_value=5,
+            max_value=480,
+            value=90,
+            step=5,
+            key="board_duration"
+        )
+    
+    board_notes = st.text_area(
+        "Session notes (optional):",
+        placeholder="e.g., Kilter board projecting, sent a few V7s",
+        key="board_notes"
+    )
+    
+    if st.button("Log Board Session", type="primary", use_container_width=True, key="log_board"):
+        if log_activity_to_sheets(spreadsheet, selected_user, "Board", board_duration, board_notes, board_date):
+            st.success(f"✅ Board session logged for {board_date.strftime('%Y-%m-%d')}! ({board_duration} min)")
+            st.balloons()
+        else:
+            st.error("❌ Failed to log board session.")
 
 with tab_work:
     st.markdown("**Quick log for pullups at work**")

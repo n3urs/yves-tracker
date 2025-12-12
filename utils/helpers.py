@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 import io
+from PIL import Image, ImageDraw, ImageFont
 
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 
@@ -15,6 +16,438 @@ USER_LIST = ["Oscar", "Ian"]
 PIN_LENGTH = 4
 USER_PLACEHOLDER = "🔒 Select a profile"
 INACTIVITY_THRESHOLD_DAYS = 5
+STYLE_VERSION = "2024-12-11-v2"
+
+def inject_global_styles():
+    """Apply shared typography, layout, and glass styles once per session."""
+    if st.session_state.get("_global_style_token") == STYLE_VERSION:
+        return
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        /* CSS Variables */
+        :root {
+            --bg-primary: #050B1C;
+            --glass: rgba(12, 18, 35, 0.78);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --glow-primary: rgba(107, 140, 255, 0.6);
+            --glow-secondary: rgba(168, 85, 247, 0.6);
+        }
+        
+        /* Keyframe Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 20px var(--glow-primary), 0 0 40px var(--glow-primary);
+            }
+            50% {
+                box-shadow: 0 0 30px var(--glow-secondary), 0 0 60px var(--glow-secondary);
+            }
+        }
+        
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+        
+        /* Base Styles */
+        html, body, [class*="css"]  {
+            font-family: 'Space Grotesk', sans-serif !important;
+            color: #F5F7FF;
+        }
+        
+        body {
+            background: var(--bg-primary);
+            animation: fadeIn 0.6s ease-in;
+        }
+        
+        .main .block-container {
+            padding: 2.5rem 4rem 4rem;
+            max-width: 1200px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        
+        /* Sidebar Styles */
+        [data-testid="stSidebar"] > div:first-child {
+            background: rgba(8, 12, 28, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            animation: slideInRight 0.6s ease-out;
+        }
+        
+        /* Section Headings */
+        .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 40px 0 18px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .section-heading:first-child {
+            margin-top: 10px;
+        }
+        
+        .section-heading .section-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6b8cff, #a855f7);
+            box-shadow: 0 0 18px rgba(130, 155, 255, 0.8);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .section-heading h3 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .section-heading p {
+            margin: 2px 0 0;
+            color: rgba(255,255,255,0.65);
+            font-size: 15px;
+        }
+        
+        /* Hero Card */
+        .hero-card {
+            background: linear-gradient(120deg, rgba(103,118,255,0.25), rgba(209,118,255,0.1));
+            border-radius: 28px;
+            padding: 28px 36px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 25px 60px rgba(3,9,30,0.5);
+            margin: 16px 0 28px;
+            animation: fadeInUp 0.8s ease-out;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .hero-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 80px rgba(103, 118, 255, 0.4);
+            border-color: rgba(107, 140, 255, 0.3);
+        }
+        
+        .hero-card .hero-left .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.65);
+            margin: 0;
+        }
+        
+        .hero-card .hero-left h2 {
+            margin: 6px 0 8px;
+            font-size: 36px;
+        }
+        
+        .hero-card .hero-left p {
+            margin: 0;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .hero-card .hero-right {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-end;
+            text-align: right;
+        }
+        
+        .hero-card .hero-right span {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .hero-card .hero-right strong {
+            font-size: 30px;
+            margin: 6px 0;
+        }
+        
+        .hero-card .hero-right small {
+            color: rgba(255,255,255,0.6);
+        }
+        
+        /* Glass Panel */
+        .glass-panel {
+            background: var(--glass);
+            border: 1px solid var(--border-subtle);
+            border-radius: 22px;
+            padding: 24px 28px;
+            box-shadow: 0 30px 60px rgba(2, 3, 15, 0.5);
+            backdrop-filter: blur(18px);
+            animation: fadeInUp 0.7s ease-out;
+            transition: all 0.3s ease;
+        }
+        
+        .glass-panel:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 35px 70px rgba(2, 3, 15, 0.7);
+        }
+        
+        /* Stat Grid & Cards */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+        }
+        
+        .stat-card {
+            border-radius: 16px;
+            padding: 18px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.08);
+            min-height: 120px;
+            animation: fadeInUp 0.6s ease-out backwards;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+        .stat-card:nth-child(5) { animation-delay: 0.5s; }
+        
+        .stat-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            background: linear-gradient(135deg, rgba(107, 140, 255, 0.15), rgba(168, 85, 247, 0.1));
+            border-color: rgba(107, 140, 255, 0.3);
+            box-shadow: 0 10px 30px rgba(107, 140, 255, 0.3);
+        }
+        
+        .stat-card strong {
+            display: block;
+            font-size: 32px;
+            margin-bottom: 6px;
+            transition: color 0.3s ease;
+        }
+        
+        .stat-card:hover strong {
+            color: #6b8cff;
+        }
+        
+        .stat-card small {
+            font-size: 12px;
+            color: rgba(255,255,255,0.65);
+            letter-spacing: 0.3px;
+        }
+        
+        .stat-card span {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        /* Quick Grid & Cards */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+        
+        .quick-card {
+            display: block;
+            padding: 22px;
+            border-radius: 18px;
+            background: rgba(17,25,50,0.85);
+            text-decoration: none;
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #F5F7FF;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: fadeInUp 0.6s ease-out backwards;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quick-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .quick-card:hover::before {
+            left: 100%;
+        }
+        
+        .quick-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: #7F9FFF;
+            box-shadow: 0 15px 40px rgba(127, 159, 255, 0.4);
+            background: rgba(25,35,70,0.95);
+        }
+        
+        .quick-card .icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .quick-card .title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .quick-card p {
+            margin: 0;
+            font-size: 14px;
+            color: rgba(255,255,255,0.75);
+        }
+        
+        /* Page Headers */
+        .page-header {
+            animation: fadeInUp 0.6s ease-out;
+            transition: all 0.3s ease;
+        }
+        
+        .page-header:hover {
+            transform: scale(1.02);
+        }
+        
+        /* Buttons */
+        .stButton > button {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .stButton > button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(107, 140, 255, 0.4);
+        }
+        
+        /* Section Divider */
+        .section-divider {
+            height: 1px;
+            width: 100%;
+            margin: 40px 0;
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.25), rgba(255,255,255,0));
+            animation: fadeIn 1s ease-in;
+        }
+        
+        /* Streamlit specific animations */
+        [data-testid="stMetricValue"] {
+            animation: fadeInUp 0.5s ease-out;
+        }
+        
+        [data-testid="stMarkdownContainer"] {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        /* Tab animations */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            transition: all 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .stTabs [data-baseweb="tab"]:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Input focus effects */
+        input:focus, select:focus, textarea:focus {
+            border-color: #6b8cff !important;
+            box-shadow: 0 0 0 2px rgba(107, 140, 255, 0.2) !important;
+            transition: all 0.3s ease;
+        }
+        
+        /* Animated gradient backgrounds */
+        .gradient-animate {
+            background: linear-gradient(270deg, #667eea, #764ba2, #f093fb, #4facfe);
+            background-size: 800% 800%;
+            animation: gradientShift 8s ease infinite;
+        }
+        
+        /* Loading skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.05) 25%, 
+                rgba(255,255,255,0.1) 50%, 
+                rgba(255,255,255,0.05) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.session_state["_global_style_token"] = STYLE_VERSION
 
 BADGE_RULES = [
     {
@@ -211,6 +644,86 @@ def save_workout_to_sheets(worksheet, row_data):
         st.error(f"Error saving workout: {e}")
         return False
 
+def get_last_workout(spreadsheet, user, exercise, arm):
+    """Get the most recent workout for a specific user, exercise, and arm"""
+    try:
+        df = load_data_from_sheets(spreadsheet, user)
+        if df.empty:
+            return None
+        
+        # Filter by exercise and arm
+        filtered = df[(df['Exercise'] == exercise) & (df['Arm'] == arm)]
+        if filtered.empty:
+            return None
+        
+        # Get the most recent entry
+        filtered['Date'] = pd.to_datetime(filtered['Date'], errors='coerce')
+        filtered = filtered.sort_values('Date', ascending=False)
+        last_workout = filtered.iloc[0]
+        
+        return {
+            'date': last_workout['Date'].strftime('%Y-%m-%d') if pd.notna(last_workout['Date']) else 'Unknown',
+            'weight': float(last_workout['Actual_Load_kg']) if pd.notna(last_workout['Actual_Load_kg']) else 0.0,
+            'reps': int(last_workout['Reps_Per_Set']) if pd.notna(last_workout['Reps_Per_Set']) else 0,
+            'sets': int(last_workout['Sets_Completed']) if pd.notna(last_workout['Sets_Completed']) else 0,
+            'rpe': int(last_workout['RPE']) if pd.notna(last_workout['RPE']) else 0,
+            'notes': str(last_workout['Notes']) if pd.notna(last_workout['Notes']) else ''
+        }
+    except Exception as e:
+        return None
+
+def generate_workout_suggestion(last_workout_data):
+    """Generate a suggestion based on previous workout performance"""
+    if not last_workout_data:
+        return {
+            'suggestion': 'No Previous Data',
+            'weight_change': 0.0,
+            'message': 'This is your first session! Start with a comfortable weight.',
+            'emoji': '🎯',
+            'color': '#6b8cff'
+        }
+    
+    rpe = last_workout_data['rpe']
+    weight = last_workout_data['weight']
+    
+    # RPE-based suggestions
+    if rpe <= 4:
+        # Too easy - increase significantly
+        return {
+            'suggestion': 'Increase Weight',
+            'weight_change': weight * 0.05,  # +5%
+            'message': 'Last time was too easy. Increase by about 5 percent!',
+            'emoji': '📈',
+            'color': '#4ade80'
+        }
+    elif rpe <= 6:
+        # A bit easy - small increase
+        return {
+            'suggestion': 'Slight Increase',
+            'weight_change': weight * 0.025,  # +2.5%
+            'message': 'Good session. Try a small increase of 2-3 percent.',
+            'emoji': '⬆️',
+            'color': '#10b981'
+        }
+    elif rpe <= 8:
+        # Perfect intensity - maintain
+        return {
+            'suggestion': 'Maintain Weight',
+            'weight_change': 0.0,
+            'message': 'Perfect intensity. Keep the same weight!',
+            'emoji': '✅',
+            'color': '#f59e0b'
+        }
+    else:
+        # Too hard - decrease
+        return {
+            'suggestion': 'Decrease Weight',
+            'weight_change': -weight * 0.05,  # -5%
+            'message': 'Last time was very hard. Reduce by about 5 percent.',
+            'emoji': '📉',
+            'color': '#ef4444'
+        }
+
 def load_users_from_sheets(spreadsheet):
     """Load unique users from Users sheet"""
     try:
@@ -265,6 +778,7 @@ def user_selectbox_with_pin(available_users, user_pins, selector_key, label="Sel
     # Ensure session defaults exist before widgets render
     if "current_user" not in st.session_state or st.session_state.current_user not in options:
         st.session_state.current_user = USER_PLACEHOLDER
+    
     if selector_key not in st.session_state or st.session_state[selector_key] not in options:
         st.session_state[selector_key] = st.session_state.current_user
 
@@ -444,7 +958,7 @@ def get_user_1rm(spreadsheet, user, exercise, arm):
     except:
         pass
     
-    return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
+    return 0.0
 
 def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
     """Update user's 1RM in UserProfile sheet"""
@@ -620,8 +1134,8 @@ def delete_user(spreadsheet, username):
 # ==================== ACTIVITY LOGGING ====================
 def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, notes="", session_date=None):
     """
-    Log a simple activity (Climbing, Work Pullups, or Gym) to ActivityLog sheet.
-    activity_type: "Gym", "Climbing", "Work"
+    Log a simple activity (Climbing, Board, Work Pullups, or Gym) to ActivityLog sheet.
+    activity_type: "Gym", "Climbing", "Board", "Work"
     session_date: datetime.date object (defaults to today)
     """
     try:
@@ -716,3 +1230,144 @@ def get_working_max(spreadsheet, user, exercise, arm, weeks=8):
         pass
     
     return stored_1rm
+
+def generate_instagram_story(user, stats_dict):
+    """
+    Generate an Instagram Story image (1080x1920) with user stats
+    
+    Args:
+        user: Username
+        stats_dict: Dict with keys: total_sessions, total_volume, current_streak, days_training
+    
+    Returns:
+        PIL Image object
+    """
+    # Instagram Story dimensions
+    width, height = 1080, 1920
+    
+    # Create gradient background
+    img = Image.new('RGB', (width, height), color='#050B1C')
+    draw = ImageDraw.Draw(img)
+    
+    # Create smooth gradient background (dark blue to purple)
+    for i in range(height):
+        progress = i / height
+        r = int(5 + progress * 45)
+        g = int(11 + progress * 25)
+        b = int(28 + progress * 72)
+        draw.rectangle([(0, i), (width, i+1)], fill=(r, g, b))
+    
+    # Add semi-transparent overlays
+    overlay = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    
+    # Top gradient accent
+    for i in range(300):
+        alpha = int(50 * (1 - i/300))
+        overlay_draw.rectangle([(0, i), (width, i+1)], 
+                              fill=(107, 140, 255, alpha))
+    
+    # Bottom gradient accent
+    for i in range(400):
+        alpha = int(40 * (i/400))
+        overlay_draw.rectangle([(0, height-400+i), (width, height-399+i)], 
+                              fill=(168, 85, 247, alpha))
+    
+    img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+    draw = ImageDraw.Draw(img)
+    
+    try:
+        # Try to load system fonts
+        title_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 90)
+        subtitle_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 55)
+        big_stat_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 110)
+        label_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 42)
+        small_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 38)
+    except:
+        # Fallback
+        title_font = subtitle_font = big_stat_font = label_font = small_font = ImageFont.load_default()
+    
+    # Header section
+    title_text = "YVES TRACKER"
+    title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
+    title_width = title_bbox[2] - title_bbox[0]
+    draw.text(((width - title_width) // 2, 120), title_text, 
+             fill=(255, 255, 255), font=title_font)
+    
+    # Username
+    user_text = f"{user}'s Progress"
+    user_bbox = draw.textbbox((0, 0), user_text, font=subtitle_font)
+    user_width = user_bbox[2] - user_bbox[0]
+    draw.text(((width - user_width) // 2, 240), user_text, 
+             fill=(180, 190, 255), font=subtitle_font)
+    
+    # Divider line
+    draw.rectangle([(width//2 - 150, 330), (width//2 + 150, 335)], 
+                  fill=(107, 140, 255))
+    
+    # Stats cards
+    stats_data = [
+        (stats_dict.get('total_sessions', 0), "SESSIONS", (79, 172, 254)),
+        (stats_dict.get('current_streak', 0), "DAY STREAK", (240, 147, 251)),
+        (f"{stats_dict.get('total_volume', 0):,.0f}", "VOLUME (KG)", (250, 112, 154)),
+        (stats_dict.get('days_training', 0), "TRAINING DAYS", (48, 207, 208)),
+    ]
+    
+    card_y = 420
+    card_height = 280
+    card_padding = 40
+    
+    for idx, (value, label, color) in enumerate(stats_data):
+        # Card background
+        margin_x = 100
+        card_top = card_y + (idx * (card_height + card_padding))
+        
+        # Semi-transparent card
+        overlay2 = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+        overlay2_draw = ImageDraw.Draw(overlay2)
+        
+        # Rounded rectangle simulation
+        overlay2_draw.rectangle(
+            [(margin_x, card_top), (width - margin_x, card_top + card_height)],
+            fill=(30, 40, 70, 180)
+        )
+        
+        # Left accent bar
+        overlay2_draw.rectangle(
+            [(margin_x, card_top), (margin_x + 8, card_top + card_height)],
+            fill=color
+        )
+        
+        img = Image.alpha_composite(img.convert('RGBA'), overlay2).convert('RGB')
+        draw = ImageDraw.Draw(img)
+        
+        # Value (large)
+        value_str = str(value)
+        value_bbox = draw.textbbox((0, 0), value_str, font=big_stat_font)
+        value_width = value_bbox[2] - value_bbox[0]
+        value_x = (width - value_width) // 2
+        draw.text((value_x, card_top + 60), value_str, 
+                 fill=(255, 255, 255), font=big_stat_font)
+        
+        # Label (small, uppercase)
+        label_bbox = draw.textbbox((0, 0), label, font=label_font)
+        label_width = label_bbox[2] - label_bbox[0]
+        label_x = (width - label_width) // 2
+        draw.text((label_x, card_top + 190), label, 
+                 fill=(150, 160, 200), font=label_font)
+    
+    # Footer
+    footer_text = "BUILD UNBREAKABLE FINGER STRENGTH"
+    footer_bbox = draw.textbbox((0, 0), footer_text, font=small_font)
+    footer_width = footer_bbox[2] - footer_bbox[0]
+    draw.text(((width - footer_width) // 2, height - 140), footer_text, 
+             fill=(130, 140, 180), font=small_font)
+    
+    # Small tagline
+    tagline = "@yvestracker"
+    tagline_bbox = draw.textbbox((0, 0), tagline, font=small_font)
+    tagline_width = tagline_bbox[2] - tagline_bbox[0]
+    draw.text(((width - tagline_width) // 2, height - 90), tagline, 
+             fill=(100, 110, 150), font=small_font)
+    
+    return img

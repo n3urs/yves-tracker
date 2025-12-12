@@ -10,13 +10,15 @@ import time
 st.set_page_config(page_title="Goals", page_icon="🎯", layout="wide")
 
 init_session_state()
+inject_global_styles()
 
 # ==================== HEADER ====================
 st.markdown("""
-    <div style='text-align: center; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
-    padding: 30px 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(250,112,154,0.4);'>
-        <h1 style='color: white; font-size: 42px; margin: 0;'>🎯 Goals & Training Plan</h1>
-        <p style='color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 8px;'>
+    <div class='page-header' style='text-align: center; background: linear-gradient(135deg, #e1306c 0%, #f77737 100%); 
+    padding: 32px 24px; border-radius: 20px; margin-bottom: 24px; box-shadow: 0 15px 40px rgba(250,112,154,0.5);
+    border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);'>
+        <h1 style='color: white; font-size: 44px; margin: 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.3);'>🎯 Goals & Training Plan</h1>
+        <p style='color: rgba(255,255,255,0.95); font-size: 17px; margin-top: 10px; font-weight: 400;'>
             Set ambitious targets and crush them one rep at a time
         </p>
     </div>
@@ -51,49 +53,123 @@ if selected_user == USER_PLACEHOLDER:
 if workout_sheet:
     # Load data
     df = load_data_from_sheets(workout_sheet, user=selected_user)
+    activity_df = load_activity_log(spreadsheet, user=selected_user)
     
-    # ==================== WEEKLY WORKOUT TRACKER ====================
-    st.markdown("### 📅 This Week's Progress")
+    # ==================== WEEKLY GOALS - MAIN SECTION ====================
+    st.markdown("""
+        <div class='section-heading'>
+            <div class='section-dot'></div>
+            <div>
+                <h3>🎯 Weekly Training Goals</h3>
+                <p>Consistency is key to getting stronger!</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.info("💪 **Your weekly targets:** 2-3 Finger Training sessions • 1 Board Session • 2-3 Climbing Sessions")
     
     
-
-    # WEEKLY WORKOUT TRACKER (date-only, same as Home)
+    # Calculate this week's progress
     today = datetime.now().date()
     week_start = today - timedelta(days=today.weekday())  # Monday
     
+    # Gym sessions (finger training)
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
     df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today)]
-    sessions_this_week = len(df_week["Date"].unique()) if len(df_week) > 0 else 0
+    gym_sessions = len(df_week["Date"].unique()) if len(df_week) > 0 else 0
     
-    weekly_target = 3  # Default target
-    progress_pct = min(sessions_this_week / weekly_target * 100, 100)
-
+    # Activity sessions
+    board_sessions = 0
+    climb_sessions = 0
+    if len(activity_df) > 0:
+        activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
+        activity_week = activity_df[(activity_df["Date"] >= week_start) & (activity_df["Date"] <= today)]
+        board_sessions = len(activity_week[activity_week["ActivityType"] == "Board"])
+        climb_sessions = len(activity_week[activity_week["ActivityType"] == "Climbing"])
     
-    # Visual progress bar
-    if sessions_this_week >= weekly_target:
-        bar_color = "#4ade80"
-        status_emoji = "🔥"
-        status_text = "Target smashed!"
-    elif sessions_this_week >= weekly_target - 1:
-        bar_color = "#fbbf24"
-        status_emoji = "💪"
-        status_text = "Almost there!"
+    # Weekly goals
+    gym_target = (2, 3)  # 2-3 sessions
+    board_target = 1
+    climb_target = (2, 3)  # 2-3 sessions
+    
+    # Create goal cards
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        gym_status = "✅" if gym_sessions >= gym_target[1] else "⏳"
+        gym_color = "#4ade80" if gym_sessions >= gym_target[1] else "#fbbf24" if gym_sessions >= gym_target[0] else "#667eea"
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {gym_color}20, {gym_color}10); 
+            padding: 24px; border-radius: 16px; border: 2px solid {gym_color}40; text-align: center;
+            transition: all 0.3s ease;'>
+                <div style='font-size: 48px; margin-bottom: 10px;'>🏋️</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Finger Training</div>
+                <div style='font-size: 42px; font-weight: 800; color: {gym_color};'>{gym_sessions}/{gym_target[1]}</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {gym_target[0]}-{gym_target[1]} sessions</div>
+                <div style='font-size: 24px; margin-top: 10px;'>{gym_status}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        board_status = "✅" if board_sessions >= board_target else "⏳"
+        board_color = "#a855f7" if board_sessions >= board_target else "#667eea"
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {board_color}20, {board_color}10); 
+            padding: 24px; border-radius: 16px; border: 2px solid {board_color}40; text-align: center;
+            transition: all 0.3s ease;'>
+                <div style='font-size: 48px; margin-bottom: 10px;'>🎯</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Board Session</div>
+                <div style='font-size: 42px; font-weight: 800; color: {board_color};'>{board_sessions}/{board_target}</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {board_target} session</div>
+                <div style='font-size: 24px; margin-top: 10px;'>{board_status}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        climb_status = "✅" if climb_sessions >= climb_target[1] else "⏳"
+        climb_color = "#4ade80" if climb_sessions >= climb_target[1] else "#fbbf24" if climb_sessions >= climb_target[0] else "#667eea"
+        st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {climb_color}20, {climb_color}10); 
+            padding: 24px; border-radius: 16px; border: 2px solid {climb_color}40; text-align: center;
+            transition: all 0.3s ease;'>
+                <div style='font-size: 48px; margin-bottom: 10px;'>🧗</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Climbing</div>
+                <div style='font-size: 42px; font-weight: 800; color: {climb_color};'>{climb_sessions}/{climb_target[1]}</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {climb_target[0]}-{climb_target[1]} sessions</div>
+                <div style='font-size: 24px; margin-top: 10px;'>{climb_status}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    
+    # Overall progress
+    total_sessions = gym_sessions + board_sessions + climb_sessions
+    total_min = gym_target[0] + board_target + climb_target[0]
+    total_max = gym_target[1] + board_target + climb_target[1]
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if total_sessions >= total_min:
+        overall_status = "🔥 Crushing it! You've hit your minimum weekly targets!"
+        overall_color = "#4ade80"
+    elif total_sessions >= total_min - 2:
+        overall_status = "💪 Almost there! Just a few more sessions to hit your goals!"
+        overall_color = "#fbbf24"
     else:
-        bar_color = "#3b82f6"
-        status_emoji = "📈"
-        status_text = "Keep going!"
+        overall_status = "📈 Keep going! You've got this week!"
+        overall_color = "#667eea"
+    
+    progress_pct = min(total_sessions / total_max * 100, 100)
     
     st.markdown(f"""
-        <div style='background: rgba(255,255,255,0.05); padding: 25px; border-radius: 12px; margin-bottom: 20px;'>
-            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;'>
+        <div style='background: rgba(255,255,255,0.05); padding: 28px; border-radius: 16px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1);'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;'>
                 <div>
-                    <div style='font-size: 18px; font-weight: bold; color: white;'>{status_emoji} Weekly Workouts</div>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 5px;'>{status_text}</div>
+                    <div style='font-size: 22px; font-weight: 700; color: white;'>Total Weekly Sessions</div>
+                    <div style='font-size: 15px; color: rgba(255,255,255,0.7); margin-top: 6px;'>{overall_status}</div>
                 </div>
-                <div style='font-size: 36px; font-weight: bold; color: {bar_color};'>{sessions_this_week}/{weekly_target}</div>
+                <div style='font-size: 44px; font-weight: 800; color: {overall_color};'>{total_sessions}/{total_max}</div>
             </div>
-            <div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px; overflow: hidden;'>
-                <div style='background: {bar_color}; height: 100%; width: {progress_pct}%; transition: width 0.3s ease;'></div>
+            <div style='background: rgba(255,255,255,0.1); border-radius: 12px; height: 24px; overflow: hidden;'>
+                <div style='background: {overall_color}; height: 100%; width: {progress_pct}%; transition: width 0.5s ease;'></div>
             </div>
         </div>
     """, unsafe_allow_html=True)

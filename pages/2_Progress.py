@@ -2,21 +2,25 @@ import streamlit as st
 import sys
 sys.path.append('..')
 from utils.helpers import *
-from utils.helpers import USER_PLACEHOLDER
+from utils.helpers import USER_PLACEHOLDER, generate_instagram_story
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import io
+from datetime import datetime
 
 st.set_page_config(page_title="Progress", page_icon="📈", layout="wide")
 
 init_session_state()
+inject_global_styles()
 
 # ==================== HEADER ====================
 st.markdown("""
-    <div style='text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-    padding: 30px 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(240,147,251,0.4);'>
-        <h1 style='color: white; font-size: 42px; margin: 0;'>📈 Progress Tracker</h1>
-        <p style='color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 8px;'>
+    <div class='page-header' style='text-align: center; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+    padding: 32px 24px; border-radius: 20px; margin-bottom: 24px; box-shadow: 0 15px 40px rgba(240,147,251,0.5);
+    border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);'>
+        <h1 style='color: white; font-size: 44px; margin: 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.3);'>📈 Progress Tracker</h1>
+        <p style='color: rgba(255,255,255,0.95); font-size: 17px; margin-top: 10px; font-weight: 400;'>
             Watch your gains stack up and crush your goals
         </p>
     </div>
@@ -75,16 +79,22 @@ if workout_sheet:
             df_filtered = df_filtered[df_filtered['Arm'] == selected_arm]
         
         # Summary stats in vibrant cards
-        st.markdown("### 📊 Your Stats")
+        st.markdown("""
+            <div class='section-heading'>
+                <div class='section-dot'></div>
+                <div><h3>📊 Your Stats</h3></div>
+            </div>
+        """, unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             total_sessions = len(df_filtered['Date'].dt.date.unique())
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(102,126,234,0.4);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>Total Sessions</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_sessions}</div>
+                <div class='stat-card' style='background: linear-gradient(135deg, #5651e5 0%, #6b3fa0 100%); 
+                padding: 22px; border-radius: 16px; text-align: center; box-shadow: 0 8px 25px rgba(102,126,234,0.5);
+                border: 1px solid rgba(255,255,255,0.15); animation: fadeInUp 0.6s ease-out 0.1s backwards;'>
+                    <div style='font-size: 13px; color: rgba(255,255,255,0.95); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Total Sessions</div>
+                    <div style='font-size: 40px; font-weight: 800; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.3);'>{total_sessions}</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -92,10 +102,11 @@ if workout_sheet:
             avg_rpe = df_filtered['RPE'].mean() if 'RPE' in df_filtered.columns else 0
             rpe_color = "#4ade80" if avg_rpe < 7 else "#fb923c" if avg_rpe < 8.5 else "#ef4444"
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(79,172,254,0.4);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>Average RPE</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{avg_rpe:.1f}</div>
+                <div class='stat-card' style='background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); 
+                padding: 22px; border-radius: 16px; text-align: center; box-shadow: 0 8px 25px rgba(79,172,254,0.5);
+                border: 1px solid rgba(255,255,255,0.15); animation: fadeInUp 0.6s ease-out 0.2s backwards;'>
+                    <div style='font-size: 13px; color: rgba(255,255,255,0.95); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Average RPE</div>
+                    <div style='font-size: 40px; font-weight: 800; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.3);'>{avg_rpe:.1f}</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -103,10 +114,11 @@ if workout_sheet:
             total_reps = (pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') * 
                          pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce')).sum()
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
-                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(250,112,154,0.4);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>Total Reps</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{int(total_reps)}</div>
+                <div class='stat-card' style='background: linear-gradient(135deg, #e1306c 0%, #f77737 100%); 
+                padding: 22px; border-radius: 16px; text-align: center; box-shadow: 0 8px 25px rgba(250,112,154,0.5);
+                border: 1px solid rgba(255,255,255,0.15); animation: fadeInUp 0.6s ease-out 0.3s backwards;'>
+                    <div style='font-size: 13px; color: rgba(255,255,255,0.95); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Total Reps</div>
+                    <div style='font-size: 40px; font-weight: 800; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.3);'>{int(total_reps)}</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -120,10 +132,11 @@ if workout_sheet:
                            pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce')).sum()
             
             st.markdown(f"""
-                <div style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
-                padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(48,207,208,0.4);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.9); margin-bottom: 5px;'>Total Volume</div>
-                    <div style='font-size: 36px; font-weight: bold; color: white;'>{total_volume:.0f} kg</div>
+                <div class='stat-card' style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+                padding: 22px; border-radius: 16px; text-align: center; box-shadow: 0 8px 25px rgba(48,207,208,0.5);
+                border: 1px solid rgba(255,255,255,0.15); animation: fadeInUp 0.6s ease-out 0.4s backwards;'>
+                    <div style='font-size: 13px; color: rgba(255,255,255,0.95); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;'>Total Volume</div>
+                    <div style='font-size: 40px; font-weight: 800; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.3);'>{total_volume:.0f} kg</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -312,5 +325,60 @@ if workout_sheet:
                 </div>
             </div>
         """, unsafe_allow_html=True)
+        
+        # ==================== INSTAGRAM STORY GENERATOR ====================
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        
+        with st.expander("📸 Share Your Progress on Instagram", expanded=False):
+            st.markdown("Create a professional Instagram Story (1080x1920) to showcase your gains!")
+            
+            if st.button("Generate Story Image", use_container_width=True, type="primary"):
+                with st.spinner("Creating your story..."):
+                    # Calculate stats
+                    total_sessions = len(df['Date'].dt.date.unique())
+                    total_volume = (pd.to_numeric(df['Actual_Load_kg'], errors='coerce') *
+                                   pd.to_numeric(df['Reps_Per_Set'], errors='coerce') *
+                                   pd.to_numeric(df['Sets_Completed'], errors='coerce')).sum()
+                    
+                    dates = sorted(df['Date'].dt.date.unique())
+                    current_streak = 1
+                    for i in range(len(dates)-1, 0, -1):
+                        if (dates[i] - dates[i-1]).days <= 3:
+                            current_streak += 1
+                        else:
+                            break
+                    
+                    days_training = (datetime.now() - df['Date'].min()).days
+                    
+                    # Prepare stats
+                    stats_dict = {
+                        'total_sessions': total_sessions,
+                        'total_volume': total_volume,
+                        'current_streak': current_streak,
+                        'days_training': days_training
+                    }
+                    
+                    # Generate image
+                    story_img = generate_instagram_story(selected_user, stats_dict)
+                    
+                    # Convert to bytes for download
+                    buf = io.BytesIO()
+                    story_img.save(buf, format='PNG')
+                    byte_im = buf.getvalue()
+                    
+                    # Display preview in smaller size
+                    st.success("✅ Story created!")
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        st.image(story_img, caption="Preview (1080x1920)", use_container_width=True)
+                    
+                    # Download button
+                    st.download_button(
+                        label="⬇️ Download Story Image",
+                        data=byte_im,
+                        file_name=f"yves_tracker_{selected_user}_{datetime.now().strftime('%Y%m%d')}.png",
+                        mime="image/png",
+                        use_container_width=True
+                    )
 else:
     st.error("⚠️ Could not connect to Google Sheets.")
