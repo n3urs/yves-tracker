@@ -2,7 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('..')
 from utils.helpers import *
-from utils.helpers import USER_PLACEHOLDER, generate_instagram_story
+from utils.helpers import USER_PLACEHOLDER, generate_instagram_story, get_bodyweight_history
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -262,7 +262,6 @@ if workout_sheet:
         st.caption("💡 Your strength divided by bodyweight. Higher = better climbing performance!")
         
         # Get bodyweight history
-        from utils.helpers import get_bodyweight_history
         bw_history = get_bodyweight_history(spreadsheet, selected_user)
         
         if not bw_history.empty and len(df_filtered) > 0:
