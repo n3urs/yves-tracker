@@ -22,7 +22,8 @@ from utils.helpers import (
     get_working_max,
     calculate_relative_strength,
     estimate_1rm_epley,
-    calculate_plates
+    calculate_plates,
+    load_custom_workout_logs
 )
 
 st.set_page_config(page_title="Yves Climbing Tracker", page_icon="🧗", layout="wide")
@@ -212,6 +213,15 @@ if workout_sheet:
                 for date in workout_df["Date"].dropna().unique():
                     calendar_data[str(date)] = "Gym"
             
+            # Add custom workouts
+            custom_workout_df = load_custom_workout_logs(spreadsheet, selected_user)
+            if len(custom_workout_df) > 0:
+                custom_workout_df["Date"] = pd.to_datetime(custom_workout_df["Date"], errors="coerce").dt.date
+                for date in custom_workout_df["Date"].dropna().unique():
+                    date_str = str(date)
+                    if date_str not in calendar_data:
+                        calendar_data[date_str] = "Custom"
+            
             # Add climbing and work
             if len(activity_df) > 0:
                 activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
@@ -235,6 +245,9 @@ if workout_sheet:
                     if activity == "Gym":
                         color = "#667eea"
                         label = "Gym"
+                    elif activity == "Custom":
+                        color = "#14b8a6"
+                        label = "Custom"
                     elif activity == "Climbing":
                         color = "#4ade80"
                         label = "Climbing"
@@ -259,6 +272,7 @@ if workout_sheet:
             legend_html = """
             <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 25px; font-size: 15px; justify-content: center; flex-wrap: wrap;'>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Finger Training)</div>
+                <div><span style='display: inline-block; width: 18px; height: 18px; background: #14b8a6; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Custom Workout</div>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #a855f7; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Board Session</div>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #4ade80; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Climbing</div>
                 <div><span style='display: inline-block; width: 18px; height: 18px; background: #fb923c; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Work Pullups</div>
@@ -269,19 +283,22 @@ if workout_sheet:
             st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
             
             gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
+            custom_days = sum(1 for v in calendar_data.values() if v == "Custom")
             board_days = sum(1 for v in calendar_data.values() if v == "Board")
             climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
             work_days = sum(1 for v in calendar_data.values() if v == "Work")
             
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
             with col1:
                 st.metric("🏋️ Gym Days (365d)", gym_days)
             with col2:
-                st.metric("🎯 Board Days (365d)", board_days)
+                st.metric("💪 Custom Days (365d)", custom_days)
             with col3:
-                st.metric("🧗 Climbing Days (365d)", climb_days)
+                st.metric("🎯 Board Days (365d)", board_days)
             with col4:
-                st.metric("💪 Work Days (365d)", work_days)
+                st.metric("🧗 Climbing Days (365d)", climb_days)
+            with col5:
+                st.metric("🏃 Work Days (365d)", work_days)
 
         st.markdown("---")
         

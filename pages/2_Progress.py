@@ -202,61 +202,6 @@ if workout_sheet:
         
         st.markdown("---")
         
-        # RPE over time
-        st.markdown("### 😤 RPE Trend - Monitor Your Fatigue")
-        
-        df_rpe = df_filtered.groupby(['Date', 'Exercise'])['RPE'].mean().reset_index()
-        
-        fig2 = go.Figure()
-        
-        # RPE colors - gradient from green to red
-        rpe_colors = ['#10b981', '#f59e0b', '#ef4444']
-        
-        for idx, exercise in enumerate(df_rpe['Exercise'].unique()):
-            df_subset = df_rpe[df_rpe['Exercise'] == exercise]
-            
-            fig2.add_trace(go.Scatter(
-                x=df_subset['Date'],
-                y=df_subset['RPE'],
-                mode='lines+markers',
-                name=exercise,
-                line=dict(color=rpe_colors[idx % len(rpe_colors)], width=3),
-                marker=dict(size=10, color=rpe_colors[idx % len(rpe_colors)],
-                          line=dict(color='white', width=2)),
-                fill='tozeroy',
-                fillcolor=f'rgba({int(rpe_colors[idx % len(rpe_colors)][1:3], 16)}, {int(rpe_colors[idx % len(rpe_colors)][3:5], 16)}, {int(rpe_colors[idx % len(rpe_colors)][5:7], 16)}, 0.2)'
-            ))
-        
-        fig2.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white', size=14),
-            xaxis=dict(
-                showgrid=True,
-                gridcolor='rgba(255,255,255,0.1)',
-                title='Date',
-                title_font=dict(size=16, color='white')
-            ),
-            yaxis=dict(
-                showgrid=True,
-                gridcolor='rgba(255,255,255,0.1)',
-                title='RPE',
-                title_font=dict(size=16, color='white'),
-                range=[0, 10]
-            ),
-            height=400,
-            hovermode='x unified',
-            legend=dict(
-                bgcolor='rgba(0,0,0,0.5)',
-                bordercolor='rgba(255,255,255,0.3)',
-                borderwidth=1
-            )
-        )
-        
-        st.plotly_chart(fig2, use_container_width=True)
-        
-        st.markdown("---")
-        
         # Relative Strength (Strength-to-Weight Ratio)
         st.markdown("### ⚖️ Relative Strength - The Climber's Edge")
         st.caption("💡 Your strength divided by bodyweight. Higher = better climbing performance!")
@@ -395,6 +340,171 @@ if workout_sheet:
         else:
             st.info("📊 Log more bodyweight updates to see your relative strength trend!")
         
+        # ==================== CUSTOM WORKOUT PROGRESS ====================
+        # This section is independent of standard workout data
+        st.markdown("---")
+        st.markdown("## 🏋️ Custom Workout Progress")
+        
+        # Load user's custom workouts
+        user_workouts = get_user_custom_workouts(spreadsheet, selected_user)
+        
+        if user_workouts.empty:
+            st.info("No custom workouts created yet. Go to Custom Workouts page to create one!")
+        else:
+            with st.expander("📊 View Custom Workout Progress", expanded=True):
+                # Dropdown to select workout (no "All Workouts" option, default to first workout)
+                workout_names = user_workouts['WorkoutName'].tolist()
+                selected_custom_workout = st.selectbox(
+                    "Select workout to view:",
+                    workout_names,
+                    index=0,
+                    key="custom_workout_progress_select"
+                )
+                
+                # Load custom workout logs
+                custom_logs = load_custom_workout_logs(spreadsheet, selected_user)
+                
+                # Filter by selected workout
+                custom_logs = custom_logs[
+                    custom_logs['WorkoutName'] == selected_custom_workout
+                ]
+                
+                if custom_logs.empty:
+                    st.info(f"No logs found for {selected_custom_workout}")
+                else:
+                    # Get workout template info
+                    workout_template = user_workouts[user_workouts['WorkoutName'] == selected_custom_workout].iloc[0]
+                    
+                    # Display tracked metrics
+                    st.markdown("### Tracked Metrics")
+                    
+                    # Create columns for tracked metrics
+                    tracked_metrics = []
+                    if workout_template['TracksWeight']:
+                        tracked_metrics.append("Weight (kg)")
+                    if workout_template['TracksSets']:
+                        tracked_metrics.append("Sets")
+                    if workout_template['TracksReps']:
+                        tracked_metrics.append("Reps")
+                    if workout_template['TracksDuration']:
+                        tracked_metrics.append("Duration (min)")
+                    if workout_template['TracksDistance']:
+                        tracked_metrics.append("Distance (km)")
+                    if workout_template['TracksRPE']:
+                        tracked_metrics.append("RPE")
+                    
+                    st.write(", ".join(tracked_metrics))
+                    
+                    # Convert date and sort
+                    custom_logs['Date'] = pd.to_datetime(custom_logs['Date'])
+                    custom_logs = custom_logs.sort_values('Date')
+                    
+                    # Create graphs based on tracked metrics
+                    st.markdown("### 📈 Progress Charts")
+                    
+                    # Weight progression
+                    if workout_template['TracksWeight']:
+                            fig_weight = px.line(
+                                custom_logs, 
+                                x='Date', 
+                                y='Weight_kg',
+                                title=f"Weight Progression - {selected_custom_workout}",
+                                markers=True
+                            )
+                            fig_weight.update_layout(
+                                xaxis_title="Date",
+                                yaxis_title="Weight (kg)",
+                                hovermode='x unified'
+                            )
+                            st.plotly_chart(fig_weight, use_container_width=True)
+                    
+                    # Duration progression
+                    if workout_template['TracksDuration']:
+                            fig_duration = px.line(
+                                custom_logs,
+                                x='Date',
+                                y='Duration_min',
+                                title=f"Duration Progression - {selected_custom_workout}",
+                                markers=True
+                            )
+                            fig_duration.update_layout(
+                                xaxis_title="Date",
+                                yaxis_title="Duration (minutes)",
+                                hovermode='x unified'
+                            )
+                            st.plotly_chart(fig_duration, use_container_width=True)
+                        
+                    # Distance progression
+                    if workout_template['TracksDistance']:
+                            fig_distance = px.line(
+                                custom_logs,
+                                x='Date',
+                                y='Distance_km',
+                                title=f"Distance Progression - {selected_custom_workout}",
+                                markers=True
+                            )
+                            fig_distance.update_layout(
+                                xaxis_title="Date",
+                                yaxis_title="Distance (km)",
+                                hovermode='x unified'
+                            )
+                            st.plotly_chart(fig_distance, use_container_width=True)
+                    
+                    # Display stats cards
+                    st.markdown("### 📊 Stats Summary")
+                    stat_cols = st.columns(4)
+                    
+                    col_idx = 0
+                    if workout_template['TracksWeight']:
+                        with stat_cols[col_idx % 4]:
+                            max_weight = custom_logs['Weight_kg'].max()
+                            st.metric("Max Weight", f"{max_weight:.1f} kg")
+                            col_idx += 1
+                    
+                    if workout_template['TracksWeight'] and workout_template['TracksSets'] and workout_template['TracksReps']:
+                        with stat_cols[col_idx % 4]:
+                            max_volume = (custom_logs['Weight_kg'] * custom_logs['Sets'] * custom_logs['Reps']).max()
+                            st.metric("Max Volume", f"{int(max_volume)} kg")
+                            col_idx += 1
+                    
+                    if workout_template['TracksDuration']:
+                        with stat_cols[col_idx % 4]:
+                            max_duration = custom_logs['Duration_min'].max()
+                            total_duration = custom_logs['Duration_min'].sum()
+                            st.metric("Max Duration", f"{max_duration:.0f} min")
+                            col_idx += 1
+                    
+                    if workout_template['TracksDistance']:
+                            with stat_cols[col_idx % 4]:
+                                max_distance = custom_logs['Distance_km'].max()
+                                total_distance = custom_logs['Distance_km'].sum()
+                                st.metric("Max Distance", f"{max_distance:.1f} km")
+                                col_idx += 1
+                        
+                    # Session history
+                    st.markdown("### 📝 Session History")
+                    
+                    # Create display dataframe
+                    display_cols = ['Date']
+                    if workout_template['TracksWeight']:
+                        display_cols.append('Weight_kg')
+                    if workout_template['TracksSets']:
+                        display_cols.append('Sets')
+                    if workout_template['TracksReps']:
+                        display_cols.append('Reps')
+                    if workout_template['TracksDuration']:
+                        display_cols.append('Duration_min')
+                    if workout_template['TracksDistance']:
+                        display_cols.append('Distance_km')
+                    if workout_template['TracksRPE']:
+                        display_cols.append('RPE')
+                    display_cols.append('Notes')
+                    
+                    # Format and display
+                    display_df = custom_logs[display_cols].copy()
+                    display_df['Date'] = display_df['Date'].dt.strftime('%Y-%m-%d')
+                    st.dataframe(display_df.sort_values('Date', ascending=False), use_container_width=True)
+        
         # Recent workouts table
         st.markdown("---")
         st.markdown("### 📋 Recent Workouts")
@@ -520,5 +630,6 @@ if workout_sheet:
                         mime="image/png",
                         use_container_width=True
                     )
+
 else:
     st.error("⚠️ Could not connect to Google Sheets.")

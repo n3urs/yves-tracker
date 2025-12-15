@@ -1409,3 +1409,102 @@ def generate_instagram_story(user, stats_dict):
              fill=(100, 110, 150), font=small_font)
     
     return img
+
+# ==================== CUSTOM WORKOUT FUNCTIONS ====================
+
+def load_custom_workout_templates(spreadsheet):
+    """Load all custom workout templates from Google Sheets"""
+    try:
+        template_sheet = spreadsheet.worksheet("CustomWorkoutTemplates")
+        records = template_sheet.get_all_records()
+        if records:
+            df = pd.DataFrame(records)
+            # Convert TRUE/FALSE strings to actual booleans
+            bool_columns = ['TracksWeight', 'TracksSets', 'TracksReps', 'TracksDuration', 'TracksDistance', 'TracksRPE']
+            for col in bool_columns:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: str(x).upper() == "TRUE")
+            return df
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
+def get_user_custom_workouts(spreadsheet, user):
+    """Get custom workouts for a specific user"""
+    df_templates = load_custom_workout_templates(spreadsheet)
+    if df_templates.empty:
+        return pd.DataFrame()
+    return df_templates[df_templates['CreatedBy'] == user]
+
+def log_custom_workout(spreadsheet, user, workout_id, workout_name, date, 
+                       weight=None, sets=None, reps=None, duration=None, 
+                       distance=None, rpe=None, notes=""):
+    """Log a custom workout session"""
+    try:
+        try:
+            log_sheet = spreadsheet.worksheet("CustomWorkoutLogs")
+        except:
+            # Create sheet if it doesn't exist
+            log_sheet = spreadsheet.add_worksheet(title="CustomWorkoutLogs", rows=1000, cols=11)
+            log_sheet.append_row([
+                "LogID", "User", "WorkoutID", "WorkoutName", "Date", 
+                "Weight_kg", "Sets", "Reps", "Duration_min", "Distance_km", "RPE", "Notes"
+            ])
+        
+        # Generate unique log ID
+        log_id = f"{user}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+        
+        # Append log entry
+        log_sheet.append_row([
+            log_id,
+            user,
+            workout_id,
+            workout_name,
+            date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(date, datetime) else date,
+            float(weight) if weight else "",
+            int(sets) if sets else "",
+            int(reps) if reps else "",
+            float(duration) if duration else "",
+            float(distance) if distance else "",
+            int(rpe) if rpe else "",
+            notes
+        ])
+        
+        # Update activity log
+        try:
+            activity_sheet = spreadsheet.worksheet("ActivityLog")
+            activity_sheet.append_row([
+                user,
+                date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(date, datetime) else date,
+                "Custom Workout",
+                workout_name
+            ])
+        except:
+            pass
+        
+        return True
+    except Exception as e:
+        st.error(f"Error logging custom workout: {e}")
+        return False
+
+def load_custom_workout_logs(spreadsheet, user, workout_id=None):
+    """Load custom workout logs for a user, optionally filtered by workout_id"""
+    try:
+        log_sheet = spreadsheet.worksheet("CustomWorkoutLogs")
+        records = log_sheet.get_all_records()
+        
+        if not records:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(records)
+        df = df[df['User'] == user]
+        
+        if workout_id:
+            df = df[df['WorkoutID'] == workout_id]
+        
+        if len(df) > 0 and 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        
+        return df
+    except:
+        return pd.DataFrame()

@@ -74,326 +74,497 @@ else:
     
     # ==================== TAB 1: REGULAR WORKOUT ====================
     with tab1:
-        st.markdown("### 🎯 Select Exercise")
+        st.markdown("### 🎯 Select Workout Type")
         
-        col1, col2, col3 = st.columns(3)
+        # Initialize workout type selection
+        if 'workout_type' not in st.session_state:
+            st.session_state.workout_type = "Standard Exercises"
         
-        # Exercise selection with visual cards
-        if 'selected_exercise' not in st.session_state:
-            st.session_state.selected_exercise = "20mm Edge"
+        workout_type_col1, workout_type_col2 = st.columns(2)
         
-        with col1:
-            if st.button("🖐️ 20mm Edge", use_container_width=True, type="primary" if st.session_state.selected_exercise == "20mm Edge" else "secondary"):
+        with workout_type_col1:
+            if st.button("🏋️ Standard Exercises", use_container_width=True, 
+                        type="primary" if st.session_state.workout_type == "Standard Exercises" else "secondary"):
+                st.session_state.workout_type = "Standard Exercises"
+                st.rerun()
+        
+        with workout_type_col2:
+            if st.button("✨ Custom Workout", use_container_width=True,
+                        type="primary" if st.session_state.workout_type == "Custom Workout" else "secondary"):
+                st.session_state.workout_type = "Custom Workout"
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # ==================== STANDARD EXERCISES ====================
+        if st.session_state.workout_type == "Standard Exercises":
+            st.markdown("### 🎯 Select Exercise")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            # Exercise selection with visual cards
+            if 'selected_exercise' not in st.session_state:
                 st.session_state.selected_exercise = "20mm Edge"
-                st.rerun()
         
-        with col2:
-            if st.button("🤏 Pinch", use_container_width=True, type="primary" if st.session_state.selected_exercise == "Pinch" else "secondary"):
-                st.session_state.selected_exercise = "Pinch"
-                st.rerun()
+            with col1:
+                if st.button("🖐️ 20mm Edge", use_container_width=True, type="primary" if st.session_state.selected_exercise == "20mm Edge" else "secondary"):
+                    st.session_state.selected_exercise = "20mm Edge"
+                    st.rerun()
         
-        with col3:
-            if st.button("💪 Wrist Roller", use_container_width=True, type="primary" if st.session_state.selected_exercise == "Wrist Roller" else "secondary"):
-                st.session_state.selected_exercise = "Wrist Roller"
-                st.rerun()
+            with col2:
+                if st.button("🤏 Pinch", use_container_width=True, type="primary" if st.session_state.selected_exercise == "Pinch" else "secondary"):
+                    st.session_state.selected_exercise = "Pinch"
+                    st.rerun()
         
-        exercise = st.session_state.selected_exercise
+            with col3:
+                if st.button("💪 Wrist Roller", use_container_width=True, type="primary" if st.session_state.selected_exercise == "Wrist Roller" else "secondary"):
+                    st.session_state.selected_exercise = "Wrist Roller"
+                    st.rerun()
         
-        # Get working max (auto-updated from recent lifts)
-        current_1rm_L = get_working_max(spreadsheet, selected_user, exercise, "L")
-        current_1rm_R = get_working_max(spreadsheet, selected_user, exercise, "R")
+            exercise = st.session_state.selected_exercise
         
-        st.markdown("---")
+            # Get working max (auto-updated from recent lifts)
+            current_1rm_L = get_working_max(spreadsheet, selected_user, exercise, "L")
+            current_1rm_R = get_working_max(spreadsheet, selected_user, exercise, "R")
         
-        # Get last workout data for both arms
-        last_workout_L = get_last_workout(spreadsheet, selected_user, exercise, "L")
-        last_workout_R = get_last_workout(spreadsheet, selected_user, exercise, "R")
+            st.markdown("---")
         
-        # Generate suggestions
-        suggestion_L = generate_workout_suggestion(last_workout_L)
-        suggestion_R = generate_workout_suggestion(last_workout_R)
+            # Get last workout data for both arms
+            last_workout_L = get_last_workout(spreadsheet, selected_user, exercise, "L")
+            last_workout_R = get_last_workout(spreadsheet, selected_user, exercise, "R")
         
-        # Show last workout and suggestions
-        st.markdown("### 📋 Last Workout & Suggestions")
-        st.caption("💡 Smart recommendations based on your previous performance")
+            # Generate suggestions
+            suggestion_L = generate_workout_suggestion(last_workout_L)
+            suggestion_R = generate_workout_suggestion(last_workout_R)
         
-        col_info_L, col_info_R = st.columns(2)
+            # Show last workout and suggestions
+            st.markdown("### 📋 Last Workout & Suggestions")
+            st.caption("💡 Smart recommendations based on your previous performance")
         
-        with col_info_L:
-            if last_workout_L:
-                weight_L = last_workout_L['weight']
-                rpe_L_val = last_workout_L['rpe']
-                emoji_L = suggestion_L['emoji']
-                sugg_title_L = suggestion_L['suggestion']
-                sugg_msg_L = suggestion_L['message']
+            col_info_L, col_info_R = st.columns(2)
+        
+            with col_info_L:
+                if last_workout_L:
+                    weight_L = last_workout_L['weight']
+                    rpe_L_val = last_workout_L['rpe']
+                    emoji_L = suggestion_L['emoji']
+                    sugg_title_L = suggestion_L['suggestion']
+                    sugg_msg_L = suggestion_L['message']
                 
-                html_content = f'<div style="background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Left Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_L:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_L_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_L}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_L}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_L}</div></div></div></div>'
-                st.markdown(html_content, unsafe_allow_html=True)
-            else:
-                emoji_L = suggestion_L['emoji']
-                sugg_msg_L = suggestion_L['message']
-                html_content = f'<div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 32px 24px; border-radius: 16px; text-align: center; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="font-size: 18px; color: white; font-weight: 700; margin-bottom: 16px;">💪 Left Arm</div><div style="font-size: 48px; margin: 20px 0;">{emoji_L}</div><div style="font-size: 15px; color: white; font-weight: 600; line-height: 1.6;">{sugg_msg_L}</div></div>'
-                st.markdown(html_content, unsafe_allow_html=True)
-        
-        with col_info_R:
-            if last_workout_R:
-                weight_R = last_workout_R['weight']
-                rpe_R_val = last_workout_R['rpe']
-                emoji_R = suggestion_R['emoji']
-                sugg_title_R = suggestion_R['suggestion']
-                sugg_msg_R = suggestion_R['message']
-                
-                html_content = f'<div style="background: linear-gradient(135deg, #d946b5 0%, #e23670 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Right Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_R:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_R_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_R}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_R}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_R}</div></div></div></div>'
-                st.markdown(html_content, unsafe_allow_html=True)
-            else:
-                emoji_R = suggestion_R['emoji']
-                sugg_msg_R = suggestion_R['message']
-                html_content = f'<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 32px 24px; border-radius: 16px; text-align: center; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="font-size: 18px; color: white; font-weight: 700; margin-bottom: 16px;">💪 Right Arm</div><div style="font-size: 48px; margin: 20px 0;">{emoji_R}</div><div style="font-size: 15px; color: white; font-weight: 600; line-height: 1.6;">{sugg_msg_R}</div></div>'
-                st.markdown(html_content, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Use fixed 80% intensity
-        target_pct = 80
-        
-        # Calculate suggested loads based on last workout or 80% of 1RM
-        if last_workout_L and suggestion_L['weight_change'] != 0:
-            suggested_load_L = last_workout_L['weight'] + suggestion_L['weight_change']
-        else:
-            suggested_load_L = current_1rm_L * 0.8
-            
-        if last_workout_R and suggestion_R['weight_change'] != 0:
-            suggested_load_R = last_workout_R['weight'] + suggestion_R['weight_change']
-        else:
-            suggested_load_R = current_1rm_R * 0.8
-        
-        # Actual Weight Lifted
-        st.markdown("### ⚖️ Actual Weight Lifted")
-        use_same_weight = st.checkbox("Log same workout for both arms (weight, reps, sets, RPE)", value=True, key="same_weight_toggle")
-        
-        if use_same_weight:
-            actual_load = st.number_input(
-                "Weight Lifted (kg) - Both Arms:",
-                min_value=0.0,
-                max_value=200.0,
-                value=(suggested_load_L + suggested_load_R) / 2,
-                step=0.25,
-                key="actual_load_both",
-                help="Enter the weight you actually lifted"
-            )
-            actual_load_L = actual_load
-            actual_load_R = actual_load
-        else:
-            col_L, col_R = st.columns(2)
-            with col_L:
-                actual_load_L = st.number_input(
-                    "Left Arm Weight (kg):",
-                    min_value=0.0,
-                    max_value=200.0,
-                    value=suggested_load_L,
-                    step=0.25,
-                    key="actual_load_L"
-                )
-            with col_R:
-                actual_load_R = st.number_input(
-                    "Right Arm Weight (kg):",
-                    min_value=0.0,
-                    max_value=200.0,
-                    value=suggested_load_R,
-                    step=0.25,
-                    key="actual_load_R"
-                )
-        
-        st.markdown("---")
-        
-        # Workout Details
-        st.markdown("### 📊 Workout Details")
-        
-        # Get default values from last workout if available
-        default_reps_L = last_workout_L['reps'] if last_workout_L else 5
-        default_reps_R = last_workout_R['reps'] if last_workout_R else 5
-        default_sets_L = last_workout_L['sets'] if last_workout_L else 3
-        default_sets_R = last_workout_R['sets'] if last_workout_R else 3
-        default_rpe_L = last_workout_L['rpe'] if last_workout_L else 7
-        default_rpe_R = last_workout_R['rpe'] if last_workout_R else 7
-        
-        if use_same_weight:
-            # Same details for both arms
-            col_reps, col_sets, col_rpe = st.columns(3)
-            
-            with col_reps:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(103,126,234,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>🔢</div>
-                        <div style='font-size: 12px; color: #888;'>Reps per Set</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                reps_per_set = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input", label_visibility="collapsed")
-                reps_per_set_L = reps_per_set
-                reps_per_set_R = reps_per_set
-            
-            with col_sets:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>📚</div>
-                        <div style='font-size: 12px; color: #888;'>Sets Completed</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                sets_completed = st.number_input("", min_value=1, max_value=10, value=default_sets_L, step=1, key="sets_input", label_visibility="collapsed")
-                sets_completed_L = sets_completed
-                sets_completed_R = sets_completed
-            
-            with col_rpe:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(250,112,154,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>💥</div>
-                        <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                rpe = st.slider("", min_value=1, max_value=10, value=default_rpe_L, step=1, key="rpe_slider", label_visibility="collapsed")
-                rpe_L = rpe
-                rpe_R = rpe
-        else:
-            # Different details for each arm
-            st.markdown("#### Left Arm")
-            col_reps_L, col_sets_L, col_rpe_L = st.columns(3)
-            
-            with col_reps_L:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>🔢</div>
-                        <div style='font-size: 12px; color: #888;'>Reps per Set</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                reps_per_set_L = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input_L", label_visibility="collapsed")
-            
-            with col_sets_L:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>📚</div>
-                        <div style='font-size: 12px; color: #888;'>Sets Completed</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                sets_completed_L = st.number_input("", min_value=1, max_value=10, value=default_sets_L, step=1, key="sets_input_L", label_visibility="collapsed")
-            
-            with col_rpe_L:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>💥</div>
-                        <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                rpe_L = st.slider("", min_value=1, max_value=10, value=default_rpe_L, step=1, key="rpe_slider_L", label_visibility="collapsed")
-            
-            st.markdown("#### Right Arm")
-            col_reps_R, col_sets_R, col_rpe_R = st.columns(3)
-            
-            with col_reps_R:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>🔢</div>
-                        <div style='font-size: 12px; color: #888;'>Reps per Set</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                reps_per_set_R = st.number_input("", min_value=1, max_value=20, value=default_reps_R, step=1, key="reps_input_R", label_visibility="collapsed")
-            
-            with col_sets_R:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>📚</div>
-                        <div style='font-size: 12px; color: #888;'>Sets Completed</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                sets_completed_R = st.number_input("", min_value=1, max_value=10, value=default_sets_R, step=1, key="sets_input_R", label_visibility="collapsed")
-            
-            with col_rpe_R:
-                st.markdown("""
-                    <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 24px;'>💥</div>
-                        <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                rpe_R = st.slider("", min_value=1, max_value=10, value=default_rpe_R, step=1, key="rpe_slider_R", label_visibility="collapsed")
-        
-        st.markdown("---")
-        
-        # Session Notes
-        st.markdown("### 📝 Session Notes")
-        notes = st.text_area(
-            "How did it feel?",
-            placeholder="e.g., Felt strong today, left arm a bit tired...",
-            key="notes_input",
-            label_visibility="collapsed"
-        )
-        
-        # Quick note buttons
-        st.markdown("**Quick Tags:**")
-        if 'quick_note_append' not in st.session_state:
-            st.session_state.quick_note_append = ""
-        
-        quick_cols = st.columns(len(QUICK_NOTES))
-        for idx, (emoji_label, note_text) in enumerate(QUICK_NOTES.items()):
-            if quick_cols[idx].button(emoji_label, key=f"quick_{note_text}"):
-                if st.session_state.quick_note_append:
-                    st.session_state.quick_note_append += f" {note_text}"
+                    html_content = f'<div style="background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Left Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_L:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_L_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_L}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_L}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_L}</div></div></div></div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
                 else:
-                    st.session_state.quick_note_append = note_text
-                st.rerun()
+                    emoji_L = suggestion_L['emoji']
+                    sugg_msg_L = suggestion_L['message']
+                    html_content = f'<div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 32px 24px; border-radius: 16px; text-align: center; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="font-size: 18px; color: white; font-weight: 700; margin-bottom: 16px;">💪 Left Arm</div><div style="font-size: 48px; margin: 20px 0;">{emoji_L}</div><div style="font-size: 15px; color: white; font-weight: 600; line-height: 1.6;">{sugg_msg_L}</div></div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
         
-        if st.session_state.quick_note_append:
-            final_notes = (notes + " " + st.session_state.quick_note_append).strip()
-            st.info(f"📌 Notes to save: {final_notes}")
-        else:
-            final_notes = notes
+            with col_info_R:
+                if last_workout_R:
+                    weight_R = last_workout_R['weight']
+                    rpe_R_val = last_workout_R['rpe']
+                    emoji_R = suggestion_R['emoji']
+                    sugg_title_R = suggestion_R['suggestion']
+                    sugg_msg_R = suggestion_R['message']
+                
+                    html_content = f'<div style="background: linear-gradient(135deg, #d946b5 0%, #e23670 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Right Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_R:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_R_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_R}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_R}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_R}</div></div></div></div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
+                else:
+                    emoji_R = suggestion_R['emoji']
+                    sugg_msg_R = suggestion_R['message']
+                    html_content = f'<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 32px 24px; border-radius: 16px; text-align: center; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="font-size: 18px; color: white; font-weight: 700; margin-bottom: 16px;">💪 Right Arm</div><div style="font-size: 48px; margin: 20px 0;">{emoji_R}</div><div style="font-size: 15px; color: white; font-weight: 600; line-height: 1.6;">{sugg_msg_R}</div></div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
         
-        if st.session_state.quick_note_append:
-            if st.button("🗑️ Clear tags"):
-                st.session_state.quick_note_append = ""
-                st.rerun()
+            st.markdown("---")
         
-        st.markdown("---")
+            # Use fixed 80% intensity
+            target_pct = 80
         
-        # Submit button
-        if st.button("✅ Log Workout", type="primary", use_container_width=True):
-            workout_data_L = {
-                "User": selected_user,
-                "Date": datetime.now().strftime("%Y-%m-%d"),
-                "Exercise": exercise,
-                "Arm": "L",
-                "1RM_Reference": current_1rm_L,
-                "Target_Percentage": target_pct,
-                "Prescribed_Load_kg": suggested_load_L,
-                "Actual_Load_kg": actual_load_L,
-                "Reps_Per_Set": reps_per_set_L,
-                "Sets_Completed": sets_completed_L,
-                "RPE": rpe_L,
-                "Notes": final_notes
-            }
-            
-            workout_data_R = {
-                "User": selected_user,
-                "Date": datetime.now().strftime("%Y-%m-%d"),
-                "Exercise": exercise,
-                "Arm": "R",
-                "1RM_Reference": current_1rm_R,
-                "Target_Percentage": target_pct,
-                "Prescribed_Load_kg": suggested_load_R,
-                "Actual_Load_kg": actual_load_R,
-                "Reps_Per_Set": reps_per_set_R,
-                "Sets_Completed": sets_completed_R,
-                "RPE": rpe_R,
-                "Notes": final_notes
-            }
-            
-            success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
-            success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
-            
-            if success_L and success_R:
-                st.session_state.quick_note_append = ""
-                st.success("✅ Workout logged successfully for both arms!")
-                st.balloons()
+            # Calculate suggested loads based on last workout or 80% of 1RM
+            if last_workout_L and suggestion_L['weight_change'] != 0:
+                suggested_load_L = last_workout_L['weight'] + suggestion_L['weight_change']
             else:
-                st.error("❌ Failed to save workout. Please try again.")
+                suggested_load_L = current_1rm_L * 0.8
+            
+            if last_workout_R and suggestion_R['weight_change'] != 0:
+                suggested_load_R = last_workout_R['weight'] + suggestion_R['weight_change']
+            else:
+                suggested_load_R = current_1rm_R * 0.8
+        
+            # Actual Weight Lifted
+            st.markdown("### ⚖️ Actual Weight Lifted")
+            use_same_weight = st.checkbox("Log same workout for both arms (weight, reps, sets, RPE)", value=True, key="same_weight_toggle")
+        
+            if use_same_weight:
+                actual_load = st.number_input(
+                    "Weight Lifted (kg) - Both Arms:",
+                    min_value=0.0,
+                    max_value=200.0,
+                    value=(suggested_load_L + suggested_load_R) / 2,
+                    step=0.25,
+                    key="actual_load_both",
+                    help="Enter the weight you actually lifted"
+                )
+                actual_load_L = actual_load
+                actual_load_R = actual_load
+            else:
+                col_L, col_R = st.columns(2)
+                with col_L:
+                    actual_load_L = st.number_input(
+                        "Left Arm Weight (kg):",
+                        min_value=0.0,
+                        max_value=200.0,
+                        value=suggested_load_L,
+                        step=0.25,
+                        key="actual_load_L"
+                    )
+                with col_R:
+                    actual_load_R = st.number_input(
+                        "Right Arm Weight (kg):",
+                        min_value=0.0,
+                        max_value=200.0,
+                        value=suggested_load_R,
+                        step=0.25,
+                        key="actual_load_R"
+                    )
+        
+            st.markdown("---")
+        
+            # Workout Details
+            st.markdown("### 📊 Workout Details")
+        
+            # Get default values from last workout if available
+            default_reps_L = last_workout_L['reps'] if last_workout_L else 5
+            default_reps_R = last_workout_R['reps'] if last_workout_R else 5
+            default_sets_L = last_workout_L['sets'] if last_workout_L else 3
+            default_sets_R = last_workout_R['sets'] if last_workout_R else 3
+            default_rpe_L = last_workout_L['rpe'] if last_workout_L else 7
+            default_rpe_R = last_workout_R['rpe'] if last_workout_R else 7
+        
+            if use_same_weight:
+                # Same details for both arms
+                col_reps, col_sets, col_rpe = st.columns(3)
+            
+                with col_reps:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(103,126,234,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>🔢</div>
+                            <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    reps_per_set = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input", label_visibility="collapsed")
+                    reps_per_set_L = reps_per_set
+                    reps_per_set_R = reps_per_set
+            
+                with col_sets:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>📚</div>
+                            <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    sets_completed = st.number_input("", min_value=1, max_value=10, value=default_sets_L, step=1, key="sets_input", label_visibility="collapsed")
+                    sets_completed_L = sets_completed
+                    sets_completed_R = sets_completed
+            
+                with col_rpe:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(250,112,154,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>💥</div>
+                            <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    rpe = st.slider("", min_value=1, max_value=10, value=default_rpe_L, step=1, key="rpe_slider", label_visibility="collapsed")
+                    rpe_L = rpe
+                    rpe_R = rpe
+            else:
+                # Different details for each arm
+                st.markdown("#### Left Arm")
+                col_reps_L, col_sets_L, col_rpe_L = st.columns(3)
+            
+                with col_reps_L:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>🔢</div>
+                            <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    reps_per_set_L = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input_L", label_visibility="collapsed")
+            
+                with col_sets_L:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>📚</div>
+                            <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    sets_completed_L = st.number_input("", min_value=1, max_value=10, value=default_sets_L, step=1, key="sets_input_L", label_visibility="collapsed")
+            
+                with col_rpe_L:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(79,172,254,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>💥</div>
+                            <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    rpe_L = st.slider("", min_value=1, max_value=10, value=default_rpe_L, step=1, key="rpe_slider_L", label_visibility="collapsed")
+            
+                st.markdown("#### Right Arm")
+                col_reps_R, col_sets_R, col_rpe_R = st.columns(3)
+            
+                with col_reps_R:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>🔢</div>
+                            <div style='font-size: 12px; color: #888;'>Reps per Set</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    reps_per_set_R = st.number_input("", min_value=1, max_value=20, value=default_reps_R, step=1, key="reps_input_R", label_visibility="collapsed")
+            
+                with col_sets_R:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>📚</div>
+                            <div style='font-size: 12px; color: #888;'>Sets Completed</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    sets_completed_R = st.number_input("", min_value=1, max_value=10, value=default_sets_R, step=1, key="sets_input_R", label_visibility="collapsed")
+            
+                with col_rpe_R:
+                    st.markdown("""
+                        <div style='text-align: center; padding: 10px; background: rgba(240,147,251,0.1); border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 24px;'>💥</div>
+                            <div style='font-size: 12px; color: #888;'>RPE (1-10)</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    rpe_R = st.slider("", min_value=1, max_value=10, value=default_rpe_R, step=1, key="rpe_slider_R", label_visibility="collapsed")
+        
+            st.markdown("---")
+        
+            # Session Notes
+            st.markdown("### 📝 Session Notes")
+            notes = st.text_area(
+                "How did it feel?",
+                placeholder="e.g., Felt strong today, left arm a bit tired...",
+                key="notes_input",
+                label_visibility="collapsed"
+            )
+        
+            # Quick note buttons
+            st.markdown("**Quick Tags:**")
+            if 'quick_note_append' not in st.session_state:
+                st.session_state.quick_note_append = ""
+        
+            quick_cols = st.columns(len(QUICK_NOTES))
+            for idx, (emoji_label, note_text) in enumerate(QUICK_NOTES.items()):
+                if quick_cols[idx].button(emoji_label, key=f"quick_{note_text}"):
+                    if st.session_state.quick_note_append:
+                        st.session_state.quick_note_append += f" {note_text}"
+                    else:
+                        st.session_state.quick_note_append = note_text
+                    st.rerun()
+        
+            if st.session_state.quick_note_append:
+                final_notes = (notes + " " + st.session_state.quick_note_append).strip()
+                st.info(f"📌 Notes to save: {final_notes}")
+            else:
+                final_notes = notes
+        
+            if st.session_state.quick_note_append:
+                if st.button("🗑️ Clear tags"):
+                    st.session_state.quick_note_append = ""
+                    st.rerun()
+        
+            st.markdown("---")
+        
+            # Submit button
+            if st.button("✅ Log Workout", type="primary", use_container_width=True):
+                workout_data_L = {
+                    "User": selected_user,
+                    "Date": datetime.now().strftime("%Y-%m-%d"),
+                    "Exercise": exercise,
+                    "Arm": "L",
+                    "1RM_Reference": current_1rm_L,
+                    "Target_Percentage": target_pct,
+                    "Prescribed_Load_kg": suggested_load_L,
+                    "Actual_Load_kg": actual_load_L,
+                    "Reps_Per_Set": reps_per_set_L,
+                    "Sets_Completed": sets_completed_L,
+                    "RPE": rpe_L,
+                    "Notes": final_notes
+                }
+            
+                workout_data_R = {
+                    "User": selected_user,
+                    "Date": datetime.now().strftime("%Y-%m-%d"),
+                    "Exercise": exercise,
+                    "Arm": "R",
+                    "1RM_Reference": current_1rm_R,
+                    "Target_Percentage": target_pct,
+                    "Prescribed_Load_kg": suggested_load_R,
+                    "Actual_Load_kg": actual_load_R,
+                    "Reps_Per_Set": reps_per_set_R,
+                    "Sets_Completed": sets_completed_R,
+                    "RPE": rpe_R,
+                    "Notes": final_notes
+                }
+            
+                success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
+                success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
+            
+                if success_L and success_R:
+                    st.session_state.quick_note_append = ""
+                    st.success("✅ Workout logged successfully for both arms!")
+                    st.balloons()
+                else:
+                    st.error("❌ Failed to save workout. Please try again.")
+        
+        # ==================== CUSTOM WORKOUT LOGGING ====================
+        elif st.session_state.workout_type == "Custom Workout":
+            st.markdown("### ✨ Select Custom Workout")
+            
+            # Load user's custom workouts
+            user_workouts = get_user_custom_workouts(spreadsheet, selected_user)
+            
+            if user_workouts.empty:
+                st.warning("You haven't created any custom workouts yet!")
+                st.info("Go to the Custom Workouts page to create your first workout template.")
+                if st.button("🏋️ Go to Custom Workouts", use_container_width=True):
+                    st.switch_page("pages/6_Custom_Workouts.py")
+            else:
+                # Dropdown to select workout
+                workout_names = user_workouts['WorkoutName'].tolist()
+                selected_workout_name = st.selectbox(
+                    "Choose a workout:",
+                    workout_names,
+                    key="custom_workout_select"
+                )
+                
+                # Get the selected workout details
+                workout_details = user_workouts[user_workouts['WorkoutName'] == selected_workout_name].iloc[0]
+                
+                # Display workout info
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    padding: 20px; border-radius: 12px; margin: 20px 0;'>
+                        <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>
+                            🏋️ {selected_workout_name}
+                        </div>
+                        <div style='font-size: 14px; color: rgba(255,255,255,0.9);'>
+                            Type: {workout_details['WorkoutType']} | {workout_details.get('Description', '')}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("---")
+                st.markdown("### 📊 Enter Workout Data")
+                
+                # Create dynamic form based on tracked metrics
+                col1, col2, col3 = st.columns(3)
+                
+                workout_weight = None
+                workout_sets = None
+                workout_reps = None
+                workout_duration = None
+                workout_distance = None
+                workout_rpe = None
+                
+                with col1:
+                    if workout_details.get('TracksWeight', False):
+                        workout_weight = st.number_input(
+                            "Weight (kg)",
+                            min_value=0.0,
+                            max_value=500.0,
+                            value=0.0,
+                            step=0.5,
+                            key="custom_weight"
+                        )
+                    
+                    if workout_details.get('TracksSets', False):
+                        workout_sets = st.number_input(
+                            "Sets",
+                            min_value=1,
+                            max_value=20,
+                            value=3,
+                            step=1,
+                            key="custom_sets"
+                        )
+                
+                with col2:
+                    if workout_details.get('TracksReps', False):
+                        workout_reps = st.number_input(
+                            "Reps",
+                            min_value=1,
+                            max_value=100,
+                            value=10,
+                            step=1,
+                            key="custom_reps"
+                        )
+                    
+                    if workout_details.get('TracksDuration', False):
+                        workout_duration = st.number_input(
+                            "Duration (min)",
+                            min_value=1,
+                            max_value=600,
+                            value=30,
+                            step=1,
+                            key="custom_duration"
+                        )
+                
+                with col3:
+                    if workout_details.get('TracksDistance', False):
+                        workout_distance = st.number_input(
+                            "Distance (km)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=5.0,
+                            step=0.1,
+                            key="custom_distance"
+                        )
+                    
+                    if workout_details.get('TracksRPE', False):
+                        workout_rpe = st.slider(
+                            "RPE (1-10)",
+                            min_value=1,
+                            max_value=10,
+                            value=7,
+                            step=1,
+                            key="custom_rpe"
+                        )
+                
+                st.markdown("---")
+                
+                # Notes
+                custom_notes = st.text_area(
+                    "Session notes (optional):",
+                    placeholder="How did it feel?",
+                    key="custom_notes"
+                )
+                
+                st.markdown("---")
+                
+                # Submit button
+                if st.button("✅ Log Custom Workout", type="primary", use_container_width=True):
+                    success = log_custom_workout(
+                        spreadsheet=spreadsheet,
+                        user=selected_user,
+                        workout_id=workout_details['WorkoutID'],
+                        workout_name=selected_workout_name,
+                        date=datetime.now(),
+                        weight=workout_weight,
+                        sets=workout_sets,
+                        reps=workout_reps,
+                        duration=workout_duration,
+                        distance=workout_distance,
+                        rpe=workout_rpe,
+                        notes=custom_notes
+                    )
+                    
+                    if success:
+                        st.success(f"✅ {selected_workout_name} logged successfully!")
+                        st.balloons()
+                    else:
+                        st.error("❌ Failed to log workout. Please try again.")
     
     # ==================== TAB 2: 1RM UPDATE ====================
     with tab2:
