@@ -2,7 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('..')
 from utils.helpers import *
-from utils.helpers import USER_PLACEHOLDER, generate_instagram_story, get_bodyweight_history
+from utils.helpers import USER_PLACEHOLDER, generate_instagram_story
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
