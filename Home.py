@@ -80,7 +80,29 @@ selected_user = user_selectbox_with_pin(
 st.session_state.current_user = selected_user
 
 if selected_user == USER_PLACEHOLDER:
-    st.info("🔒 Select a profile from the sidebar and enter the PIN to unlock your dashboard.")
+    # Welcome banner for new users
+    st.markdown("""
+        <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+        padding: 20px 24px; border-radius: 16px; margin: 20px 0; box-shadow: 0 6px 20px rgba(240,147,251,0.3);
+        border: 1px solid rgba(255,255,255,0.1); text-align: center;'>
+            <div style='font-size: 32px; margin-bottom: 10px;'>👋</div>
+            <h3 style='color: white; font-weight: 600; font-size: 22px; margin: 0 0 10px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>
+                Welcome! Ready to track your finger strength?
+            </h3>
+            <p style='color: rgba(255,255,255,0.95); font-size: 15px; margin: 0 0 16px 0; line-height: 1.5;'>
+                Create your profile to start logging workouts and monitoring your progress 💪
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Create profile button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🆕 Create Your Profile", use_container_width=True, type="primary"):
+            st.switch_page("pages/5_Profile.py")
+    
+    st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
+    st.info("🔒 Already have a profile? Select it from the sidebar and enter your PIN.")
     st.stop()
 
 # ==================== PERSONALIZED WELCOME ====================

@@ -255,6 +255,147 @@ if workout_sheet:
         
         st.plotly_chart(fig2, use_container_width=True)
         
+        st.markdown("---")
+        
+        # Relative Strength (Strength-to-Weight Ratio)
+        st.markdown("### ⚖️ Relative Strength - The Climber's Edge")
+        st.caption("💡 Your strength divided by bodyweight. Higher = better climbing performance!")
+        
+        # Get bodyweight history
+        from utils.helpers import get_bodyweight_history
+        bw_history = get_bodyweight_history(spreadsheet, selected_user)
+        
+        if not bw_history.empty and len(df_filtered) > 0:
+            # Create a merged dataframe with workout loads and bodyweight
+            df_strength = df_filtered[['Date', 'Exercise', 'Arm', 'Actual_Load_kg']].copy()
+            
+            # For each workout date, find the most recent bodyweight
+            df_strength['Bodyweight_kg'] = df_strength['Date'].apply(
+                lambda x: bw_history[bw_history['Date'] <= x]['Bodyweight_kg'].iloc[-1] 
+                if len(bw_history[bw_history['Date'] <= x]) > 0 
+                else get_bodyweight(spreadsheet, selected_user)
+            )
+            
+            # Calculate relative strength (load / bodyweight)
+            df_strength['Relative_Strength'] = df_strength['Actual_Load_kg'] / df_strength['Bodyweight_kg']
+            
+            # Group by date, exercise, and arm
+            df_rel = df_strength.groupby(['Date', 'Exercise', 'Arm']).agg({
+                'Relative_Strength': 'mean',
+                'Bodyweight_kg': 'first'
+            }).reset_index()
+            
+            # Create figure with two y-axes
+            fig3 = go.Figure()
+            
+            # Add relative strength traces
+            colors = {'L': '#4facfe', 'R': '#f093fb'}
+            
+            for exercise in df_rel['Exercise'].unique():
+                for arm in df_rel['Arm'].unique():
+                    df_subset = df_rel[(df_rel['Exercise'] == exercise) & (df_rel['Arm'] == arm)]
+                    
+                    if len(df_subset) > 0:
+                        fig3.add_trace(go.Scatter(
+                            x=df_subset['Date'],
+                            y=df_subset['Relative_Strength'],
+                            mode='lines+markers',
+                            name=f'{exercise} - {arm} (Relative)',
+                            line=dict(color=colors.get(arm, '#ffffff'), width=3),
+                            marker=dict(size=10, color=colors.get(arm, '#ffffff'),
+                                      line=dict(color='white', width=2)),
+                            yaxis='y'
+                        ))
+            
+            # Add bodyweight trace on secondary y-axis
+            if len(bw_history) > 1:
+                fig3.add_trace(go.Scatter(
+                    x=bw_history['Date'],
+                    y=bw_history['Bodyweight_kg'],
+                    mode='lines+markers',
+                    name='Bodyweight',
+                    line=dict(color='#fbbf24', width=2, dash='dash'),
+                    marker=dict(size=8, color='#fbbf24'),
+                    yaxis='y2'
+                ))
+            
+            fig3.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='white', size=14),
+                xaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(255,255,255,0.1)',
+                    title='Date',
+                    title_font=dict(size=16, color='white')
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(255,255,255,0.1)',
+                    title='Relative Strength (Load/BW)',
+                    title_font=dict(size=16, color='white'),
+                    side='left'
+                ),
+                yaxis2=dict(
+                    showgrid=False,
+                    title='Bodyweight (kg)',
+                    title_font=dict(size=16, color='#fbbf24'),
+                    overlaying='y',
+                    side='right',
+                    tickfont=dict(color='#fbbf24')
+                ),
+                height=500,
+                hovermode='x unified',
+                legend=dict(
+                    bgcolor='rgba(0,0,0,0.5)',
+                    bordercolor='rgba(255,255,255,0.3)',
+                    borderwidth=1
+                )
+            )
+            
+            st.plotly_chart(fig3, use_container_width=True)
+            
+            # Show relative strength stats
+            col_rel1, col_rel2, col_rel3 = st.columns(3)
+            
+            current_rel = df_rel['Relative_Strength'].iloc[-1] if len(df_rel) > 0 else 0
+            max_rel = df_rel['Relative_Strength'].max() if len(df_rel) > 0 else 0
+            avg_rel = df_rel['Relative_Strength'].mean() if len(df_rel) > 0 else 0
+            
+            with col_rel1:
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); 
+                    padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(79,172,254,0.4);'>
+                        <div style='font-size: 14px; color: rgba(255,255,255,0.95); margin-bottom: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Current Relative</div>
+                        <div style='font-size: 36px; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{current_rel:.2f}</div>
+                        <div style='font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>load/bodyweight</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col_rel2:
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #e1306c 0%, #f77737 100%); 
+                    padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(250,112,154,0.4);'>
+                        <div style='font-size: 14px; color: rgba(255,255,255,0.95); margin-bottom: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Peak Relative</div>
+                        <div style='font-size: 36px; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{max_rel:.2f}</div>
+                        <div style='font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>all-time best</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            with col_rel3:
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); 
+                    padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(48,207,208,0.4);'>
+                        <div style='font-size: 14px; color: rgba(255,255,255,0.95); margin-bottom: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Average Relative</div>
+                        <div style='font-size: 36px; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{avg_rel:.2f}</div>
+                        <div style='font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>typical strength</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            st.info("💪 **Pro Tip:** Even if your absolute strength stays the same, losing bodyweight improves your relative strength - making harder climbs more achievable!")
+        else:
+            st.info("📊 Log more bodyweight updates to see your relative strength trend!")
+        
         # Recent workouts table
         st.markdown("---")
         st.markdown("### 📋 Recent Workouts")

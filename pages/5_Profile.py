@@ -66,8 +66,56 @@ selected_user = user_selectbox_with_pin(
 )
 st.session_state.current_user = selected_user
 
+# Allow create new user even when locked
 if selected_user == USER_PLACEHOLDER:
-    st.info("🔒 Select a profile from the sidebar to view and edit account details.")
+    st.markdown("## 🆕 Create Your Profile")
+    st.info("👋 Welcome! Create a new profile to start tracking your training.")
+    
+    if spreadsheet:
+        st.markdown("### ➥ Create New User")
+        st.caption("Pins are stored in the `Users` sheet (column `PIN` next to `Username`). Keep them private!")
+
+        col_user1, col_user2, col_user3, col_user4 = st.columns([2, 1.5, 1.2, 1])
+
+        with col_user1:
+            new_username = st.text_input("Username:", placeholder="Enter new username", key="new_user_input")
+
+        with col_user2:
+            initial_bw = st.number_input("Initial Bodyweight (kg):", min_value=40.0, max_value=150.0, value=78.0, step=0.5, key="new_user_bw")
+
+        with col_user3:
+            new_user_pin = st.text_input(f"4-digit PIN:", max_chars=PIN_LENGTH, type="password", key="new_user_pin")
+
+        with col_user4:
+            st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
+            if st.button("Create User", use_container_width=True):
+                if not new_username or new_username.strip() == "":
+                    st.error("❌ Please enter a username!")
+                elif not new_user_pin or len(new_user_pin) != PIN_LENGTH or not new_user_pin.isdigit():
+                    st.error("❌ PIN must be exactly 4 digits.")
+                else:
+                    if not spreadsheet:
+                        st.error("❌ Could not connect to Google Sheets.")
+                    else:
+                        cleaned_username = new_username.strip()
+                        
+                        # Get current users to prevent duplicates
+                        current_users = load_users_from_sheets(spreadsheet)
+                        if cleaned_username in current_users:
+                            st.error(f"❌ User '{cleaned_username}' already exists!")
+                        else:
+                            ok, msg = add_new_user(spreadsheet, cleaned_username, initial_bw, pin=new_user_pin)
+                            if ok:
+                                st.success(f"✅ {msg}")
+                                st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
+                                st.balloons()
+                                st.info("🔄 Profile created! Now select your profile from the sidebar and enter your PIN to log in.")
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {msg}")
+    else:
+        st.error("❌ Could not connect to Google Sheets.")
+    
     st.stop()
 
 if workout_sheet:
@@ -182,7 +230,69 @@ if workout_sheet:
                 set_bodyweight(spreadsheet, selected_user, new_bw)
                 st.success(f"✅ Updated to {new_bw}kg")
                 st.rerun()
+    
+    # Bodyweight history chart
+    from utils.helpers import get_bodyweight_history
+    bw_history = get_bodyweight_history(spreadsheet, selected_user)
+    
+    if not bw_history.empty and len(bw_history) > 1:
+        st.markdown("#### 📊 Bodyweight History")
+        
+        fig_bw = go.Figure()
+        
+        fig_bw.add_trace(go.Scatter(
+            x=bw_history['Date'],
+            y=bw_history['Bodyweight_kg'],
+            mode='lines+markers',
+            name='Bodyweight',
+            line=dict(color='#fbbf24', width=3),
+            marker=dict(size=10, color='#fbbf24', line=dict(color='white', width=2)),
+            fill='tozeroy',
+            fillcolor='rgba(251, 191, 36, 0.2)'
+        ))
+        
+        fig_bw.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white', size=14),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(255,255,255,0.1)',
+                title='Date',
+                title_font=dict(size=14, color='white')
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(255,255,255,0.1)',
+                title='Bodyweight (kg)',
+                title_font=dict(size=14, color='white')
+            ),
+            height=300,
+            hovermode='x unified',
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig_bw, use_container_width=True)
+        
+        # Show bodyweight stats
+        bw_change = bw_history['Bodyweight_kg'].iloc[-1] - bw_history['Bodyweight_kg'].iloc[0]
+        bw_change_pct = (bw_change / bw_history['Bodyweight_kg'].iloc[0]) * 100
+        
+        if abs(bw_change) > 0.5:
+            change_color = "#4ade80" if bw_change < 0 else "#ef4444"
+            change_emoji = "📉" if bw_change < 0 else "📈"
+            change_text = "lost" if bw_change < 0 else "gained"
+            
+            st.markdown(f"""
+                <div style='background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 8px; margin-top: 10px;'>
+                    <div style='color: {change_color}; font-size: 14px;'>
+                        {change_emoji} You've {change_text} <strong>{abs(bw_change):.1f} kg</strong> ({abs(bw_change_pct):.1f}%) since your first logged bodyweight
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
+    
+    st.markdown("---")
     
     # ==================== CURRENT 1RMs WITH STRENGTH CHART ====================
     st.markdown("### 💪 Strength Profile")

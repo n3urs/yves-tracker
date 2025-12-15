@@ -894,17 +894,55 @@ def get_bodyweight(spreadsheet, user):
     except:
         return 78.0
 
-def set_bodyweight(spreadsheet, user, bodyweight):
-    """Update user's bodyweight in Bodyweights sheet"""
+def get_bodyweight_history(spreadsheet, user):
+    """Get user's bodyweight history over time"""
     try:
+        records = _load_sheet_data("BodyweightHistory")
+        if not records:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(records)
+        if "User" in df.columns:
+            df = df[df["User"] == user]
+        
+        if len(df) > 0 and "Date" in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            df['Bodyweight_kg'] = pd.to_numeric(df['Bodyweight_kg'], errors='coerce')
+            df = df.sort_values('Date')
+            return df[['Date', 'Bodyweight_kg']]
+        
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
+def set_bodyweight(spreadsheet, user, bodyweight):
+    """Update user's bodyweight in Bodyweights sheet and log history"""
+    try:
+        # Update current bodyweight
         bw_sheet = spreadsheet.worksheet("Bodyweights")
         records = bw_sheet.get_all_records()
+        user_exists = False
         for idx, record in enumerate(records):
             if record.get("User") == user:
                 bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
-                _load_sheet_data.clear()
-                return True
-        bw_sheet.append_row([user, float(bodyweight)])
+                user_exists = True
+                break
+        if not user_exists:
+            bw_sheet.append_row([user, float(bodyweight)])
+        
+        # Log bodyweight history with timestamp
+        try:
+            bw_history_sheet = spreadsheet.worksheet("BodyweightHistory")
+        except:
+            # Create sheet if it doesn't exist
+            bw_history_sheet = spreadsheet.add_worksheet(title="BodyweightHistory", rows=1000, cols=3)
+            bw_history_sheet.append_row(["User", "Date", "Bodyweight_kg"])
+        
+        # Append new bodyweight record with current date
+        from datetime import datetime
+        today = datetime.now().strftime("%Y-%m-%d")
+        bw_history_sheet.append_row([user, today, float(bodyweight)])
+        
         _load_sheet_data.clear()
         return True
     except Exception as e:
