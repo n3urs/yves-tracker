@@ -1,6 +1,6 @@
 import streamlit as st
 import sys
-sys.path.append('..')
+sys.path.append('.')
 from utils.helpers import *
 import pandas as pd
 
@@ -24,6 +24,9 @@ st.markdown("""
 # Connect to Google Sheets
 spreadsheet = get_google_sheet()
 workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
+
+# Get current user
+current_user = st.session_state.get('current_user', None)
 
 if workout_sheet:
     df = load_data_from_sheets(workout_sheet)
@@ -134,34 +137,37 @@ if workout_sheet:
             elif len(leaderboard_data) == 2:
                 col1, col2 = st.columns(2)
                 with col1:
+                    kg_1 = leaderboard_data.iloc[0]['Max Load (kg)']
                     st.markdown(f"""
                         <div style='text-align: center; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
                         padding: 25px; border-radius: 15px; box-shadow: 0 8px 16px rgba(255,215,0,0.3);'>
                             <div style='font-size: 50px;'>🥇</div>
                             <div style='font-size: 20px; font-weight: bold; color: #1a1a2e;'>{leaderboard_data.iloc[0]['User']}</div>
                             <div style='font-size: 28px; font-weight: bold; color: #1a1a2e;'>{leaderboard_data.iloc[0]['% of BW']:.1f}%</div>
-                            <div style='font-size: 16px; color: #2a2a3e;'>({leaderboard_data.iloc[0]['Max Load (kg)']:.1f} kg)</div>
+                            <div style='font-size: 16px; color: #2a2a3e;'>({kg_1:.1f} kg)</div>
                         </div>
                     """, unsafe_allow_html=True)
                 with col2:
+                    kg_2 = leaderboard_data.iloc[1]['Max Load (kg)']
                     st.markdown(f"""
                         <div style='text-align: center; background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%); 
                         padding: 25px; border-radius: 15px; box-shadow: 0 6px 12px rgba(192,192,192,0.3);'>
                             <div style='font-size: 50px;'>🥈</div>
                             <div style='font-size: 20px; font-weight: bold; color: #1a1a2e;'>{leaderboard_data.iloc[1]['User']}</div>
                             <div style='font-size: 28px; font-weight: bold; color: #1a1a2e;'>{leaderboard_data.iloc[1]['% of BW']:.1f}%</div>
-                            <div style='font-size: 16px; color: #2a2a3e;'>({leaderboard_data.iloc[1]['Max Load (kg)']:.1f} kg)</div>
+                            <div style='font-size: 16px; color: #2a2a3e;'>({kg_2:.1f} kg)</div>
                         </div>
                     """, unsafe_allow_html=True)
             
             elif len(leaderboard_data) == 1:
+                kg_1 = leaderboard_data.iloc[0]['Max Load (kg)']
                 st.markdown(f"""
                     <div style='text-align: center; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
                     padding: 30px; border-radius: 15px; box-shadow: 0 8px 16px rgba(255,215,0,0.3); max-width: 400px; margin: 0 auto;'>
                         <div style='font-size: 60px;'>🥇</div>
                         <div style='font-size: 24px; font-weight: bold; color: #1a1a2e;'>{leaderboard_data.iloc[0]['User']}</div>
                         <div style='font-size: 32px; font-weight: bold; color: #1a1a2e;'>{leaderboard_data.iloc[0]['% of BW']:.1f}%</div>
-                        <div style='font-size: 18px; color: #2a2a3e;'>({leaderboard_data.iloc[0]['Max Load (kg)']:.1f} kg)</div>
+                        <div style='font-size: 18px; color: #2a2a3e;'>({kg_1:.1f} kg)</div>
                     </div>
                 """, unsafe_allow_html=True)
             
@@ -170,13 +176,14 @@ if workout_sheet:
                 st.markdown("#### 🎖️ Other Rankings")
                 for idx in range(3, len(leaderboard_data)):
                     row = leaderboard_data.iloc[idx]
+                    kg = row['Max Load (kg)']
                     st.markdown(f"""
                         <div style='background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; 
                         margin-bottom: 8px; border-left: 4px solid #4CAF50;'>
                             <span style='font-size: 20px; font-weight: bold; color: #888;'>#{idx + 1}</span>
                             <span style='font-size: 20px; font-weight: bold; margin-left: 15px;'>{row['User']}</span>
                             <span style='font-size: 24px; font-weight: bold; float: right; color: #4CAF50;'>{row['% of BW']:.1f}%</span>
-                            <span style='font-size: 16px; color: #888; float: right; margin-right: 15px;'>({row['Max Load (kg)']:.1f} kg)</span>
+                            <span style='font-size: 16px; color: #888; float: right; margin-right: 15px;'>({kg:.1f} kg)</span>
                         </div>
                     """, unsafe_allow_html=True)
         
@@ -260,12 +267,15 @@ if workout_sheet:
                 medal = "🥇" if rank == 1 else "🥈" if rank == 2 else "🥉" if rank == 3 else f"#{rank}"
                 color = "#FFD700" if rank == 1 else "#C0C0C0" if rank == 2 else "#CD7F32" if rank == 3 else "#4CAF50"
                 
+                # Use kg directly
+                volume_kg = row['Total Volume']
+                
                 st.markdown(f"""
                     <div style='background: rgba(255,255,255,0.05); padding: 18px; border-radius: 12px; 
                     margin-bottom: 10px; border-left: 5px solid {color};'>
                         <span style='font-size: 24px; margin-right: 15px;'>{medal}</span>
                         <span style='font-size: 22px; font-weight: bold;'>{row['User']}</span>
-                        <span style='font-size: 26px; font-weight: bold; float: right; color: {color};'>{row['Total Volume']:,} kg</span>
+                        <span style='font-size: 26px; font-weight: bold; float: right; color: {color};'>{volume_kg:,.0f} kg</span>
                     </div>
                 """, unsafe_allow_html=True)
         

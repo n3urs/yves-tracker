@@ -1,6 +1,6 @@
 import streamlit as st
 import sys
-sys.path.append('..')
+sys.path.append('.')
 from utils.helpers import *
 import pandas as pd
 from datetime import datetime

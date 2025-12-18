@@ -1,6 +1,6 @@
 import streamlit as st
 import sys
-sys.path.append('..')
+sys.path.append('.')
 from utils.helpers import (
     init_session_state,
     get_google_sheet,
@@ -19,6 +19,10 @@ from utils.helpers import (
     USER_PLACEHOLDER,
     inject_global_styles,
     generate_instagram_story,
+    get_endurance_training_enabled,
+    set_endurance_training_enabled,
+    get_workout_count,
+    change_user_pin,
 )
 
 import pandas as pd
@@ -30,19 +34,6 @@ st.set_page_config(page_title="Profile", page_icon="👤", layout="wide")
 
 init_session_state()
 inject_global_styles()
-
-# ==================== HEADER ====================
-st.markdown(
-    """
-    <div class='page-header' style='text-align: center; background: linear-gradient(135deg, #5651e5 0%, #6b3fa0 100%); 
-    padding: 32px 24px; border-radius: 20px; margin-bottom: 24px; box-shadow: 0 15px 40px rgba(102,126,234,0.5);
-    border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);'>
-        <h1 style='color: white; font-size: 44px; margin: 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.3);'>👤 Your Profile</h1>
-        <p style='color: rgba(255,255,255,0.95); font-size: 17px; margin-top: 10px; font-weight: 400;'>
-            Track your journey, analyze your strength, dominate your training
-        </p>
-    </div>
-""", unsafe_allow_html=True)
 
 # Connect to Google Sheets
 spreadsheet = get_google_sheet()
@@ -65,6 +56,172 @@ selected_user = user_selectbox_with_pin(
     label="Select User:"
 )
 st.session_state.current_user = selected_user
+
+# ==================== SETTINGS DIALOG ====================
+@st.dialog("⚙️ Training Settings", width="large")
+def show_settings_dialog(spreadsheet, selected_user):
+    """Modal dialog for training settings"""
+    
+    # Tabs for different setting categories
+    tab1, tab2 = st.tabs(["🏃 Training", "🔒 Security"])
+    
+    # ==================== TRAINING TAB ====================
+    with tab1:
+        st.markdown("### 🏃 Endurance Training")
+        
+        current_endurance_enabled = get_endurance_training_enabled(spreadsheet, selected_user)
+        workout_count_edge = get_workout_count(spreadsheet, selected_user, "20mm Edge")
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("""
+                <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(16,185,129,0.4); margin-bottom: 16px;'>
+                    <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 10px;'>
+                        <div style='font-size: 28px;'>🏃</div>
+                        <div>
+                            <div style='font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'>Repeaters Protocol</div>
+                            <div style='font-size: 13px; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
+                                Every 3rd edge workout focuses on endurance
+                            </div>
+                        </div>
+                    </div>
+                    <div style='background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;'>
+                        <div style='font-size: 12px; color: rgba(255,255,255,0.85); line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
+                            📊 <strong>Endurance (Repeaters):</strong> 55% max, 7s on/3s off, 6 hangs<br>
+                            💪 <strong>Strength workouts:</strong> 80% max load, 5 reps (normal)
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            endurance_enabled = st.toggle(
+                "Enable endurance training for 20mm Edge workouts",
+                value=current_endurance_enabled,
+                key="endurance_training_toggle",
+                help="When enabled, every third edge workout will be a repeaters endurance session"
+            )
+            
+            if endurance_enabled != current_endurance_enabled:
+                set_endurance_training_enabled(spreadsheet, selected_user, endurance_enabled)
+                st.success(f"✅ Endurance training {'enabled' if endurance_enabled else 'disabled'}!")
+                st.rerun()
+        
+        with col2:
+            if endurance_enabled:
+                cycle_position = workout_count_edge + 1
+                next_workout_type = "Endurance 🏃" if workout_count_edge == 2 else f"Strength 💪"
+                
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); 
+                    padding: 24px 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(99,102,241,0.4);
+                    display: flex; flex-direction: column; justify-content: center; min-height: 180px;'>
+                        <div style='font-size: 13px; color: rgba(255,255,255,0.9); margin-bottom: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); text-transform: uppercase; letter-spacing: 1px;'>
+                            Current Cycle
+                        </div>
+                        <div style='font-size: 48px; margin-bottom: 8px;'>
+                            {'🏃' if workout_count_edge == 2 else '💪'}
+                        </div>
+                        <div style='font-size: 24px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin-bottom: 4px;'>
+                            Workout {cycle_position}/3
+                        </div>
+                        <div style='font-size: 13px; color: rgba(255,255,255,0.85); text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
+                            Next: {next_workout_type}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                    <div style='background: rgba(255,255,255,0.05); 
+                    padding: 24px 20px; border-radius: 12px; text-align: center;
+                    display: flex; flex-direction: column; justify-content: center; min-height: 180px;'>
+                        <div style='font-size: 48px; margin-bottom: 12px;'>😴</div>
+                        <div style='font-size: 14px; color: rgba(255,255,255,0.6);'>
+                            Endurance mode disabled
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+    
+    # ==================== SECURITY TAB ====================
+    with tab2:
+        st.markdown("### 🔒 Change PIN")
+        
+        st.markdown("""
+            <div style='background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); 
+            padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(239,68,68,0.4); margin-bottom: 16px;'>
+                <div style='display: flex; align-items: center; gap: 12px; margin-bottom: 10px;'>
+                    <div style='font-size: 28px;'>🔒</div>
+                    <div>
+                        <div style='font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'>Security Settings</div>
+                        <div style='font-size: 13px; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
+                            Update your 4-digit PIN code
+                        </div>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("change_pin_form"):
+            st.markdown("#### Enter PIN Details")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                old_pin = st.text_input("Current PIN", type="password", max_chars=4, key="old_pin_input")
+            
+            with col2:
+                new_pin = st.text_input("New PIN (4 digits)", type="password", max_chars=4, key="new_pin_input")
+            
+            new_pin_confirm = st.text_input("Confirm New PIN", type="password", max_chars=4, key="new_pin_confirm")
+            
+            submit_pin = st.form_submit_button("🔒 Change PIN", use_container_width=True, type="primary")
+            
+            if submit_pin:
+                if not old_pin or not new_pin or not new_pin_confirm:
+                    st.error("❌ Please fill in all fields")
+                elif new_pin != new_pin_confirm:
+                    st.error("❌ New PINs don't match")
+                elif len(new_pin) != 4 or not new_pin.isdigit():
+                    st.error("❌ New PIN must be exactly 4 digits")
+                elif old_pin == new_pin:
+                    st.error("❌ New PIN must be different from current PIN")
+                else:
+                    success, message = change_user_pin(spreadsheet, selected_user, old_pin, new_pin)
+                    if success:
+                        st.success(f"✅ {message}")
+                        st.balloons()
+                    else:
+                        st.error(f"❌ {message}")
+        
+        st.warning("⚠️ Remember your PIN! You'll need it to access your profile.")
+
+# ==================== HEADER WITH SETTINGS BUTTON ====================
+header_col1, header_col2 = st.columns([6, 1])
+
+with header_col1:
+    st.markdown(
+        """
+        <div class='page-header' style='background: linear-gradient(135deg, #5651e5 0%, #6b3fa0 100%); 
+        padding: 32px 24px; border-radius: 20px; box-shadow: 0 15px 40px rgba(102,126,234,0.5);
+        border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);'>
+            <h1 style='color: white; font-size: 44px; margin: 0; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.3);'>👤 Your Profile</h1>
+            <p style='color: rgba(255,255,255,0.95); font-size: 17px; margin-top: 10px; font-weight: 400;'>
+                Track your journey, analyze your strength, dominate your training
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+with header_col2:
+    st.markdown("<div style='margin-top: 16px;'></div>", unsafe_allow_html=True)
+    if selected_user == USER_PLACEHOLDER:
+        if st.button("⚙️", use_container_width=True, help="Login to access settings", key="settings_btn", disabled=True):
+            pass
+    else:
+        if st.button("⚙️", use_container_width=True, help="Training Settings", key="settings_btn"):
+            show_settings_dialog(spreadsheet, selected_user)
+
+st.markdown("<div style='margin-bottom: 24px;'></div>", unsafe_allow_html=True)
 
 # Allow create new user even when locked
 if selected_user == USER_PLACEHOLDER:
@@ -206,7 +363,7 @@ if workout_sheet:
         <div style='background: linear-gradient(135deg, #5651e5 0%, #6b3fa0 100%); 
         padding: 15px 20px; border-radius: 10px; margin-bottom: 15px; text-align: center;'>
             <div style='font-size: 14px; color: rgba(255,255,255,0.9); text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Current Bodyweight</div>
-            <div style='font-size: 32px; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{current_bw} kg</div>
+            <div style='font-size: 32px; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{current_bw:.1f} kg</div>
         </div>
     """, unsafe_allow_html=True)
     
@@ -228,7 +385,7 @@ if workout_sheet:
         if st.button("⚖️ Update Bodyweight", use_container_width=True):
             if new_bw != current_bw and spreadsheet:
                 set_bodyweight(spreadsheet, selected_user, new_bw)
-                st.success(f"✅ Updated to {new_bw}kg")
+                st.success(f"✅ Updated to {new_bw:.1f}kg")
                 st.rerun()
     
     # Bodyweight history chart

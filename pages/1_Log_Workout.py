@@ -4,6 +4,12 @@ sys.path.append('.')
 from utils.helpers import *
 from utils.helpers import USER_PLACEHOLDER
 from datetime import datetime
+from utils.helpers import (
+    is_endurance_workout,
+    increment_workout_count,
+    get_endurance_training_enabled,
+    get_workout_count
+)
 
 st.set_page_config(page_title="Log Workout", page_icon="📝", layout="wide")
 
@@ -51,19 +57,20 @@ if selected_user == USER_PLACEHOLDER:
 # Bodyweight input
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚖️ Bodyweight")
-current_bw = get_bodyweight(spreadsheet, selected_user) if spreadsheet else 78.0
-new_bw = st.sidebar.number_input(
+current_bw_kg = get_bodyweight(spreadsheet, selected_user) if spreadsheet else 78.0
+
+new_bw_kg = st.sidebar.number_input(
     "Your bodyweight (kg):",
     min_value=40.0,
     max_value=150.0,
-    value=current_bw,
+    value=current_bw_kg,
     step=0.5,
     key="bodyweight_input"
 )
 
-if new_bw != current_bw and spreadsheet:
-    set_bodyweight(spreadsheet, selected_user, new_bw)
-    st.sidebar.success(f"✅ Bodyweight updated to {new_bw}kg")
+if new_bw_kg != current_bw_kg and spreadsheet:
+    set_bodyweight(spreadsheet, selected_user, new_bw_kg)
+    st.sidebar.success(f"✅ Bodyweight updated to {new_bw_kg:.1f}kg")
 
 # Check if connected before showing tabs
 if not spreadsheet:
@@ -133,9 +140,12 @@ else:
             last_workout_L = get_last_workout(spreadsheet, selected_user, exercise, "L")
             last_workout_R = get_last_workout(spreadsheet, selected_user, exercise, "R")
         
+            # Check if this should be an endurance workout
+            is_endurance = is_endurance_workout(spreadsheet, selected_user, exercise)
+        
             # Generate suggestions
-            suggestion_L = generate_workout_suggestion(last_workout_L)
-            suggestion_R = generate_workout_suggestion(last_workout_R)
+            suggestion_L = generate_workout_suggestion(last_workout_L, is_endurance)
+            suggestion_R = generate_workout_suggestion(last_workout_R, is_endurance)
         
             # Show last workout and suggestions
             st.markdown("### 📋 Last Workout & Suggestions")
@@ -145,13 +155,13 @@ else:
         
             with col_info_L:
                 if last_workout_L:
-                    weight_L = last_workout_L['weight']
+                    weight_L_kg = last_workout_L['weight']
                     rpe_L_val = last_workout_L['rpe']
                     emoji_L = suggestion_L['emoji']
                     sugg_title_L = suggestion_L['suggestion']
                     sugg_msg_L = suggestion_L['message']
                 
-                    html_content = f'<div style="background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Left Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_L:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_L_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_L}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_L}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_L}</div></div></div></div>'
+                    html_content = f'<div style="background: linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(79,172,254,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Left Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_L_kg:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_L_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_L}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_L}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_L}</div></div></div></div>'
                     st.markdown(html_content, unsafe_allow_html=True)
                 else:
                     emoji_L = suggestion_L['emoji']
@@ -161,13 +171,13 @@ else:
         
             with col_info_R:
                 if last_workout_R:
-                    weight_R = last_workout_R['weight']
+                    weight_R_kg = last_workout_R['weight']
                     rpe_R_val = last_workout_R['rpe']
                     emoji_R = suggestion_R['emoji']
                     sugg_title_R = suggestion_R['suggestion']
                     sugg_msg_R = suggestion_R['message']
                 
-                    html_content = f'<div style="background: linear-gradient(135deg, #d946b5 0%, #e23670 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Right Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_R:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_R_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_R}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_R}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_R}</div></div></div></div>'
+                    html_content = f'<div style="background: linear-gradient(135deg, #d946b5 0%, #e23670 100%); padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(240,147,251,0.4);"><div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px;"><div style="font-size: 24px;">💪</div><div style="font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">Right Arm</div></div><div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 12px; margin-bottom: 16px;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">WEIGHT</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{weight_R_kg:.1f} kg</div></div><div><div style="font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">RPE</div><div style="font-size: 28px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{rpe_R_val}/10</div></div></div></div><div style="background: rgba(0,0,0,0.25); padding: 14px 16px; border-radius: 10px; display: flex; align-items: center; gap: 12px;"><div style="font-size: 28px;">{emoji_R}</div><div><div style="font-size: 15px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">{sugg_title_R}</div><div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.4; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">{sugg_msg_R}</div></div></div></div>'
                     st.markdown(html_content, unsafe_allow_html=True)
                 else:
                     emoji_R = suggestion_R['emoji']
@@ -177,36 +187,65 @@ else:
         
             st.markdown("---")
         
-            # Use fixed 80% intensity
-            target_pct = 80
+            # Show endurance mode banner if applicable
+            if is_endurance:
+                workout_count = get_workout_count(spreadsheet, selected_user, exercise)
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                    padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(16,185,129,0.5);
+                    border: 2px solid rgba(255,255,255,0.2); animation: pulse 2s ease-in-out infinite;'>
+                        <div style='text-align: center;'>
+                            <div style='font-size: 36px; margin-bottom: 8px;'>🏃</div>
+                            <div style='font-size: 24px; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3); margin-bottom: 8px;'>
+                                ENDURANCE SESSION - REPEATERS
+                            </div>
+                            <div style='font-size: 15px; color: rgba(255,255,255,0.95); text-shadow: 0 1px 2px rgba(0,0,0,0.3); line-height: 1.6;'>
+                                Sport climbing endurance protocol for sustained routes<br>
+                                <strong>55% max load • 7 seconds on, 3 seconds off • 6 hangs per set</strong>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
         
-            # Calculate suggested loads based on last workout or 80% of 1RM
-            if last_workout_L and suggestion_L['weight_change'] != 0:
-                suggested_load_L = last_workout_L['weight'] + suggestion_L['weight_change']
+            # Set target percentage based on workout type
+            if is_endurance:
+                target_pct = 55  # 50-60% for endurance (using middle value)
             else:
-                suggested_load_L = current_1rm_L * 0.8
+                target_pct = 80  # Normal strength training
+        
+            # Calculate suggested loads (in kg, will convert for display)
+            if is_endurance:
+                # For endurance: use 55% of 1RM (middle of 50-60% range)
+                suggested_load_L_kg = current_1rm_L * 0.55
+                suggested_load_R_kg = current_1rm_R * 0.55
+            else:
+                # For strength: based on last workout or 80% of 1RM
+                if last_workout_L and suggestion_L.get('weight_change', 0) != 0:
+                    suggested_load_L_kg = last_workout_L['weight'] + suggestion_L['weight_change']
+                else:
+                    suggested_load_L_kg = current_1rm_L * 0.8
+                
+                if last_workout_R and suggestion_R.get('weight_change', 0) != 0:
+                    suggested_load_R_kg = last_workout_R['weight'] + suggestion_R['weight_change']
+                else:
+                    suggested_load_R_kg = current_1rm_R * 0.8
             
-            if last_workout_R and suggestion_R['weight_change'] != 0:
-                suggested_load_R = last_workout_R['weight'] + suggestion_R['weight_change']
-            else:
-                suggested_load_R = current_1rm_R * 0.8
-        
             # Actual Weight Lifted
-            st.markdown("### ⚖️ Actual Weight Lifted")
+            st.markdown("### ⚖️ Actual Weight Lifted (kg)")
             use_same_weight = st.checkbox("Log same workout for both arms (weight, reps, sets, RPE)", value=True, key="same_weight_toggle")
         
             if use_same_weight:
-                actual_load = st.number_input(
+                actual_load_both = st.number_input(
                     "Weight Lifted (kg) - Both Arms:",
                     min_value=0.0,
                     max_value=200.0,
-                    value=(suggested_load_L + suggested_load_R) / 2,
+                    value=(suggested_load_L_kg + suggested_load_R_kg) / 2,
                     step=0.25,
                     key="actual_load_both",
                     help="Enter the weight you actually lifted"
                 )
-                actual_load_L = actual_load
-                actual_load_R = actual_load
+                actual_load_L = actual_load_both
+                actual_load_R = actual_load_both
             else:
                 col_L, col_R = st.columns(2)
                 with col_L:
@@ -214,7 +253,7 @@ else:
                         "Left Arm Weight (kg):",
                         min_value=0.0,
                         max_value=200.0,
-                        value=suggested_load_L,
+                        value=suggested_load_L_kg,
                         step=0.25,
                         key="actual_load_L"
                     )
@@ -223,7 +262,7 @@ else:
                         "Right Arm Weight (kg):",
                         min_value=0.0,
                         max_value=200.0,
-                        value=suggested_load_R,
+                        value=suggested_load_R_kg,
                         step=0.25,
                         key="actual_load_R"
                     )
@@ -233,13 +272,21 @@ else:
             # Workout Details
             st.markdown("### 📊 Workout Details")
         
-            # Get default values from last workout if available
-            default_reps_L = last_workout_L['reps'] if last_workout_L else 5
-            default_reps_R = last_workout_R['reps'] if last_workout_R else 5
-            default_sets_L = last_workout_L['sets'] if last_workout_L else 3
-            default_sets_R = last_workout_R['sets'] if last_workout_R else 3
-            default_rpe_L = last_workout_L['rpe'] if last_workout_L else 7
-            default_rpe_R = last_workout_R['rpe'] if last_workout_R else 7
+            # Get default values - use endurance defaults if it's an endurance workout
+            if is_endurance:
+                default_reps_L = 6  # 6 hangs for repeaters protocol
+                default_reps_R = 6
+                default_sets_L = 3
+                default_sets_R = 3
+                default_rpe_L = 7  # Should feel challenging but sustainable
+                default_rpe_R = 7
+            else:
+                default_reps_L = last_workout_L['reps'] if last_workout_L else 5
+                default_reps_R = last_workout_R['reps'] if last_workout_R else 5
+                default_sets_L = last_workout_L['sets'] if last_workout_L else 3
+                default_sets_R = last_workout_R['sets'] if last_workout_R else 3
+                default_rpe_L = last_workout_L['rpe'] if last_workout_L else 7
+                default_rpe_R = last_workout_R['rpe'] if last_workout_R else 7
         
             if use_same_weight:
                 # Same details for both arms
@@ -252,7 +299,8 @@ else:
                             <div style='font-size: 12px; color: #888;'>Reps per Set</div>
                         </div>
                     """, unsafe_allow_html=True)
-                    reps_per_set = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input", label_visibility="collapsed")
+                    max_reps = 20 if is_endurance else 15
+                    reps_per_set = st.number_input("", min_value=1, max_value=max_reps, value=default_reps_L, step=1, key="reps_input", label_visibility="collapsed")
                     reps_per_set_L = reps_per_set
                     reps_per_set_R = reps_per_set
             
@@ -289,7 +337,8 @@ else:
                             <div style='font-size: 12px; color: #888;'>Reps per Set</div>
                         </div>
                     """, unsafe_allow_html=True)
-                    reps_per_set_L = st.number_input("", min_value=1, max_value=20, value=default_reps_L, step=1, key="reps_input_L", label_visibility="collapsed")
+                    max_reps_L = 20 if is_endurance else 15
+                    reps_per_set_L = st.number_input("", min_value=1, max_value=max_reps_L, value=default_reps_L, step=1, key="reps_input_L", label_visibility="collapsed")
             
                 with col_sets_L:
                     st.markdown("""
@@ -319,7 +368,8 @@ else:
                             <div style='font-size: 12px; color: #888;'>Reps per Set</div>
                         </div>
                     """, unsafe_allow_html=True)
-                    reps_per_set_R = st.number_input("", min_value=1, max_value=20, value=default_reps_R, step=1, key="reps_input_R", label_visibility="collapsed")
+                    max_reps_R = 20 if is_endurance else 15
+                    reps_per_set_R = st.number_input("", min_value=1, max_value=max_reps_R, value=default_reps_R, step=1, key="reps_input_R", label_visibility="collapsed")
             
                 with col_sets_R:
                     st.markdown("""
@@ -386,7 +436,7 @@ else:
                     "Arm": "L",
                     "1RM_Reference": current_1rm_L,
                     "Target_Percentage": target_pct,
-                    "Prescribed_Load_kg": suggested_load_L,
+                    "Prescribed_Load_kg": suggested_load_L_kg,
                     "Actual_Load_kg": actual_load_L,
                     "Reps_Per_Set": reps_per_set_L,
                     "Sets_Completed": sets_completed_L,
@@ -401,7 +451,7 @@ else:
                     "Arm": "R",
                     "1RM_Reference": current_1rm_R,
                     "Target_Percentage": target_pct,
-                    "Prescribed_Load_kg": suggested_load_R,
+                    "Prescribed_Load_kg": suggested_load_R_kg,
                     "Actual_Load_kg": actual_load_R,
                     "Reps_Per_Set": reps_per_set_R,
                     "Sets_Completed": sets_completed_R,
@@ -413,8 +463,16 @@ else:
                 success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
             
                 if success_L and success_R:
+                    # Increment workout count for endurance tracking
+                    if get_endurance_training_enabled(spreadsheet, selected_user):
+                        increment_workout_count(spreadsheet, selected_user, exercise)
+                    
                     st.session_state.quick_note_append = ""
-                    st.success("✅ Workout logged successfully for both arms!")
+                    
+                    if is_endurance:
+                        st.success("✅ Endurance workout logged successfully! 🏃")
+                    else:
+                        st.success("✅ Workout logged successfully for both arms!")
                     st.balloons()
                 else:
                     st.error("❌ Failed to save workout. Please try again.")
@@ -600,7 +658,7 @@ else:
                 <div style='background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); 
                 padding: 25px; border-radius: 12px; text-align: center;'>
                     <div style='font-size: 16px; color: #555; margin-bottom: 8px;'>Left Arm (Current)</div>
-                    <div style='font-size: 40px; font-weight: bold; color: #333;'>{current_1rm_L_test} kg</div>
+                    <div style='font-size: 40px; font-weight: bold; color: #333;'>{current_1rm_L_test:.1f} kg</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -609,7 +667,7 @@ else:
                 <div style='background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); 
                 padding: 25px; border-radius: 12px; text-align: center;'>
                     <div style='font-size: 16px; color: #555; margin-bottom: 8px;'>Right Arm (Current)</div>
-                    <div style='font-size: 40px; font-weight: bold; color: #333;'>{current_1rm_R_test} kg</div>
+                    <div style='font-size: 40px; font-weight: bold; color: #333;'>{current_1rm_R_test:.1f} kg</div>
                 </div>
             """, unsafe_allow_html=True)
         
@@ -630,9 +688,9 @@ else:
             )
             
             if new_1rm_L > current_1rm_L_test:
-                st.success(f"🎉 New PR! +{new_1rm_L - current_1rm_L_test:.2f} kg")
+                st.success(f"🎉 New PR! +{(new_1rm_L - current_1rm_L_test):.2f} kg")
             elif new_1rm_L < current_1rm_L_test:
-                st.warning(f"⚠️ Lower than current (-{current_1rm_L_test - new_1rm_L:.2f} kg)")
+                st.warning(f"⚠️ Lower than current (-{(current_1rm_L_test - new_1rm_L):.2f} kg)")
         
         with col_right:
             st.markdown("**Right Arm**")
@@ -646,9 +704,9 @@ else:
             )
             
             if new_1rm_R > current_1rm_R_test:
-                st.success(f"🎉 New PR! +{new_1rm_R - current_1rm_R_test:.2f} kg")
+                st.success(f"🎉 New PR! +{(new_1rm_R - current_1rm_R_test):.2f} kg")
             elif new_1rm_R < current_1rm_R_test:
-                st.warning(f"⚠️ Lower than current (-{current_1rm_R_test - new_1rm_R:.2f} kg)")
+                st.warning(f"⚠️ Lower than current (-{(current_1rm_R_test - new_1rm_R):.2f} kg)")
         
         st.markdown("---")
         

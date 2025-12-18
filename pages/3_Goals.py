@@ -1,6 +1,6 @@
 import streamlit as st
 import sys
-sys.path.append('..')
+sys.path.append('.')
 from utils.helpers import *
 from utils.helpers import USER_PLACEHOLDER
 import pandas as pd
@@ -218,14 +218,15 @@ if workout_sheet:
             for idx, goal in active_goals.iterrows():
                 exercise = goal['Exercise']
                 arm = goal['Arm']
-                target = float(goal['Target_Weight'])
+                target_kg = float(goal['Target_Weight'])
                 
-                # Get current 1RM
-                current = get_user_1rm(spreadsheet, selected_user, exercise, arm)
+                # Get current 1RM (in kg)
+                current_kg = get_user_1rm(spreadsheet, selected_user, exercise, arm)
                 
                 # Calculate progress
-                if current >= target:
+                if current_kg >= target_kg:
                     # Goal achieved!
+                    over_kg = current_kg - target_kg
                     st.markdown(f"""
                         <div style='background: linear-gradient(135deg, #4ade80 0%, #10b981 100%); 
                         padding: 25px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 6px 20px rgba(74,222,128,0.4);'>
@@ -234,10 +235,10 @@ if workout_sheet:
                                 Goal Achieved!
                             </div>
                             <div style='font-size: 18px; color: rgba(255,255,255,0.9); text-align: center; margin-top: 8px;'>
-                                {exercise} ({arm} arm): {target} kg
+                                {exercise} ({arm} arm): {target_kg:.1f} kg
                             </div>
                             <div style='font-size: 16px; color: rgba(255,255,255,0.8); text-align: center; margin-top: 5px;'>
-                                You hit {current} kg - that's {current - target:.1f} kg over your goal! 💪
+                                You hit {current_kg:.1f} kg - that's {over_kg:.1f} kg over your goal! 💪
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
@@ -253,8 +254,8 @@ if workout_sheet:
                         st.rerun()
                 else:
                     # Still working towards goal
-                    progress_pct = (current / target) * 100
-                    remaining = target - current
+                    progress_pct = (current_kg / target_kg) * 100
+                    remaining_kg = target_kg - current_kg
                     
                     if progress_pct >= 90:
                         bar_color = "#fbbf24"
@@ -276,12 +277,12 @@ if workout_sheet:
                                         {status_emoji} {exercise} - {arm_emoji} {arm} Arm
                                     </div>
                                     <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 5px;'>
-                                        Current: {current} kg → Target: {target} kg
+                                        Current: {current_kg:.1f} kg → Target: {target_kg:.1f} kg
                                     </div>
                                 </div>
                                 <div style='text-align: right;'>
                                     <div style='font-size: 28px; font-weight: bold; color: {bar_color};'>{progress_pct:.0f}%</div>
-                                    <div style='font-size: 12px; color: rgba(255,255,255,0.6);'>{remaining:.1f} kg to go</div>
+                                    <div style='font-size: 12px; color: rgba(255,255,255,0.6);'>{remaining_kg:.1f} kg to go</div>
                                 </div>
                             </div>
                             <div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 16px; overflow: hidden;'>
@@ -313,29 +314,31 @@ if workout_sheet:
             goal_arm = st.selectbox("Arm:", ["L", "R"], key="goal_arm")
         
         with col3:
-            current_1rm = get_user_1rm(spreadsheet, selected_user, goal_exercise, goal_arm)
-            goal_weight = st.number_input(
-                f"Target Weight (kg) - Current: {current_1rm} kg",
-                min_value=float(current_1rm),
+            current_1rm_kg = get_user_1rm(spreadsheet, selected_user, goal_exercise, goal_arm)
+            
+            # Input in kg
+            goal_weight_kg = st.number_input(
+                f"Target Weight (kg) - Current: {current_1rm_kg:.1f} kg",
+                min_value=float(current_1rm_kg),
                 max_value=200.0,
-                value=float(current_1rm) + 5.0,
+                value=float(current_1rm_kg) + 5.0,
                 step=0.25,
                 key="goal_weight"
             )
         
         if st.button("🎯 Create Goal", type="primary", use_container_width=True):
-            # Add goal to sheet
+            # Add goal to sheet (always store in kg)
             try:
                 goals_sheet.append_row([
                     selected_user,
                     goal_exercise,
                     goal_arm,
-                    goal_weight,
+                    goal_weight_kg,
                     "FALSE",  # Not completed (as string)
                     datetime.now().strftime("%Y-%m-%d"),
                     ""  # Date completed (empty)
                 ])
-                st.success(f"✅ Goal created! Target: {goal_weight} kg on {goal_exercise} ({goal_arm} arm)")
+                st.success(f"✅ Goal created! Target: {goal_weight_kg:.1f} kg on {goal_exercise} ({goal_arm} arm)")
                 time.sleep(1)
                 st.rerun()
             except Exception as e:
@@ -357,8 +360,8 @@ if workout_sheet:
     
     for idx, (col, exercise, color) in enumerate(zip([col1, col2, col3], exercises_display, colors)):
         with col:
-            edge_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
-            edge_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+            edge_L_kg = get_user_1rm(spreadsheet, selected_user, exercise, "L")
+            edge_R_kg = get_user_1rm(spreadsheet, selected_user, exercise, "R")
             
             st.markdown(f"""
                 <div style='background: {color}; 
@@ -367,11 +370,11 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between;'>
                         <div>
                             <div style='font-size: 12px; color: rgba(255,255,255,0.8);'>👈 Left</div>
-                            <div style='font-size: 28px; font-weight: bold; color: white;'>{edge_L} kg</div>
+                            <div style='font-size: 28px; font-weight: bold; color: white;'>{edge_L_kg:.1f} kg</div>
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 12px; color: rgba(255,255,255,0.8);'>👉 Right</div>
-                            <div style='font-size: 28px; font-weight: bold; color: white;'>{edge_R} kg</div>
+                            <div style='font-size: 28px; font-weight: bold; color: white;'>{edge_R_kg:.1f} kg</div>
                         </div>
                     </div>
                 </div>

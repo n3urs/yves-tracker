@@ -672,21 +672,42 @@ def get_last_workout(spreadsheet, user, exercise, arm):
     except Exception as e:
         return None
 
-def generate_workout_suggestion(last_workout_data):
+def generate_workout_suggestion(last_workout_data, is_endurance=False):
     """Generate a suggestion based on previous workout performance"""
     if not last_workout_data:
+        if is_endurance:
+            return {
+                'suggestion': 'Endurance Session',
+                'weight_change': 0.0,
+                'message': 'First endurance session! Repeaters: 7s on, 3s off, 6 reps at 50-60% max.',
+                'emoji': '🏃',
+                'color': '#10b981',
+                'is_endurance': True
+            }
         return {
             'suggestion': 'No Previous Data',
             'weight_change': 0.0,
             'message': 'This is your first session! Start with a comfortable weight.',
             'emoji': '🎯',
-            'color': '#6b8cff'
+            'color': '#6b8cff',
+            'is_endurance': False
+        }
+    
+    # If this is an endurance workout, return endurance-specific suggestions
+    if is_endurance:
+        return {
+            'suggestion': 'Endurance Focus',
+            'weight_change': 0.0,  # Weight will be calculated separately
+            'message': 'Repeaters protocol: 7s on, 3s off, 6 reps. Sport climbing stamina!',
+            'emoji': '🏃',
+            'color': '#10b981',
+            'is_endurance': True
         }
     
     rpe = last_workout_data['rpe']
     weight = last_workout_data['weight']
     
-    # RPE-based suggestions
+    # RPE-based suggestions for normal strength training
     if rpe <= 4:
         # Too easy - increase significantly
         return {
@@ -694,7 +715,8 @@ def generate_workout_suggestion(last_workout_data):
             'weight_change': weight * 0.05,  # +5%
             'message': 'Last time was too easy. Increase by about 5 percent!',
             'emoji': '📈',
-            'color': '#4ade80'
+            'color': '#4ade80',
+            'is_endurance': False
         }
     elif rpe <= 6:
         # A bit easy - small increase
@@ -703,7 +725,8 @@ def generate_workout_suggestion(last_workout_data):
             'weight_change': weight * 0.025,  # +2.5%
             'message': 'Good session. Try a small increase of 2-3 percent.',
             'emoji': '⬆️',
-            'color': '#10b981'
+            'color': '#10b981',
+            'is_endurance': False
         }
     elif rpe <= 8:
         # Perfect intensity - maintain
@@ -712,7 +735,8 @@ def generate_workout_suggestion(last_workout_data):
             'weight_change': 0.0,
             'message': 'Perfect intensity. Keep the same weight!',
             'emoji': '✅',
-            'color': '#f59e0b'
+            'color': '#f59e0b',
+            'is_endurance': False
         }
     else:
         # Too hard - decrease
@@ -721,7 +745,8 @@ def generate_workout_suggestion(last_workout_data):
             'weight_change': -weight * 0.05,  # -5%
             'message': 'Last time was very hard. Reduce by about 5 percent.',
             'emoji': '📉',
-            'color': '#ef4444'
+            'color': '#ef4444',
+            'is_endurance': False
         }
 
 def load_users_from_sheets(spreadsheet):
@@ -1508,3 +1533,156 @@ def load_custom_workout_logs(spreadsheet, user, workout_id=None):
         return df
     except:
         return pd.DataFrame()
+
+# ==================== USER SETTINGS FOR ENDURANCE TRAINING ====================
+
+def get_user_setting(spreadsheet, user, setting_key, default_value=None):
+    """Get a specific user setting"""
+    try:
+        settings_sheet = spreadsheet.worksheet("UserSettings")
+        records = settings_sheet.get_all_records()
+        
+        for record in records:
+            if record.get("User") == user and record.get("SettingKey") == setting_key:
+                value = record.get("SettingValue", default_value)
+                # Convert string booleans to actual booleans
+                if value in ["True", "true", "TRUE"]:
+                    return True
+                elif value in ["False", "false", "FALSE"]:
+                    return False
+                return value
+        
+        return default_value
+    except:
+        # Sheet doesn't exist yet, return default
+        return default_value
+
+def set_user_setting(spreadsheet, user, setting_key, setting_value):
+    """Set or update a user setting"""
+    try:
+        # Try to get the sheet, create if it doesn't exist
+        try:
+            settings_sheet = spreadsheet.worksheet("UserSettings")
+        except:
+            settings_sheet = spreadsheet.add_worksheet(title="UserSettings", rows=1000, cols=3)
+            settings_sheet.append_row(["User", "SettingKey", "SettingValue"])
+        
+        records = settings_sheet.get_all_records()
+        
+        # Check if setting exists
+        setting_exists = False
+        for idx, record in enumerate(records):
+            if record.get("User") == user and record.get("SettingKey") == setting_key:
+                # Update existing setting
+                settings_sheet.update_cell(idx + 2, 3, str(setting_value))
+                setting_exists = True
+                break
+        
+        if not setting_exists:
+            # Add new setting
+            settings_sheet.append_row([user, setting_key, str(setting_value)])
+        
+        _load_sheet_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"Error updating setting: {e}")
+        return False
+
+def get_endurance_training_enabled(spreadsheet, user):
+    """Check if endurance training is enabled for user"""
+    return get_user_setting(spreadsheet, user, "endurance_training_enabled", False)
+
+def set_endurance_training_enabled(spreadsheet, user, enabled):
+    """Enable or disable endurance training for user"""
+    return set_user_setting(spreadsheet, user, "endurance_training_enabled", enabled)
+
+def get_workout_count(spreadsheet, user, exercise):
+    """Get the workout count for tracking endurance cycles (resets every 3)"""
+    count = get_user_setting(spreadsheet, user, f"workout_count_{exercise}", 0)
+    try:
+        return int(count)
+    except:
+        return 0
+
+def increment_workout_count(spreadsheet, user, exercise):
+    """Increment workout count and return new count (cycles 1, 2, 0)"""
+    current_count = get_workout_count(spreadsheet, user, exercise)
+    new_count = (current_count + 1) % 3
+    set_user_setting(spreadsheet, user, f"workout_count_{exercise}", new_count)
+    return new_count
+
+def is_endurance_workout(spreadsheet, user, exercise):
+    """Determine if the next workout should be an endurance workout"""
+    if not get_endurance_training_enabled(spreadsheet, user):
+        return False
+    
+    # Only apply to 20mm Edge exercise
+    if exercise != "20mm Edge":
+        return False
+    
+    # Check if we're at the 3rd workout (count == 2, since we count 0,1,2)
+    count = get_workout_count(spreadsheet, user, exercise)
+    return count == 2
+
+def get_weight_units(spreadsheet, user):
+    """Get user's preferred weight units (kg or lbs)"""
+    units = get_user_setting(spreadsheet, user, "weight_units", "kg")
+    return units if units in ["kg", "lbs"] else "kg"
+
+def set_weight_units(spreadsheet, user, units):
+    """Set user's preferred weight units"""
+    if units in ["kg", "lbs"]:
+        return set_user_setting(spreadsheet, user, "weight_units", units)
+    return False
+
+def kg_to_lbs(kg):
+    """Convert kilograms to pounds"""
+    return kg * 2.20462
+
+def lbs_to_kg(lbs):
+    """Convert pounds to kilograms"""
+    return lbs / 2.20462
+
+def convert_weight_for_display(spreadsheet, user, weight_kg):
+    """Convert weight from kg (storage) to user's preferred units for display"""
+    units = get_weight_units(spreadsheet, user)
+    if units == "lbs":
+        return kg_to_lbs(weight_kg)
+    return weight_kg
+
+def convert_weight_for_storage(spreadsheet, user, weight_display):
+    """Convert weight from user's preferred units to kg for storage"""
+    units = get_weight_units(spreadsheet, user)
+    if units == "lbs":
+        return lbs_to_kg(weight_display)
+    return weight_display
+
+def get_weight_unit_label(spreadsheet, user):
+    """Get the weight unit label for display (kg or lbs)"""
+    return get_weight_units(spreadsheet, user)
+
+def change_user_pin(spreadsheet, user, old_pin, new_pin):
+    """Change user's PIN"""
+    try:
+        # Verify old PIN first
+        users_sheet = spreadsheet.worksheet("Users")
+        records = users_sheet.get_all_records()
+        
+        for idx, record in enumerate(records):
+            if record.get("Username") == user:
+                stored_pin = str(record.get("PIN", "")).strip()
+                if stored_pin != old_pin:
+                    return False, "Incorrect current PIN"
+                
+                # Validate new PIN
+                if len(new_pin) != PIN_LENGTH or not new_pin.isdigit():
+                    return False, f"New PIN must be exactly {PIN_LENGTH} digits"
+                
+                # Update PIN
+                users_sheet.update_cell(idx + 2, 2, new_pin)
+                _load_sheet_data.clear()
+                return True, "PIN changed successfully"
+        
+        return False, "User not found"
+    except Exception as e:
+        return False, f"Error changing PIN: {e}"

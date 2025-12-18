@@ -164,10 +164,11 @@ if workout_sheet:
 
         st.markdown("### 📊 Performance Dashboard")
         avg_rpe = df['RPE'].mean() if 'RPE' in df.columns else 0
+        
         stat_cards = [
             {"value": f"{total_sessions}", "label": "Training Sessions", "caption": "Unique workout days"},
             {"value": f"{days_since if days_since is not None else '--'}", "label": "Days Since Last", "caption": "Keep the streak alive"},
-            {"value": f"{total_volume:,.0f}", "label": "Total Volume (kg)", "caption": "Logged load"},
+            {"value": f"{total_volume:,.0f}", "label": "Total Volume (kg lifted)", "caption": "Logged load"},
             {"value": f"{avg_rpe:.1f}/10", "label": "Average RPE", "caption": "Effort lately"},
             {"value": f"{sessions_this_week}", "label": "This Week", "caption": "Sessions logged"},
         ]
@@ -309,18 +310,18 @@ if workout_sheet:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            edge_L = get_working_max(spreadsheet, selected_user, "20mm Edge", "L")
-            edge_R = get_working_max(spreadsheet, selected_user, "20mm Edge", "R")
-            stored_edge_L = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
-            stored_edge_R = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
+            edge_L_kg = get_working_max(spreadsheet, selected_user, "20mm Edge", "L")
+            edge_R_kg = get_working_max(spreadsheet, selected_user, "20mm Edge", "R")
+            stored_edge_L_kg = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
+            stored_edge_R_kg = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
             
-            if edge_L > stored_edge_L + 1:
-                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{edge_L - stored_edge_L:.1f}kg from baseline</div>'
+            if edge_L_kg > stored_edge_L_kg + 1:
+                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(edge_L_kg - stored_edge_L_kg):.1f}kg from baseline</div>'
             else:
                 indicator_L = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
                 
-            if edge_R > stored_edge_R + 1:
-                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{edge_R - stored_edge_R:.1f}kg from baseline</div>'
+            if edge_R_kg > stored_edge_R_kg + 1:
+                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(edge_R_kg - stored_edge_R_kg):.1f}kg from baseline</div>'
             else:
                 indicator_R = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
             
@@ -332,12 +333,12 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between; gap: 20px;'>
                         <div>
                             <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>LEFT</div>
-                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{edge_L:.1f} kg</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{edge_L_kg:.1f} kg</div>
                             {indicator_L}
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>RIGHT</div>
-                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{edge_R:.1f} kg</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{edge_R_kg:.1f} kg</div>
                             {indicator_R}
                         </div>
                     </div>
@@ -345,18 +346,18 @@ if workout_sheet:
             """, unsafe_allow_html=True)
         
         with col2:
-            pinch_L = get_working_max(spreadsheet, selected_user, "Pinch", "L")
-            pinch_R = get_working_max(spreadsheet, selected_user, "Pinch", "R")
-            stored_pinch_L = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
-            stored_pinch_R = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
+            pinch_L_kg = get_working_max(spreadsheet, selected_user, "Pinch", "L")
+            pinch_R_kg = get_working_max(spreadsheet, selected_user, "Pinch", "R")
+            stored_pinch_L_kg = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
+            stored_pinch_R_kg = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
             
-            if pinch_L > stored_pinch_L + 1:
-                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{pinch_L - stored_pinch_L:.1f}kg from baseline</div>'
+            if pinch_L_kg > stored_pinch_L_kg + 1:
+                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(pinch_L_kg - stored_pinch_L_kg):.1f}kg from baseline</div>'
             else:
                 indicator_L = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
                 
-            if pinch_R > stored_pinch_R + 1:
-                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{pinch_R - stored_pinch_R:.1f}kg from baseline</div>'
+            if pinch_R_kg > stored_pinch_R_kg + 1:
+                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(pinch_R_kg - stored_pinch_R_kg):.1f}kg from baseline</div>'
             else:
                 indicator_R = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
             
@@ -368,12 +369,12 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between; gap: 20px;'>
                         <div>
                             <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>LEFT</div>
-                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{pinch_L:.1f} kg</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{pinch_L_kg:.1f} kg</div>
                             {indicator_L}
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>RIGHT</div>
-                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{pinch_R:.1f} kg</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{pinch_R_kg:.1f} kg</div>
                             {indicator_R}
                         </div>
                     </div>
@@ -381,18 +382,18 @@ if workout_sheet:
             """, unsafe_allow_html=True)
         
         with col3:
-            wrist_L = get_working_max(spreadsheet, selected_user, "Wrist Roller", "L")
-            wrist_R = get_working_max(spreadsheet, selected_user, "Wrist Roller", "R")
-            stored_wrist_L = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
-            stored_wrist_R = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
+            wrist_L_kg = get_working_max(spreadsheet, selected_user, "Wrist Roller", "L")
+            wrist_R_kg = get_working_max(spreadsheet, selected_user, "Wrist Roller", "R")
+            stored_wrist_L_kg = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
+            stored_wrist_R_kg = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
             
-            if wrist_L > stored_wrist_L + 1:
-                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{wrist_L - stored_wrist_L:.1f}kg from baseline</div>'
+            if wrist_L_kg > stored_wrist_L_kg + 1:
+                indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(wrist_L_kg - stored_wrist_L_kg):.1f}kg from baseline</div>'
             else:
                 indicator_L = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
                 
-            if wrist_R > stored_wrist_R + 1:
-                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{wrist_R - stored_wrist_R:.1f}kg from baseline</div>'
+            if wrist_R_kg > stored_wrist_R_kg + 1:
+                indicator_R = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(wrist_R_kg - stored_wrist_R_kg):.1f}kg from baseline</div>'
             else:
                 indicator_R = '<div style="font-size: 11px; color: rgba(255,255,255,0.9); margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">✓ From test</div>'
             
@@ -404,12 +405,12 @@ if workout_sheet:
                     <div style='display: flex; justify-content: space-between; gap: 20px;'>
                         <div>
                             <div style='font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;'>Left</div>
-                            <div style='font-size: 32px; font-weight: 700; color: white;'>{wrist_L:.1f} kg</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white;'>{wrist_L_kg:.1f} kg</div>
                             {indicator_L}
                         </div>
                         <div style='text-align: right;'>
                             <div style='font-size: 11px; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;'>Right</div>
-                            <div style='font-size: 32px; font-weight: 700; color: white;'>{wrist_R:.1f} kg</div>
+                            <div style='font-size: 32px; font-weight: 700; color: white;'>{wrist_R_kg:.1f} kg</div>
                             {indicator_R}
                         </div>
                     </div>

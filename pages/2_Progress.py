@@ -1,6 +1,6 @@
 import streamlit as st
 import sys
-sys.path.append('..')
+sys.path.append('.')
 from utils.helpers import *
 from utils.helpers import USER_PLACEHOLDER, generate_instagram_story
 import pandas as pd
@@ -127,7 +127,7 @@ if workout_sheet:
             # Filter out 1RM tests
             df_filtered = df[~df['Exercise'].str.contains('1RM Test', na=False)]
             
-            total_volume = (pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce') *
+            total_volume_kg = (pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce') *
                            pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce') *
                            pd.to_numeric(df_filtered['Sets_Completed'], errors='coerce')).sum()
             
@@ -136,7 +136,7 @@ if workout_sheet:
                 padding: 22px; border-radius: 16px; text-align: center; box-shadow: 0 8px 25px rgba(48,207,208,0.5);
                 border: 1px solid rgba(255,255,255,0.15); animation: fadeInUp 0.6s ease-out 0.4s backwards;'>
                     <div style='font-size: 13px; color: rgba(255,255,255,0.95); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;'>Total Volume</div>
-                    <div style='font-size: 40px; font-weight: 800; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.3);'>{total_volume:.0f} kg</div>
+                    <div style='font-size: 40px; font-weight: 800; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.3);'>{total_volume_kg:.0f} kg</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -148,6 +148,9 @@ if workout_sheet:
         
         # Group by date and exercise
         df_chart = df_filtered.groupby(['Date', 'Exercise', 'Arm'])['Actual_Load_kg'].mean().reset_index()
+        
+        # Use kg values directly
+        df_chart['Actual_Load_Display'] = df_chart['Actual_Load_kg']
         
         # Create beautiful plotly chart with custom colors
         fig = go.Figure()
@@ -165,7 +168,7 @@ if workout_sheet:
                 if len(df_subset) > 0:
                     fig.add_trace(go.Scatter(
                         x=df_subset['Date'],
-                        y=df_subset['Actual_Load_kg'],
+                        y=df_subset['Actual_Load_Display'],
                         mode='lines+markers',
                         name=f'{exercise} - {arm}',
                         line=dict(color=colors.get(arm, '#ffffff'), width=3),
@@ -253,9 +256,11 @@ if workout_sheet:
             
             # Add bodyweight trace on secondary y-axis
             if len(bw_history) > 1:
+                bw_history['Bodyweight_Display'] = bw_history['Bodyweight_kg']
+                
                 fig3.add_trace(go.Scatter(
                     x=bw_history['Date'],
-                    y=bw_history['Bodyweight_kg'],
+                    y=bw_history['Bodyweight_Display'],
                     mode='lines+markers',
                     name='Bodyweight',
                     line=dict(color='#fbbf24', width=2, dash='dash'),
@@ -404,10 +409,13 @@ if workout_sheet:
                     
                     # Weight progression
                     if workout_template['TracksWeight']:
+                            # Use kg values directly
+                            custom_logs['Weight_Display'] = custom_logs['Weight_kg']
+                            
                             fig_weight = px.line(
                                 custom_logs, 
                                 x='Date', 
-                                y='Weight_kg',
+                                y='Weight_Display',
                                 title=f"Weight Progression - {selected_custom_workout}",
                                 markers=True
                             )
@@ -512,16 +520,19 @@ if workout_sheet:
         recent_df = df_filtered.tail(10).copy()
         recent_df['Date'] = recent_df['Date'].dt.strftime('%Y-%m-%d')
         
+        # Use kg values directly
+        recent_df['Actual_Load_Display'] = recent_df['Actual_Load_kg']
+        
         # Style the dataframe
         st.dataframe(
-            recent_df[['Date', 'Exercise', 'Arm', 'Actual_Load_kg', 'Reps_Per_Set', 'Sets_Completed', 'RPE', 'Notes']],
+            recent_df[['Date', 'Exercise', 'Arm', 'Actual_Load_Display', 'Reps_Per_Set', 'Sets_Completed', 'RPE', 'Notes']],
             use_container_width=True,
             hide_index=True,
             column_config={
                 "Date": st.column_config.TextColumn("Date", width="small"),
                 "Exercise": st.column_config.TextColumn("Exercise", width="medium"),
                 "Arm": st.column_config.TextColumn("Arm", width="small"),
-                "Actual_Load_kg": st.column_config.NumberColumn("Load (kg)", format="%.1f kg"),
+                "Actual_Load_Display": st.column_config.NumberColumn("Load (kg)", format="%.1f kg"),
                 "Reps_Per_Set": st.column_config.NumberColumn("Reps", format="%d"),
                 "Sets_Completed": st.column_config.NumberColumn("Sets", format="%d"),
                 "RPE": st.column_config.NumberColumn("RPE", format="%d"),
