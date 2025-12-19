@@ -452,109 +452,664 @@ for col, action in zip(quick_cols, quick_actions):
 
 # ==================== HOW TO USE GUIDE ====================
 st.markdown("---")
-st.markdown("### 📖 How to Use This Tracker")
+st.markdown("### 📖 Complete Guide - Everything You Need to Know")
+st.caption("New to climbing or finger training? Start here! 🎯")
 
-with st.expander("💪 **Exercise Technique Tips**", expanded=False):
+with st.expander("🎯 **EXERCISE TECHNIQUES - The Three Core Lifts**", expanded=False):
     st.markdown("""
-    **Lifting Edge (18–20 mm pickup)**
+    ### 🖐️ **20mm Edge Pickup (Half-Crimp Strength)**
     
-    - Clip a portable edge or hangboard to a lifting pin loaded with plates on the floor.
-    - Stand so the device is roughly under your armpit, arm in line with the front of your body.
-    - Take a solid half‑crimp on the edge with a comfortable, slightly rounded radius.
-    - Brace your trunk, bend the knees, then lift by driving through the legs while keeping the shoulder packed and the arm close.
-    - Set the weight back down between reps; focus on crisp, controlled pickups rather than long holds.
+    **What it trains:** Crimp grip strength for tiny edges and crimpy boulder problems.
     
-    **Pinch Block Pickup**
+    **Equipment needed:**
+    - Portable hangboard edge (18-20mm depth)
+    - Lifting pin with weight plates
+    - Carabiner to attach edge to pin
     
-    - Attach a pinch block to the same style of lifting pin and plates.
-    - Place the thumb deep along the side of the block and keep the fingers a bit straighter than a normal climbing grip.
-    - Slightly pronate the wrist so the block "cams" into the hand and feels locked in.
-    - Stand over the pin, arm close to the body, and lift mainly from the legs while maintaining that precise pinch.
-    - Put the weight down between reps and reset your grip each time so every lift is consistent.
+    **How to perform:**
+    1. Clip the edge to a lifting pin loaded with plates on the floor
+    2. Stand so the device is under your armpit, arm along your body's front
+    3. Grip the edge with a **half-crimp** (fingers bent at middle joint, thumb wrapped)
+    4. Keep your shoulder packed down and back
+    5. Brace your core, bend knees slightly
+    6. **Lift by driving through your legs** - the arm just holds, legs do the work
+    7. Lift weight off ground 2-3 inches, pause briefly
+    8. Set it back down with control
+    9. Reset your grip between each rep
     
-    **Wrist Wrench / Heavy Roller Pickup**
-    
-    - Connect the wrist‑wrench or heavy‑roller handle directly to a short lifting pin with plates.
-    - Stand so the handle hangs near the front of your thigh with the arm mostly straight and shoulder relaxed.
-    - Avoid using a long rope and "rolling" the weight; instead, keep the connection short so the lift comes from driving through the legs.
-    - Maintain a strong wrist and open‑hand position against the handle as you pick the weight up and set it back down.
-    - Use smooth, powerful reps to develop forearm and wrist strength that carries over to slopers and open‑hand grips.
-    """)
-
-with st.expander("🎓 **Getting Started Guide**", expanded=False):
-    st.markdown("""
-    #### 1️⃣ **Log Your Workouts**
-    - Go to **Log Workout** page
-    - Select your exercise (20mm Edge, Pinch, or Wrist Roller)
-    - The app will show your current strength and calculate target weights
-    - Enter the weight you lifted, reps, sets, and RPE
-    - Add notes about how it felt
-    - Click "Log Workout" to save!
-    
-    #### 2️⃣ **Track Your Progress**
-    - Visit the **Progress** page to see:
-        - Charts showing your load over time
-        - RPE trends to monitor fatigue
-        - Summary statistics
-        - Recent workout history
-    
-    #### 3️⃣ **Follow Your Training Plan**
-    - Check the **Goals** page for:
-        - Weekly training schedule
-        - Technique tips for each exercise
-        - Current strength levels
-        - Training consistency tracker
-    
-    #### 4️⃣ **Compete on the Leaderboard**
-    - Head to **Leaderboard** to:
-        - See who's lifting the most weight
-        - Compare left vs right arm strength
-        - View total training volume rankings
-        - Get motivated by your crew!
-    
-    #### 5️⃣ **Manage Your Profile**
-    - Use **Profile** page to:
-        - Update your bodyweight
-        - View all your current strength levels
-        - Create new users for your climbing crew
+    **Common mistakes:**
+    - Pulling with arm instead of driving with legs → Keep arm close to body
+    - Open grip instead of half-crimp → Fingers should be bent
+    - Loose shoulder → Keep it packed and stable
     
     ---
     
-    #### 💡 **Pro Tips**
-    - **1RM Tests**: Log "1RM Test" exercises every 3-4 weeks to update your baseline
-    - **Auto-Updates**: Your strength estimates update automatically based on recent training
-    - **Consistency**: Train 3-6x per week following the schedule
-    - **Recovery**: Watch your RPE trends - if consistently high, take a rest day
-    - **Progression**: Aim to increase weight by 2.5-5kg every 2-3 weeks
-    - **Balance**: Train both arms equally to prevent imbalances
+    ### 🤏 **Pinch Block Pickup (Thumb Opposition Strength)**
+    
+    **What it trains:** Pinch grip for volumes, slopers, and pinch blocks.
+    
+    **Equipment needed:**
+    - Pinch block (thick gripable block)
+    - Lifting pin with weight plates
+    - Carabiner to attach
+    
+    **How to perform:**
+    1. Attach pinch block to lifting pin with plates
+    2. Place **thumb on one side, fingers on the other**
+    3. **Thumb positioning is key:** Deep along the side, not on top
+    4. Fingers should be fairly straight (not crimped)
+    5. Slightly pronate (rotate) your wrist inward so the block "cams" into your hand
+    6. Stand over the pin, arm close to body
+    7. Drive through legs to lift the weight
+    8. Squeeze the block hard throughout the lift
+    9. Set down, reset grip, repeat
+    
+    **Common mistakes:**
+    - Thumb on top of block → Put it on the side for better leverage
+    - Crimping fingers → Keep them straighter
+    - Arm too far from body → Keep it close
+    
+    ---
+    
+    ### 💪 **Wrist Roller Pickup (Open-Hand & Wrist Strength)**
+    
+    **What it trains:** Open-hand grip for slopers, wrist stability, forearm endurance.
+    
+    **Equipment needed:**
+    - Wrist roller handle OR thick dowel/pipe
+    - Lifting pin with weight plates
+    - Carabiner or rope
+    
+    **How to perform (NEW METHOD - Pickups, not rolling):**
+    1. Connect the handle **directly to a short lifting pin** with plates
+    2. Do NOT use a long rope for rolling - we're doing pickups!
+    3. Stand with handle hanging near front of your thigh
+    4. Grip the handle with **fingers wrapped around, thumb underneath and alongside fingers**
+    5. **This is the key grip:** Thumb is not opposing - it's tucked next to your fingers on the underside
+    6. Keep arm mostly straight, shoulder relaxed but stable
+    7. Maintain an **open-hand grip** (not crimped, but fingers wrapped)
+    8. Drive through legs to lift weight off ground
+    9. Hold strong wrist position throughout
+    10. Lower with control, reset, repeat
+    
+    **What this feels like:**
+    - Like gripping a thick sloper or jug
+    - Wrist stays neutral (not bent)
+    - Forearms working hard to maintain grip
+    - More "squeezing around" than "pinching"
+    
+    **Common mistakes:**
+    - Trying to "roll" the weight → Just do pickups with the direct connection
+    - Bending wrist excessively → Keep it neutral
+    - Crimping fingers → Keep them more open/wrapped
+    - Pulling with arm → Drive with legs
+    
+    **Why this exercise?**  
+    Builds crushing strength for slopers, jugs, and any open-handed grip. Strengthens wrists for dynamic moves.
     """)
 
-with st.expander("❓ **FAQ - Frequently Asked Questions**", expanded=False):
+with st.expander("📝 **HOW TO LOG WORKOUTS - Step-by-Step**", expanded=False):
     st.markdown("""
+    ### Standard Exercise Logging
+    
+    1. **Go to Log Workout page** (from sidebar or Quick Actions)
+    2. **Select your exercise type:**
+       - **Standard Exercises** → 20mm Edge, Pinch, or Wrist Roller
+       - **Custom Workouts** → Your personalized templates
+       - **Other Activities** → Climbing, Board sessions, Work pullups
+       - **Update 1RM** → Test and log your maximum strength
+    
+    3. **For Standard Exercises:**
+       - Click "Log Standard Workout" button
+       - Select your exercise (20mm Edge, Pinch, or Wrist Roller)
+       - Review your **last workout** and **AI suggestions**
+       - The app shows recommended weight based on your last session
+       - Enter the **actual weight you lifted** (in kg)
+       - Choose if logging same weight for both arms or different
+       - Enter **reps per set** (usually 3-5 for strength, 6+ for endurance)
+       - Enter **sets completed** (usually 3-5)
+       - Rate your **RPE** (1-10, how hard it felt)
+       - Add notes (optional but recommended!)
+       - Click "Log Workout" to save
+    
+    4. **For Custom Workouts:**
+       - Click "Log Custom Workout"
+       - Select from your saved templates
+       - Fill in the metrics your template tracks (weight, reps, duration, etc.)
+       - Add notes and submit
+    
+    5. **For Other Activities:**
+       - Click "Log Activity"
+       - Choose: Climbing, Board, or Work Pullups
+       - Enter date and duration
+       - Add session notes
+       - Submit!
+    
+    6. **For 1RM Tests:**
+       - Click "Update 1RM"
+       - Select exercise to test
+       - View your current 1RM
+       - Enter your new maximum for left and right arm
+       - Choose if you want to log it as a workout entry too
+       - Submit to update your training targets
+    
+    ---
+    
+    ### Understanding the Smart Suggestions
+    
+    The app analyzes your last workout and suggests:
+    - **Keep pushing** 💪 → Last session was good, try adding weight
+    - **Increase load** 📈 → RPE was too easy, go heavier
+    - **Same load** ⚖️ → Perfect difficulty, repeat the weight
+    - **Reduce load** 📉 → RPE was too high, drop weight slightly
+    - **First workout** 🎯 → Starting suggestion based on your 1RM
+    
+    These suggestions help you **progress safely** without overdoing it!
+    """)
+
+with st.expander("📊 **UNDERSTANDING YOUR STATS & DASHBOARD**", expanded=False):
+    st.markdown("""
+    ### Home Page Metrics Explained
+    
+    **Training Sessions**
+    - Total number of unique days you've trained
+    - Each day counts once, even if you log multiple exercises
+    
+    **Days Since Last**
+    - How many days since your last logged workout
+    - Helps you track consistency
+    - App warns if you're inactive for 5+ days
+    
+    **Total Volume**
+    - Sum of: Weight × Reps × Sets for all workouts
+    - Measures total work done over time
+    - Higher volume = more training stimulus
+    
+    **Average RPE**
+    - Your average effort level across recent workouts
+    - If consistently high (9-10): You might be overdoing it
+    - If consistently low (5-6): You can probably push harder
+    - Ideal range: 7-8 for most sessions
+    
+    **This Week Sessions**
+    - Number of training days in current week (Monday-Sunday)
+    - Target: 3-6 sessions per week for best results
+    
+    ---
+    
+    ### Current Strength (Working Max)
+    
+    The app shows your **current estimated strength** for each exercise:
+    
+    - **From test** ✓ → Based on your last 1RM test
+    - **+X kg from baseline** 📈 → You're getting stronger! Your recent training suggests you can lift more than your last test
+    
+    **How it works:**
+    - App tracks your last 8 weeks of training
+    - Uses the Epley formula to estimate your true max
+    - If you're consistently lifting heavier weights for reps, it estimates you're stronger
+    - When you see "+X kg", consider doing a new 1RM test to confirm!
+    
+    **Left vs Right Arm:**
+    - Tracks each arm independently
+    - Helps identify imbalances
+    - Train both equally to prevent injury
+    
+    ---
+    
+    ### Training Calendar
+    
+    **Color coding:**
+    - 🟣 **Purple** = Gym (Standard finger training)
+    - 🟢 **Teal** = Custom Workout
+    - 💜 **Purple** = Board Session (Kilter, etc.)
+    - 🟢 **Green** = Outdoor Climbing
+    - 🟠 **Orange** = Work Pullups
+    - ⬛ **Gray** = Rest Day
+    
+    **How to use it:**
+    - Quickly visualize your training frequency
+    - Spot gaps in your schedule
+    - See your consistency over 365 days
+    - Aim for 3-6 colored squares per week
+    """)
+
+with st.expander("⚙️ **SETTINGS & ADVANCED FEATURES**", expanded=False):
+    st.markdown("""
+    ### Profile Page Settings
+    
+    **Bodyweight Tracking**
+    - Update your weight in the sidebar or Profile page
+    - Used to calculate relative strength ratios
+    - Helps track if you're gaining/losing weight
+    
+    **Creating New Users**
+    - Share the tracker with your climbing crew!
+    - Each user has their own:
+      - Training history
+      - Strength stats
+      - Custom workouts
+      - PIN for privacy
+    
+    **PIN Security**
+    - Each user can set a 4-digit PIN
+    - Required to access your profile
+    - Prevents accidental data mixing
+    - Change it anytime in Profile settings
+    
+    ---
+    
+    ### Endurance Training Mode (3rd Session Toggle)
+    
+    **What is it?**  
+    A special training protocol for sport climbing endurance, automatically activated every 3rd workout for each exercise.
+    
+    **How to enable:**
+    1. Go to **Profile** page
+    2. Find "Endurance Training" section
+    3. Toggle ON for exercises you want endurance training
+    4. Choose which exercises (20mm Edge, Pinch, Wrist Roller)
+    
+    **When enabled:**
+    - Every 3rd session becomes an **endurance workout**
+    - Automatically sets **55% of your 1RM** (lighter weight)
+    - Default: **6 hangs × 3 sets**
+    - Protocol: **7 seconds on, 3 seconds off** (repeaters)
+    - You'll see a green banner: "ENDURANCE SESSION - REPEATERS"
+    
+    **Example sequence:**
+    - Session 1: Strength (80% 1RM, 5 reps, 3 sets)
+    - Session 2: Strength (80% 1RM, 5 reps, 3 sets)
+    - Session 3: **Endurance** (55% 1RM, 6 hangs, 3 sets) ← Automatic!
+    - Session 4: Strength (back to normal)
+    - Session 5: Strength
+    - Session 6: **Endurance** (every 3rd)
+    
+    **Why use it?**
+    - Builds **local endurance** in fingers
+    - Prepares you for long sport routes
+    - Prevents plateau from only doing heavy strength work
+    - Balances power and endurance
+    
+    **Who should use it?**
+    - Sport climbers training for multi-pitch or endurance routes
+    - Anyone plateauing on pure strength training
+    - People transitioning to longer climbing sessions
+    
+    **Who shouldn't use it?**
+    - Pure boulderers focused only on max strength
+    - Beginners (first 3-6 months, focus on strength)
+    - During a strength-building phase
+    
+    ---
+    
+    ### Custom Workouts
+    
+    **Creating Templates:**
+    1. Go to **Custom Workouts** page
+    2. Click "Create New Workout"
+    3. Name your workout
+    4. Choose workout type (Strength, Cardio, Flexibility, etc.)
+    5. Select what to track:
+       - ✅ Weight (if using loads)
+       - ✅ Sets & Reps
+       - ✅ Duration (for timed exercises)
+       - ✅ Distance (for cardio)
+       - ✅ RPE (always recommended)
+    6. Add description
+    7. Save template
+    
+    **Logging Custom Workouts:**
+    - Go to Log Workout → Custom Workouts
+    - Select your saved template
+    - Fill in only the metrics you chose to track
+    - Much faster than standard logging for specialized exercises
+    
+    **Example custom workouts:**
+    - Campus board progressions
+    - System wall power endurance
+    - Hangboard max hangs
+    - Core strength circuits
+    - Flexibility/yoga sessions
+    - Cardio (running, cycling)
+    """)
+
+with st.expander("📈 **PROGRESS TRACKING & ANALYSIS**", expanded=False):
+    st.markdown("""
+    ### Progress Page - What You'll See
+    
+    **Load Over Time Charts**
+    - Line graphs showing weight lifted per exercise
+    - Separate charts for left and right arm
+    - Helps visualize strength gains
+    - Look for upward trends!
+    
+    **RPE Trends**
+    - Track if workouts are getting easier/harder
+    - Flat RPE with increasing weight = getting stronger! 💪
+    - Rising RPE = possible overtraining, consider deload
+    
+    **Recent Workouts Table**
+    - Last 20 workouts with all details
+    - Filter by exercise, arm, date range
+    - Export data if needed
+    
+    **Summary Statistics**
+    - Personal records (heaviest lifts)
+    - Average load per exercise
+    - Training frequency per exercise
+    - Consistency metrics
+    
+    ---
+    
+    ### Goals Page - Training Plans
+    
+    **Weekly Schedule**
+    - Suggested training split
+    - Exercise rotation recommendations
+    - Rest day guidance
+    - Based on your training history
+    
+    **Technique Reminders**
+    - Exercise-specific cues for each lift
+    - Common mistakes to avoid
+    - Form check reminders
+    
+    **Streak Tracking**
+    - Current training streak (consecutive days/weeks)
+    - Longest streak achieved
+    - Motivation to stay consistent!
+    """)
+
+with st.expander("🏆 **LEADERBOARD & COMPETITION**", expanded=False):
+    st.markdown("""
+    ### Compete With Your Crew!
+    
+    **Rankings Available:**
+    
+    1. **Absolute Strength Rankings**
+       - Who lifts the most weight (kg) per exercise
+       - Separated by arm (L/R)
+       - Updated in real-time
+    
+    2. **Relative Strength Rankings**
+       - Weight lifted ÷ bodyweight
+       - More fair comparison across different body sizes
+       - Shows true strength-to-weight ratio
+    
+    3. **Volume Rankings**
+       - Total kg lifted over time period
+       - Measures work capacity and consistency
+       - Rewards those who train hard and often
+    
+    4. **Arm Balance Score**
+       - Measures left vs right arm strength difference
+       - Closer to 100% = better balance
+       - Important for injury prevention
+    
+    **How to Use It:**
+    - Friendly competition motivates training!
+    - Don't compare yourself too harshly to others
+    - Focus on beating your own PRs first
+    - Use it to find training partners at similar levels
+    """)
+
+with st.expander("💡 **PRO TIPS & BEST PRACTICES**", expanded=False):
+    st.markdown("""
+    ### Training Frequency
+    - **Beginners:** 2-3 sessions/week
+    - **Intermediate:** 3-4 sessions/week  
+    - **Advanced:** 4-6 sessions/week
+    - Always include 1-2 full rest days per week
+    
+    ### Progressive Overload
+    - Aim to increase weight by **2.5-5kg every 2-3 weeks**
+    - Don't rush! Fingers adapt slowly (6-8 weeks per adaptation)
+    - If you can't add weight, add reps or sets
+    - Deload (reduce weight 20%) every 4-6 weeks
+    
+    ### RPE Guidelines
+    - **Strength training:** Target RPE 7-8
+    - **Endurance training:** Target RPE 6-7
+    - **Testing 1RM:** RPE 10 (max effort)
+    - **Recovery sessions:** RPE 5-6
+    
+    ### When to Test 1RM
+    - Every 3-4 weeks for beginners
+    - Every 4-6 weeks for intermediate
+    - Every 6-8 weeks for advanced
+    - After taking a week off
+    - When app shows +5kg+ estimated increase
+    
+    ### Injury Prevention
+    - Always warm up (10 min light cardio + finger warm-up)
+    - Don't train through finger pain
+    - Watch for imbalances (>10% difference = address it)
+    - Take rest days seriously
+    - If RPE is consistently 9-10, you need rest
+    
+    ### Nutrition & Recovery
+    - Get adequate protein (1.6-2.2g/kg bodyweight)
+    - Sleep 7-9 hours per night
+    - Stay hydrated during training
+    - Consider collagen supplementation for finger health
+    
+    ### Climbing Integration
+    - Don't finger train day before projecting
+    - Can do light finger training after easy climbing
+    - Heavy finger training requires 48h recovery
+    - Reduce finger training volume during climbing trips
+    """)
+
+with st.expander("❓ **FAQ - Common Questions**", expanded=False):
+    st.markdown("""
+    **Q: I'm brand new to climbing. Can I start finger training?**  
+    A: Wait at least 6-12 months of regular climbing first. Build base strength in your fingers through actual climbing before adding weighted training. Your tendons need time to adapt!
+    
     **Q: What is RPE?**  
-    A: Rate of Perceived Exertion - how hard the set felt on a scale of 1-10. 
-    - 7 = Could do 3 more reps
-    - 8 = Could do 2 more reps  
-    - 9 = Could do 1 more rep
-    - 10 = Absolute maximum effort
+    A: Rate of Perceived Exertion - how hard the set felt on a scale of 1-10:
+    - 5 = Very easy, could do many more reps
+    - 7 = Could do 3 more reps  
+    - 8 = Could do 2 more reps
+    - 9 = Could do 1 more rep  
+    - 10 = Absolute maximum, couldn't do another rep
     
     **Q: How does the strength calculation work?**  
-    A: The app uses your recent training loads (last 8 weeks) to estimate your current strength using the Epley formula. If you haven't done a 1RM test recently but have been lifting heavier in training, it will show your estimated strength is higher than your baseline test.
-    
-    **Q: How often should I test my 1RM?**  
-    A: Every 3-4 weeks. The app auto-estimates between tests, but periodic testing keeps your baseline accurate.
+    A: Uses the Epley Formula: 1RM = weight × (1 + reps/30). Analyzes your last 8 weeks of training to estimate current max strength. More accurate than guessing!
     
     **Q: What if I can't hit the prescribed weight?**  
-    A: That's fine! Enter what you actually lifted. The app tracks everything and adjusts.
+    A: Totally fine! Enter what you actually lifted. The app learns from this and adjusts future suggestions. Never force a weight that feels unsafe.
+    
+    **Q: Should I train both arms equally?**  
+    A: YES! Even if you climb one-handed moves, train both equally to:
+    - Prevent muscle imbalances
+    - Reduce injury risk
+    - Maintain body symmetry
+    - Be prepared for any route
+    
+    **Q: My right arm is way stronger. What do I do?**  
+    A: Common issue! Solutions:
+    - Do extra sets with weaker arm
+    - Start each session with weaker arm
+    - Use slightly heavier weight for weaker arm
+    - Don't let strong arm dominate
+    - Be patient - takes months to balance
+    
+    **Q: Can I train fingers every day?**  
+    A: NO! Fingers need 48h recovery minimum. Tendons are slow to heal. Overtraining = injury. Stick to 3-6 sessions per week with rest days.
+    
+    **Q: What's better - heavy weight/low reps or light weight/high reps?**  
+    A: Both! 
+    - Heavy (80%+ 1RM, 3-5 reps) = max strength
+    - Light (50-60% 1RM, 6-10 reps) = endurance
+    - Train both with the 3rd session toggle!
+    
+    **Q: The app says I should add weight but I don't feel ready.**  
+    A: Trust your body over the app! Suggestions are guidelines. If something feels wrong, don't do it. Log a lighter weight and the app will adjust.
+    
+    **Q: How long until I see progress?**  
+    A: Initial gains: 2-4 weeks (neural adaptation)
+    Real strength: 6-8 weeks (tissue adaptation)
+    Significant gains: 12-16 weeks (consistent training)
+    Be patient! Fingers adapt slowly.
+    
+    **Q: Can I do finger training and project hard the same day?**  
+    A: Not recommended. Either:
+    - Finger train → 48h rest → project
+    - Easy climbing → finger train same day
+    - Heavy climbing → skip finger training that day
+    
+    **Q: What if I miss a week of training?**  
+    A: No big deal! Life happens. When returning:
+    - Reduce weight by 10-15%
+    - Work back up over 2-3 sessions
+    - Don't jump straight to previous weights
+    - Your strength drops slower than you think!
+    
+    **Q: Should I feel sore after finger training?**  
+    A: Mild forearm soreness is normal. Finger joint pain is NOT normal:
+    - ✅ Forearm muscle fatigue = good
+    - ✅ Mild finger pump = normal
+    - ❌ Sharp finger pain = stop immediately
+    - ❌ Persistent joint pain = see doctor
+    - ❌ Swollen fingers = overtraining
     
     **Q: Can multiple people use this tracker?**  
-    A: Yes! Go to Profile → Create New User to add climbing partners.
+    A: Absolutely! Go to Profile → Create New User. Each person gets:
+    - Separate training history
+    - Personal stats
+    - Custom PIN
+    - Individual settings
+    Perfect for sharing with climbing partners or gym!
+    """)
+
+with st.expander("🚨 **INJURY PREVENTION & SAFETY**", expanded=False):
+    st.markdown("""
+    ### Warning Signs - STOP Training If:
+    - Sharp, acute pain in fingers or elbows
+    - Swelling in finger joints
+    - Numbness or tingling
+    - Pain that doesn't go away after warm-up
+    - Pain that wakes you up at night
+    - Weakness in grip that persists days after training
     
-    **Q: What do the plate calculations mean?**  
-    A: The app shows exactly which weight plates to load on each side of the cable machine.
+    ### Common Finger Injuries
     
-    **Q: Why does it show "+X kg from baseline"?**  
-    A: This means your recent training suggests you're stronger than your last test. Consider doing a new 1RM test to confirm!
+    **A2 Pulley Strain** (most common)
+    - Location: Base of finger, palm side
+    - Feels like: Sharp pain when crimping
+    - Cause: Too much volume, too heavy weight, insufficient warm-up
+    - Prevention: Gradual progression, proper technique, adequate rest
+    
+    **Flexor Tendon Strain**
+    - Location: Forearm into fingers
+    - Feels like: Dull ache along tendon path
+    - Cause: Overuse, inadequate recovery
+    - Prevention: Listen to your body, take rest days
+    
+    **Collateral Ligament Sprain**
+    - Location: Sides of finger joints
+    - Feels like: Pain when moving finger sideways
+    - Cause: Awkward hand positions, overstressing
+    - Prevention: Controlled movements, good form
+    
+    ### If You Get Injured
+    1. **STOP immediately** - don't "push through"
+    2. **Rest** - minimum 48h, possibly weeks
+    3. **Ice** - 15-20 min several times daily
+    4. **Elevate** - reduce swelling
+    5. **See a doctor** - especially if severe or persistent
+    6. **Gradual return** - start at 50% previous weight
+    7. **Listen to your body** - pain = stop
+    
+    ### Warm-Up Protocol (NEVER SKIP!)
+    1. **General warm-up** (5-10 min)
+       - Light cardio (jump rope, jog, bike)
+       - Get heart rate up, break light sweat
+    
+    2. **Specific warm-up** (5-10 min)
+       - Wrist circles (20 each direction)
+       - Finger flexion/extension (20 reps)
+       - Gentle finger pulls (all fingers)
+       - Light grip squeezes with stress ball
+       - Arm circles and shoulder rolls
+    
+    3. **Exercise-specific warm-up** (2-3 sets)
+       - Start with 40% of working weight
+       - Then 60% of working weight
+       - Then 80% of working weight
+       - Full rest between warm-up sets
+       - Now ready for working sets!
+    
+    ### Cool-Down & Recovery
+    - Light cardio (5 min) to flush metabolites
+    - Gentle stretching (NOT aggressive!)
+    - Finger massage and mobility work
+    - Ice fingers if feeling tweaky
+    - Protein within 2h post-workout
+    - Sleep well!
+    """)
+
+with st.expander("🎓 **Getting Started Checklist**", expanded=False):
+    st.markdown("""
+    ### Your First Week
+    
+    #### Day 1: Setup & First Test
+    - [ ] Create your profile
+    - [ ] Set your bodyweight
+    - [ ] Set your PIN
+    - [ ] Do proper warm-up
+    - [ ] Test your 1RM on one exercise (start with 20mm Edge)
+    - [ ] Log the test (Update 1RM page)
+    
+    #### Day 3: First Training Session
+    - [ ] Warm up properly
+    - [ ] Log Workout → Standard Exercise
+    - [ ] Select 20mm Edge
+    - [ ] Use 80% of your 1RM
+    - [ ] Do 5 reps × 3 sets
+    - [ ] Rate your RPE honestly
+    - [ ] Add notes about how it felt
+    
+    #### Day 5: Second Exercise
+    - [ ] Repeat process for Pinch or Wrist Roller
+    - [ ] Follow app's weight suggestions
+    - [ ] Focus on perfect technique
+    - [ ] Don't go too heavy!
+    
+    #### Day 7: Recovery & Review
+    - [ ] Full rest day (no finger training)
+    - [ ] Check Progress page
+    - [ ] Review your first week
+    - [ ] Plan next week's schedule
+    
+    ### Your First Month Goals
+    - [ ] Establish consistent training schedule (3-4x/week)
+    - [ ] Test 1RM on all three exercises
+    - [ ] Learn proper technique for each lift
+    - [ ] Build the habit of logging every workout
+    - [ ] Start tracking your calendar consistently
+    - [ ] Join the leaderboard competition
+    - [ ] Stay injury-free!
+    
+    ### When You're Ready to Level Up
+    - [ ] Enable endurance training toggle (after 2-3 months)
+    - [ ] Create custom workout templates
+    - [ ] Log climbing and board sessions
+    - [ ] Set specific strength goals
+    - [ ] Train with friends using the tracker
+    - [ ] Analyze your progress trends
+    - [ ] Compete on the leaderboard
+    
+    ### Remember
+    ✅ **Consistency beats intensity**  
+    ✅ **Technique beats weight**  
+    ✅ **Recovery is part of training**  
+    ✅ **Progress takes time (months, not weeks)**  
+    ✅ **Pain is a signal to stop, not push through**  
+    ✅ **Every workout logged is a win**  
+    
+    🎯 **You've got this! Start today, log consistently, watch yourself get stronger!** 💪
     """)
 
 st.markdown("<div class='section-divider'></div>", unsafe_allow_html=True)
