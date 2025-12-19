@@ -141,7 +141,7 @@ else:
             padding: 30px 20px; border-radius: 16px; text-align: center; margin-bottom: 10px;
             box-shadow: 0 8px 24px rgba(79,172,254,0.4); border: 2px solid rgba(255,255,255,0.1);'>
                 <div style='font-size: 48px; margin-bottom: 12px;'>🗓️</div>
-                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Other Activities</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Climbing & Other Activities</div>
                 <div style='font-size: 13px; color: rgba(255,255,255,0.85);'>
                     Climbing • Board • Work Pullups
                 </div>

@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 from PIL import Image, ImageDraw, ImageFont
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 PLATE_SIZES = [20, 15, 10, 5, 2.5, 2, 1.5, 1, 0.75, 0.5, 0.25]
 
@@ -1686,3 +1689,82 @@ def change_user_pin(spreadsheet, user, old_pin, new_pin):
         return False, "User not found"
     except Exception as e:
         return False, f"Error changing PIN: {e}"
+
+def send_bug_report_email(user_name, message):
+    """Send bug report email to oscar@sullivanltd.co.uk"""
+    try:
+        # Get email credentials from Streamlit secrets
+        try:
+            smtp_server = st.secrets.get("EMAIL_SMTP_SERVER", "smtp.gmail.com")
+            smtp_port = st.secrets.get("EMAIL_SMTP_PORT", 587)
+            sender_email = st.secrets.get("EMAIL_SENDER")
+            sender_password = st.secrets.get("EMAIL_PASSWORD")
+        except:
+            return False, "Email not configured yet. Contact the admin to enable bug reporting."
+        
+        # Check if credentials are still the placeholder values
+        if not sender_email or not sender_password or \
+           sender_email == "your-email@gmail.com" or \
+           sender_password == "your-app-password":
+            return False, "Email not configured yet. Contact the admin to enable bug reporting."
+        
+        # Create message
+        recipient_email = "oscar@sullivanltd.co.uk"
+        
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = recipient_email
+        msg['Subject'] = f"Yves Tracker Bug Report from {user_name}"
+        
+        # Email body
+        body = f"""
+New bug report from Yves Tracker:
+
+User: {user_name}
+Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Message:
+{message}
+
+---
+Sent from Yves Tracker Bug Report System
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+        
+        return True, "Bug report sent successfully!"
+        
+    except Exception as e:
+        return False, f"Failed to send email: {str(e)}"
+
+def render_bug_report_form():
+    """Render a bug report form in the sidebar"""
+    with st.sidebar.expander("🐛 Report Bug", expanded=False):
+        st.markdown("Found a bug? Let Oscar know!")
+        
+        # Get current user for context
+        current_user = st.session_state.get('current_user', 'Unknown')
+        
+        bug_message = st.text_area(
+            "Describe the issue:",
+            placeholder="What went wrong? What were you trying to do?",
+            key="bug_report_message",
+            height=100
+        )
+        
+        if st.button("Send Bug Report", key="send_bug_report"):
+            if not bug_message or len(bug_message.strip()) < 10:
+                st.error("Please provide more details (at least 10 characters)")
+            else:
+                success, message = send_bug_report_email(current_user, bug_message)
+                if success:
+                    st.success(message)
+                    st.info("💡 Refresh the page to submit another report")
+                else:
+                    st.error(message)

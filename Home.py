@@ -23,7 +23,8 @@ from utils.helpers import (
     calculate_relative_strength,
     estimate_1rm_epley,
     calculate_plates,
-    load_custom_workout_logs
+    load_custom_workout_logs,
+    render_bug_report_form
 )
 
 st.set_page_config(page_title="Yves Climbing Tracker", page_icon="🧗", layout="wide")
@@ -80,6 +81,9 @@ selected_user = user_selectbox_with_pin(
 )
 st.session_state.current_user = selected_user
 
+# Bug report form in sidebar
+render_bug_report_form()
+
 if selected_user == USER_PLACEHOLDER:
     # Welcome banner for new users
     st.markdown("""
@@ -111,6 +115,11 @@ if selected_user == USER_PLACEHOLDER:
 # ==================== QUICK STATS OVERVIEW ====================
 if workout_sheet:
     df = load_data_from_sheets(workout_sheet, user=selected_user)
+    
+    # Check if user has ANY activity (gym workouts, custom workouts, or activity log)
+    activity_df = load_activity_log(spreadsheet, selected_user) if spreadsheet else pd.DataFrame()
+    custom_workout_df = load_custom_workout_logs(spreadsheet, selected_user) if spreadsheet else pd.DataFrame()
+    has_any_data = (len(df) > 0) or (len(activity_df) > 0) or (len(custom_workout_df) > 0)
     
     if len(df) > 0:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -199,111 +208,113 @@ if workout_sheet:
             )
 
         st.markdown("---")
+    
+    # ==================== TRAINING CALENDAR (ALWAYS SHOW IF ANY DATA EXISTS) ====================
+    if spreadsheet and has_any_data:
         st.markdown("### 📅 Training Activity Calendar")
         
         # Load all activities
-        if spreadsheet:
-            activity_df = load_activity_log(spreadsheet, selected_user)
-            workout_df = df if len(df) > 0 else pd.DataFrame()
+        activity_df_cal = load_activity_log(spreadsheet, selected_user)
+        workout_df = df if len(df) > 0 else pd.DataFrame()
             
-            calendar_data = {}
-            
-            # Add gym workouts
-            if len(workout_df) > 0:
-                workout_df["Date"] = pd.to_datetime(workout_df["Date"], errors="coerce").dt.date
-                for date in workout_df["Date"].dropna().unique():
-                    calendar_data[str(date)] = "Gym"
-            
-            # Add custom workouts
-            custom_workout_df = load_custom_workout_logs(spreadsheet, selected_user)
-            if len(custom_workout_df) > 0:
-                custom_workout_df["Date"] = pd.to_datetime(custom_workout_df["Date"], errors="coerce").dt.date
-                for date in custom_workout_df["Date"].dropna().unique():
-                    date_str = str(date)
-                    if date_str not in calendar_data:
-                        calendar_data[date_str] = "Custom"
-            
-            # Add climbing and work
-            if len(activity_df) > 0:
-                activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
-                for _, row in activity_df.iterrows():
-                    date_str = str(row["Date"])
-                    activity_type = row["ActivityType"]
-                    if date_str not in calendar_data:
-                        calendar_data[date_str] = activity_type
-            
-            # Generate calendar
-            today_cal = datetime.now().date()
-            start_date = today_cal - timedelta(days=364)
-            
-            squares_list = []
-            for i in range(365):
-                current_date = start_date + timedelta(days=i)
-                date_str = str(current_date)
-                
-                if date_str in calendar_data:
-                    activity = calendar_data[date_str]
-                    if activity == "Gym":
-                        color = "#667eea"
-                        label = "Gym"
-                    elif activity == "Custom":
-                        color = "#14b8a6"
-                        label = "Custom"
-                    elif activity == "Climbing":
-                        color = "#4ade80"
-                        label = "Climbing"
-                    elif activity == "Board":
-                        color = "#a855f7"
-                        label = "Board"
-                    elif activity == "Work":
-                        color = "#fb923c"
-                        label = "Work"
-                    else:
-                        color = "#667eea"
-                        label = "Gym"
-                else:
-                    color = "#2d2d2d"
-                    label = "Rest"
-                
-                square = f'<div title="{current_date.strftime("%Y-%m-%d")} - {label}" style="width: 18px; height: 18px; background: {color}; border-radius: 3px;"></div>'
-                squares_list.append(square)
-            
-            calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 20px 0;">' + ''.join(squares_list) + '</div>'
-            
-            legend_html = """
-            <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 25px; font-size: 15px; justify-content: center; flex-wrap: wrap;'>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Finger Training)</div>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #14b8a6; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Custom Workout</div>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #a855f7; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Board Session</div>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #4ade80; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Climbing</div>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #fb923c; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Work Pullups</div>
-                <div><span style='display: inline-block; width: 18px; height: 18px; background: #2d2d2d; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Rest</div>
-            </div>
-            """
-            
-            st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
-            
-            gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
-            custom_days = sum(1 for v in calendar_data.values() if v == "Custom")
-            board_days = sum(1 for v in calendar_data.values() if v == "Board")
-            climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
-            work_days = sum(1 for v in calendar_data.values() if v == "Work")
-            
-            col1, col2, col3, col4, col5 = st.columns(5)
-            with col1:
-                st.metric("🏋️ Gym Days (365d)", gym_days)
-            with col2:
-                st.metric("💪 Custom Days (365d)", custom_days)
-            with col3:
-                st.metric("🎯 Board Days (365d)", board_days)
-            with col4:
-                st.metric("🧗 Climbing Days (365d)", climb_days)
-            with col5:
-                st.metric("🏃 Work Days (365d)", work_days)
-
-        st.markdown("---")
+        calendar_data = {}
         
-        # CURRENT STRENGTH (WORKING MAX)
+        # Add gym workouts
+        if len(workout_df) > 0:
+            workout_df["Date"] = pd.to_datetime(workout_df["Date"], errors="coerce").dt.date
+            for date in workout_df["Date"].dropna().unique():
+                calendar_data[str(date)] = "Gym"
+        
+        # Add custom workouts
+        if len(custom_workout_df) > 0:
+            custom_workout_df["Date"] = pd.to_datetime(custom_workout_df["Date"], errors="coerce").dt.date
+            for date in custom_workout_df["Date"].dropna().unique():
+                date_str = str(date)
+                if date_str not in calendar_data:
+                    calendar_data[date_str] = "Custom"
+        
+        # Add climbing and work
+        if len(activity_df_cal) > 0:
+            activity_df_cal["Date"] = pd.to_datetime(activity_df_cal["Date"], errors="coerce").dt.date
+            for _, row in activity_df_cal.iterrows():
+                date_str = str(row["Date"])
+                activity_type = row["ActivityType"]
+                if date_str not in calendar_data:
+                    calendar_data[date_str] = activity_type
+        
+        # Generate calendar
+        today_cal = datetime.now().date()
+        start_date = today_cal - timedelta(days=364)
+        
+        squares_list = []
+        for i in range(365):
+            current_date = start_date + timedelta(days=i)
+            date_str = str(current_date)
+            
+            if date_str in calendar_data:
+                activity = calendar_data[date_str]
+                if activity == "Gym":
+                    color = "#667eea"
+                    label = "Gym"
+                elif activity == "Custom":
+                    color = "#14b8a6"
+                    label = "Custom"
+                elif activity == "Climbing":
+                    color = "#4ade80"
+                    label = "Climbing"
+                elif activity == "Board":
+                    color = "#a855f7"
+                    label = "Board"
+                elif activity == "Work":
+                    color = "#fb923c"
+                    label = "Work"
+                else:
+                    color = "#667eea"
+                    label = "Gym"
+            else:
+                color = "#2d2d2d"
+                label = "Rest"
+            
+            square = f'<div title="{current_date.strftime("%Y-%m-%d")} - {label}" style="width: 18px; height: 18px; background: {color}; border-radius: 3px;"></div>'
+            squares_list.append(square)
+        
+        calendar_html = '<div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; margin: 20px 0;">' + ''.join(squares_list) + '</div>'
+        
+        legend_html = """
+        <div style='margin-top: 20px; margin-bottom: 20px; display: flex; gap: 25px; font-size: 15px; justify-content: center; flex-wrap: wrap;'>
+            <div><span style='display: inline-block; width: 18px; height: 18px; background: #667eea; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Gym (Finger Training)</div>
+            <div><span style='display: inline-block; width: 18px; height: 18px; background: #14b8a6; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Custom Workout</div>
+            <div><span style='display: inline-block; width: 18px; height: 18px; background: #a855f7; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Board Session</div>
+            <div><span style='display: inline-block; width: 18px; height: 18px; background: #4ade80; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Climbing</div>
+            <div><span style='display: inline-block; width: 18px; height: 18px; background: #fb923c; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Work Pullups</div>
+            <div><span style='display: inline-block; width: 18px; height: 18px; background: #2d2d2d; border-radius: 3px; margin-right: 8px; vertical-align: middle;'></span>Rest</div>
+        </div>
+        """
+        
+        st.markdown(calendar_html + legend_html, unsafe_allow_html=True)
+        
+        gym_days = sum(1 for v in calendar_data.values() if v == "Gym")
+        custom_days = sum(1 for v in calendar_data.values() if v == "Custom")
+        board_days = sum(1 for v in calendar_data.values() if v == "Board")
+        climb_days = sum(1 for v in calendar_data.values() if v == "Climbing")
+        work_days = sum(1 for v in calendar_data.values() if v == "Work")
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric("🏋️ Gym Days (365d)", gym_days)
+        with col2:
+            st.metric("💪 Custom Days (365d)", custom_days)
+        with col3:
+            st.metric("🎯 Board Days (365d)", board_days)
+        with col4:
+            st.metric("🧗 Climbing Days (365d)", climb_days)
+        with col5:
+            st.metric("🏃 Work Days (365d)", work_days)
+
+    st.markdown("---")
+    
+    # ==================== CURRENT STRENGTH (REQUIRES GYM DATA) ====================
+    if len(df) > 0:
         st.markdown("### 💪 Your Current Strength")
         st.caption("📊 Based on recent training performance (auto-updated from last 8 weeks)")
         
@@ -556,7 +567,7 @@ with st.expander("📝 **HOW TO LOG WORKOUTS - Step-by-Step**", expanded=False):
     2. **Select your exercise type:**
        - **Standard Exercises** → 20mm Edge, Pinch, or Wrist Roller
        - **Custom Workouts** → Your personalized templates
-       - **Other Activities** → Climbing, Board sessions, Work pullups
+       - **Climbing & Other Activities** → Climbing, Board sessions, Work pullups
        - **Update 1RM** → Test and log your maximum strength
     
     3. **For Standard Exercises:**
@@ -578,7 +589,7 @@ with st.expander("📝 **HOW TO LOG WORKOUTS - Step-by-Step**", expanded=False):
        - Fill in the metrics your template tracks (weight, reps, duration, etc.)
        - Add notes and submit
     
-    5. **For Other Activities:**
+    5. **For Climbing & Other Activities:**
        - Click "Log Activity"
        - Choose: Climbing, Board, or Work Pullups
        - Enter date and duration
