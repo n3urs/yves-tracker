@@ -436,13 +436,12 @@ if workout_sheet:
         bw_change_pct = (bw_change / bw_history['Bodyweight_kg'].iloc[0]) * 100
         
         if abs(bw_change) > 0.5:
-            change_color = "#4ade80" if bw_change < 0 else "#ef4444"
-            change_emoji = "📉" if bw_change < 0 else "📈"
+            change_emoji = "📊"
             change_text = "lost" if bw_change < 0 else "gained"
             
             st.markdown(f"""
                 <div style='background: rgba(255,255,255,0.05); padding: 12px 16px; border-radius: 8px; margin-top: 10px;'>
-                    <div style='color: {change_color}; font-size: 14px;'>
+                    <div style='color: #9ca3af; font-size: 14px;'>
                         {change_emoji} You've {change_text} <strong>{abs(bw_change):.1f} kg</strong> ({abs(bw_change_pct):.1f}%) since your first logged bodyweight
                     </div>
                 </div>

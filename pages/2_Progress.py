@@ -341,6 +341,7 @@ if workout_sheet:
                     </div>
                 """, unsafe_allow_html=True)
             
+            st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
             st.info("💪 **Pro Tip:** Even if your absolute strength stays the same, losing bodyweight improves your relative strength - making harder climbs more achievable!")
         else:
             st.info("📊 Log more bodyweight updates to see your relative strength trend!")
