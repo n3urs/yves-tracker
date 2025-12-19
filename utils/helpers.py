@@ -1714,11 +1714,11 @@ def send_bug_report_email(user_name, message):
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = recipient_email
-        msg['Subject'] = f"Yves Tracker Bug Report from {user_name}"
+        msg['Subject'] = f"Yves Tracker - Report from {user_name}"
         
         # Email body
         body = f"""
-New bug report from Yves Tracker:
+New report from Yves Tracker:
 
 User: {user_name}
 Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -1727,7 +1727,7 @@ Message:
 {message}
 
 ---
-Sent from Yves Tracker Bug Report System
+Sent from Yves Tracker Bug Report & Feature Request System
         """
         
         msg.attach(MIMEText(body, 'plain'))
@@ -1745,20 +1745,20 @@ Sent from Yves Tracker Bug Report System
 
 def render_bug_report_form():
     """Render a bug report form in the sidebar"""
-    with st.sidebar.expander("🐛 Report Bug", expanded=False):
-        st.markdown("Found a bug? Let Oscar know!")
+    with st.sidebar.expander("🐛 Bug Reports & Requests", expanded=False):
+        st.markdown("Found a bug or have a feature request? Let Oscar know!")
         
         # Get current user for context
         current_user = st.session_state.get('current_user', 'Unknown')
         
         bug_message = st.text_area(
-            "Describe the issue:",
-            placeholder="What went wrong? What were you trying to do?",
+            "Describe the issue or request:",
+            placeholder="What went wrong? What feature would you like to see?",
             key="bug_report_message",
             height=100
         )
         
-        if st.button("Send Bug Report", key="send_bug_report"):
+        if st.button("Send Report", key="send_bug_report"):
             if not bug_message or len(bug_message.strip()) < 10:
                 st.error("Please provide more details (at least 10 characters)")
             else:
