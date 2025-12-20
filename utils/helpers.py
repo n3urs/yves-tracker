@@ -861,34 +861,39 @@ def user_selectbox_with_pin(available_users, user_pins, selector_key, label="Sel
 
     if selected_candidate != active_user:
         pin_key = f"{selector_key}_pin"
-        pin_value = st.sidebar.text_input(
-            "Enter 4-digit PIN to switch",
-            type="password",
-            max_chars=PIN_LENGTH,
-            key=pin_key
-        )
-        if st.sidebar.button("Switch Profile", key=f"{selector_key}_switch"):
-            stored_pin = user_pins.get(selected_candidate)
-            if not stored_pin:
-                st.sidebar.error("No PIN found for this user. Add a PIN in the Users sheet (PIN column).")
-            elif not pin_value or len(pin_value) != PIN_LENGTH or not pin_value.isdigit():
-                st.sidebar.error("PIN must be exactly 4 digits.")
-            elif pin_value == stored_pin:
-                st.session_state.current_user = selected_candidate
-                st.sidebar.success(f"Switched to {selected_candidate}")
-                st.rerun()
-            else:
-                st.sidebar.error("Incorrect PIN. Try again.")
+        
+        # Use a form to enable Enter key submission
+        with st.sidebar.form(key=f"{selector_key}_pin_form"):
+            pin_value = st.text_input(
+                "Enter 4-digit PIN to switch",
+                type="password",
+                max_chars=PIN_LENGTH,
+                key=pin_key
+            )
+            submit_button = st.form_submit_button("Switch Profile")
+            
+            if submit_button:
+                stored_pin = user_pins.get(selected_candidate)
+                if not stored_pin:
+                    st.error("No PIN found for this user. Add a PIN in the Users sheet (PIN column).")
+                elif not pin_value or len(pin_value) != PIN_LENGTH or not pin_value.isdigit():
+                    st.error("PIN must be exactly 4 digits.")
+                elif pin_value == stored_pin:
+                    st.session_state.current_user = selected_candidate
+                    st.success(f"Switched to {selected_candidate}")
+                    st.rerun()
+                else:
+                    st.error("Incorrect PIN. Try again.")
 
     return st.session_state.current_user
 
 def calculate_training_streak(unique_dates):
-    """Return streak length allowing <=3 days between logged sessions."""
+    """Return streak length allowing <=7 days between logged sessions."""
     if not unique_dates:
         return 0
     streak = 1
     for idx in range(len(unique_dates) - 1, 0, -1):
-        if (unique_dates[idx] - unique_dates[idx - 1]).days <= 3:
+        if (unique_dates[idx] - unique_dates[idx - 1]).days <= 7:
             streak += 1
         else:
             break
@@ -1717,6 +1722,45 @@ def delete_goal(goal_id):
         return True
     except Exception as e:
         st.error(f"Error deleting goal: {e}")
+        return False
+
+def delete_workout_entry(workout_id):
+    """Delete a workout entry from Supabase by ID"""
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            return False
+        
+        supabase.table("workouts").delete().eq("id", workout_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error deleting workout: {e}")
+        return False
+
+def delete_custom_workout_log(log_id):
+    """Delete a custom workout log entry from Supabase by ID"""
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            return False
+        
+        supabase.table("custom_workout_logs").delete().eq("id", log_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error deleting custom workout log: {e}")
+        return False
+
+def delete_activity_log(log_id):
+    """Delete an activity log entry from Supabase by ID"""
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            return False
+        
+        supabase.table("activity_log").delete().eq("id", log_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error deleting activity log: {e}")
         return False
 
 def log_custom_workout(user, workout_id, workout_name, date, 

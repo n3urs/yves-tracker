@@ -600,7 +600,7 @@ if True:
                     dates = sorted(df['Date'].dt.date.unique())
                     current_streak = 1
                     for i in range(len(dates)-1, 0, -1):
-                        if (dates[i] - dates[i-1]).days <= 3:
+                        if (dates[i] - dates[i-1]).days <= 7:
                             current_streak += 1
                         else:
                             break

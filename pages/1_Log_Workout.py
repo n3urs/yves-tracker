@@ -171,6 +171,15 @@ with col_center:
 # ==================== MODAL: STANDARD WORKOUT ====================
 @st.dialog("🏋️ Log Standard Workout", width="large")
 def show_standard_workout_modal():
+    # Date picker
+    workout_date = st.date_input(
+        "📅 Workout Date:",
+        value=datetime.now().date(),
+        max_value=datetime.now().date(),
+        help="Select a past date if you forgot to log a workout",
+        key="modal_standard_date"
+    )
+    
     st.markdown("### 🎯 Select Exercise")
     
     col1, col2, col3 = st.columns(3)
@@ -434,7 +443,7 @@ def show_standard_workout_modal():
         if st.button("✅ Log Workout", type="primary", use_container_width=True, key="modal_submit"):
             workout_data_L = {
                 "User": selected_user,
-                "Date": datetime.now().strftime("%Y-%m-%d"),
+                "Date": workout_date.strftime("%Y-%m-%d"),
                 "Exercise": exercise,
                 "Arm": "L",
                 "1RM_Reference": current_1rm_L,
@@ -449,7 +458,7 @@ def show_standard_workout_modal():
             
             workout_data_R = {
                 "User": selected_user,
-                "Date": datetime.now().strftime("%Y-%m-%d"),
+                "Date": workout_date.strftime("%Y-%m-%d"),
                 "Exercise": exercise,
                 "Arm": "R",
                 "1RM_Reference": current_1rm_R,
@@ -482,6 +491,15 @@ def show_standard_workout_modal():
 # ==================== MODAL: CUSTOM WORKOUT ====================
 @st.dialog("✨ Log Custom Workout", width="large")
 def show_custom_workout_modal():
+    # Date picker
+    workout_date = st.date_input(
+        "📅 Workout Date:",
+        value=datetime.now().date(),
+        max_value=datetime.now().date(),
+        help="Select a past date if you forgot to log a workout",
+        key="modal_custom_date"
+    )
+    
     # Load user's custom workouts
     user_workouts = get_user_custom_workouts(selected_user)
     
@@ -621,7 +639,7 @@ def show_custom_workout_modal():
                 user=selected_user,
                 workout_id=workout_details['WorkoutID'],
                 workout_name=selected_workout_name,
-                date=datetime.now(),
+                date=datetime.combine(workout_date, datetime.min.time()),
                 weight=workout_weight,
                 sets=workout_sets,
                 reps=workout_reps,
@@ -643,6 +661,15 @@ def show_custom_workout_modal():
 # ==================== MODAL: OTHER ACTIVITIES ====================
 @st.dialog("🗓️ Log Activity", width="large")
 def show_activity_modal():
+    # Date picker
+    workout_date = st.date_input(
+        "📅 Workout Date:",
+        value=datetime.now().date(),
+        max_value=datetime.now().date(),
+        help="Select a past date if you forgot to log a workout",
+        key="modal_activity_date"
+    )
+    
     st.markdown("### Choose Activity Type")
     
     col1, col2, col3 = st.columns(3)
@@ -669,13 +696,8 @@ def show_activity_modal():
     
     activity_type = st.session_state.selected_activity_type
     
-    # Date input
-    activity_date = st.date_input(
-        "Session date:",
-        value=datetime.now().date(),
-        max_value=datetime.now().date(),
-        key="modal_activity_date"
-    )
+    # Use workout_date from the date picker above
+    activity_date = workout_date
     
     # Duration (except for work pullups)
     activity_duration = None
@@ -722,6 +744,15 @@ def show_activity_modal():
 # ==================== MODAL: 1RM UPDATE ====================
 @st.dialog("🏆 Update 1RM", width="large")
 def show_1rm_modal():
+    # Date picker
+    workout_date = st.date_input(
+        "📅 Test Date:",
+        value=datetime.now().date(),
+        max_value=datetime.now().date(),
+        help="Select a past date if you forgot to log a test",
+        key="modal_1rm_date"
+    )
+    
     st.markdown("""
         <div style='background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
         padding: 18px; border-radius: 10px; text-align: center; margin-bottom: 16px;'>
@@ -838,7 +869,7 @@ def show_1rm_modal():
                 if log_test_as_workout:
                     workout_data_L = {
                         "User": selected_user,
-                        "Date": datetime.now().strftime("%Y-%m-%d"),
+                        "Date": workout_date.strftime("%Y-%m-%d"),
                         "Exercise": f"1RM Test - {test_exercise}",
                         "Arm": "L",
                         "1RM_Reference": new_1rm_L,
@@ -853,7 +884,7 @@ def show_1rm_modal():
                     
                     workout_data_R = {
                         "User": selected_user,
-                        "Date": datetime.now().strftime("%Y-%m-%d"),
+                        "Date": workout_date.strftime("%Y-%m-%d"),
                         "Exercise": f"1RM Test - {test_exercise}",
                         "Arm": "R",
                         "1RM_Reference": new_1rm_R,

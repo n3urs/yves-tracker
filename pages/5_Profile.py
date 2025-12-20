@@ -20,7 +20,12 @@ from utils.helpers import (
     get_workout_count,
     change_user_pin,
     add_new_user,
-    delete_user
+    delete_user,
+    delete_workout_entry,
+    delete_custom_workout_log,
+    delete_activity_log,
+    load_custom_workout_logs,
+    load_activity_log
 )
 
 import pandas as pd
@@ -55,7 +60,7 @@ def show_settings_dialog(selected_user):
     """Modal dialog for training settings"""
     
     # Tabs for different setting categories
-    tab1, tab2 = st.tabs(["🏃 Training", "🔒 Security"])
+    tab1, tab2, tab3 = st.tabs(["🏃 Training", "🗑️ Manage Workouts", "🔒 Security"])
     
     # ==================== TRAINING TAB ====================
     with tab1:
@@ -134,8 +139,279 @@ def show_settings_dialog(selected_user):
                     </div>
                 """, unsafe_allow_html=True)
     
-    # ==================== SECURITY TAB ====================
+    # ==================== MANAGE WORKOUTS TAB ====================
     with tab2:
+        st.markdown("### 🗑️ Manage Workouts")
+        st.markdown("Delete any workout entries that were logged incorrectly.")
+        
+        # Load all workouts for the user
+        df_all = load_data_from_sheets(None, selected_user)
+        df_user = df_all.copy()
+        
+        # Load custom workouts
+        custom_logs = load_custom_workout_logs(selected_user)
+        
+        # Load activity logs
+        activity_logs = load_activity_log(selected_user)
+        
+        # Ensure date columns exist with proper names
+        if not custom_logs.empty and 'Date' in custom_logs.columns:
+            custom_logs = custom_logs.rename(columns={'Date': 'date'})
+        if not activity_logs.empty and 'Date' in activity_logs.columns:
+            activity_logs = activity_logs.rename(columns={'Date': 'date'})
+        
+        if df_user.empty and custom_logs.empty and activity_logs.empty:
+            st.info("No workouts logged yet!")
+        else:
+            # Create tabs for different workout types
+            workout_tab1, workout_tab2, workout_tab3 = st.tabs(["💪 Standard Workouts", "✨ Custom Workouts", "🏃 Activities"])
+            
+            # Standard workouts tab
+            with workout_tab1:
+                if not df_user.empty:
+                    df_user['Date'] = pd.to_datetime(df_user['Date'], errors='coerce')
+                    df_sorted = df_user.sort_values('Date', ascending=False)
+                    
+                    # Search box
+                    search_std = st.text_input("🔍 Search by exercise or date", key="search_std", placeholder="e.g., 20mm Edge, 2025-12-08")
+                    
+                    # Filter based on search
+                    if search_std:
+                        mask = (df_sorted['Exercise'].str.contains(search_std, case=False, na=False) | 
+                                df_sorted['Date'].astype(str).str.contains(search_std, case=False, na=False))
+                        df_filtered = df_sorted[mask]
+                    else:
+                        df_filtered = df_sorted
+                    
+                    total_count = len(df_filtered)
+                    st.markdown(f"**Total: {total_count} entries**")
+                    
+                    if total_count > 0:
+                        # Pagination
+                        if 'std_page' not in st.session_state:
+                            st.session_state.std_page = 0
+                        
+                        items_per_page = 10
+                        total_pages = (total_count - 1) // items_per_page + 1
+                        start_idx = st.session_state.std_page * items_per_page
+                        end_idx = min(start_idx + items_per_page, total_count)
+                        
+                        # Page navigation
+                        col_prev, col_info, col_next = st.columns([1, 2, 1])
+                        with col_prev:
+                            if st.button("⬅️ Previous", disabled=st.session_state.std_page == 0, key="std_prev"):
+                                st.session_state.std_page -= 1
+                        with col_info:
+                            st.markdown(f"<div style='text-align: center; padding-top: 8px;'>Page {st.session_state.std_page + 1} of {total_pages}</div>", unsafe_allow_html=True)
+                        with col_next:
+                            if st.button("Next ➡️", disabled=st.session_state.std_page >= total_pages - 1, key="std_next"):
+                                st.session_state.std_page += 1
+                        
+                        st.markdown("---")
+                        
+                        # Display workouts for current page
+                        for idx, row in df_filtered.iloc[start_idx:end_idx].iterrows():
+                            date_str = row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else 'N/A'
+                            exercise = row.get('Exercise', 'N/A')
+                            arm = row.get('Arm', 'N/A')
+                            load = row.get('Actual_Load_kg', 0)
+                            sets = row.get('Sets_Completed', 0)
+                            reps = row.get('Reps_Per_Set', 0)
+                            workout_id = row.get('ID', None)
+                            
+                            col1, col2 = st.columns([5, 1])
+                            
+                            with col1:
+                                st.markdown(f"""
+                                    <div style='background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;'>
+                                        <div style='font-size: 14px; font-weight: 600; color: white;'>
+                                            📅 {date_str} | {exercise} ({arm})
+                                        </div>
+                                        <div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px;'>
+                                            {load}kg × {reps} reps × {sets} sets
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with col2:
+                                if workout_id and st.button("🗑️", key=f"del_std_{workout_id}", help="Delete this workout"):
+                                    if delete_workout_entry(workout_id):
+                                        st.success("✅ Deleted!")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to delete")
+                    else:
+                        st.info("No workouts match your search")
+                else:
+                    st.info("No standard workouts logged")
+            
+            # Custom workouts tab
+            with workout_tab2:
+                if not custom_logs.empty:
+                    custom_logs['date'] = pd.to_datetime(custom_logs['date'], errors='coerce')
+                    custom_sorted = custom_logs.sort_values('date', ascending=False)
+                    
+                    # Search box
+                    search_custom = st.text_input("🔍 Search by workout name or date", key="search_custom", placeholder="e.g., Pullups, 2025-12-08")
+                    
+                    # Filter based on search
+                    if search_custom:
+                        mask = (custom_sorted['workout_name'].str.contains(search_custom, case=False, na=False) | 
+                                custom_sorted['date'].astype(str).str.contains(search_custom, case=False, na=False))
+                        custom_filtered = custom_sorted[mask]
+                    else:
+                        custom_filtered = custom_sorted
+                    
+                    total_count = len(custom_filtered)
+                    st.markdown(f"**Total: {total_count} entries**")
+                    
+                    if total_count > 0:
+                        # Pagination
+                        if 'custom_page' not in st.session_state:
+                            st.session_state.custom_page = 0
+                        
+                        items_per_page = 10
+                        total_pages = (total_count - 1) // items_per_page + 1
+                        start_idx = st.session_state.custom_page * items_per_page
+                        end_idx = min(start_idx + items_per_page, total_count)
+                        
+                        # Page navigation
+                        col_prev, col_info, col_next = st.columns([1, 2, 1])
+                        with col_prev:
+                            if st.button("⬅️ Previous", disabled=st.session_state.custom_page == 0, key="custom_prev"):
+                                st.session_state.custom_page -= 1
+                        with col_info:
+                            st.markdown(f"<div style='text-align: center; padding-top: 8px;'>Page {st.session_state.custom_page + 1} of {total_pages}</div>", unsafe_allow_html=True)
+                        with col_next:
+                            if st.button("Next ➡️", disabled=st.session_state.custom_page >= total_pages - 1, key="custom_next"):
+                                st.session_state.custom_page += 1
+                        
+                        st.markdown("---")
+                        
+                        # Display workouts for current page
+                        for idx, row in custom_filtered.iloc[start_idx:end_idx].iterrows():
+                            date_str = row['date'].strftime('%Y-%m-%d') if pd.notna(row['date']) else 'N/A'
+                            workout_name = row.get('workout_name', 'N/A')
+                            log_id = row.get('id', None)
+                            
+                            # Build details string
+                            details = []
+                            if pd.notna(row.get('weight_kg')): details.append(f"{row['weight_kg']}kg")
+                            if pd.notna(row.get('sets')): details.append(f"{row['sets']} sets")
+                            if pd.notna(row.get('reps')): details.append(f"{row['reps']} reps")
+                            if pd.notna(row.get('duration_min')): details.append(f"{row['duration_min']}min")
+                            if pd.notna(row.get('distance_km')): details.append(f"{row['distance_km']}km")
+                            details_str = " | ".join(details) if details else "No details"
+                            
+                            col1, col2 = st.columns([5, 1])
+                            
+                            with col1:
+                                st.markdown(f"""
+                                    <div style='background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;'>
+                                        <div style='font-size: 14px; font-weight: 600; color: white;'>
+                                            📅 {date_str} | {workout_name}
+                                        </div>
+                                        <div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px;'>
+                                            {details_str}
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with col2:
+                                if log_id and st.button("🗑️", key=f"del_custom_{log_id}", help="Delete this workout"):
+                                    if delete_custom_workout_log(log_id):
+                                        st.success("✅ Deleted!")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to delete")
+                    else:
+                        st.info("No workouts match your search")
+                else:
+                    st.info("No custom workouts logged")
+            
+            # Activities tab
+            with workout_tab3:
+                if not activity_logs.empty:
+                    activity_logs['date'] = pd.to_datetime(activity_logs['date'], errors='coerce')
+                    activity_sorted = activity_logs.sort_values('date', ascending=False)
+                    
+                    # Search box
+                    search_activity = st.text_input("🔍 Search by activity type or date", key="search_activity", placeholder="e.g., Climbing, 2025-12-08")
+                    
+                    # Filter based on search
+                    if search_activity:
+                        mask = (activity_sorted['activity_type'].str.contains(search_activity, case=False, na=False) | 
+                                activity_sorted['date'].astype(str).str.contains(search_activity, case=False, na=False))
+                        activity_filtered = activity_sorted[mask]
+                    else:
+                        activity_filtered = activity_sorted
+                    
+                    total_count = len(activity_filtered)
+                    st.markdown(f"**Total: {total_count} entries**")
+                    
+                    if total_count > 0:
+                        # Pagination
+                        if 'activity_page' not in st.session_state:
+                            st.session_state.activity_page = 0
+                        
+                        items_per_page = 10
+                        total_pages = (total_count - 1) // items_per_page + 1
+                        start_idx = st.session_state.activity_page * items_per_page
+                        end_idx = min(start_idx + items_per_page, total_count)
+                        
+                        # Page navigation
+                        col_prev, col_info, col_next = st.columns([1, 2, 1])
+                        with col_prev:
+                            if st.button("⬅️ Previous", disabled=st.session_state.activity_page == 0, key="activity_prev"):
+                                st.session_state.activity_page -= 1
+                        with col_info:
+                            st.markdown(f"<div style='text-align: center; padding-top: 8px;'>Page {st.session_state.activity_page + 1} of {total_pages}</div>", unsafe_allow_html=True)
+                        with col_next:
+                            if st.button("Next ➡️", disabled=st.session_state.activity_page >= total_pages - 1, key="activity_next"):
+                                st.session_state.activity_page += 1
+                        
+                        st.markdown("---")
+                        
+                        # Display activities for current page
+                        for idx, row in activity_filtered.iloc[start_idx:end_idx].iterrows():
+                            date_str = row['date'].strftime('%Y-%m-%d') if pd.notna(row['date']) else 'N/A'
+                            activity_type = row.get('activity_type', 'N/A')
+                            log_id = row.get('id', None)
+                            
+                            # Build details string
+                            details = []
+                            if pd.notna(row.get('duration_min')): details.append(f"{row['duration_min']}min")
+                            if pd.notna(row.get('work_pullups')): details.append(f"{row['work_pullups']} pullups")
+                            details_str = " | ".join(details) if details else "No details"
+                            
+                            col1, col2 = st.columns([5, 1])
+                            
+                            with col1:
+                                st.markdown(f"""
+                                    <div style='background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;'>
+                                        <div style='font-size: 14px; font-weight: 600; color: white;'>
+                                            📅 {date_str} | {activity_type}
+                                        </div>
+                                        <div style='font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 4px;'>
+                                            {details_str}
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with col2:
+                                if log_id and st.button("🗑️", key=f"del_activity_{log_id}", help="Delete this activity"):
+                                    if delete_activity_log(log_id):
+                                        st.success("✅ Deleted!")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to delete")
+                    else:
+                        st.info("No activities match your search")
+                else:
+                    st.info("No activities logged")
+    
+    # ==================== SECURITY TAB ====================
+    with tab3:
         st.markdown("### 🔒 Change PIN")
         
         st.markdown("""
@@ -287,7 +563,7 @@ if True:
         dates = sorted(df['Date'].dt.date.unique())
         current_streak = 1
         for i in range(len(dates)-1, 0, -1):
-            if (dates[i] - dates[i-1]).days <= 3:  # 3 days tolerance
+            if (dates[i] - dates[i-1]).days <= 7:  # 1 week tolerance
                 current_streak += 1
             else:
                 break
@@ -311,9 +587,9 @@ if True:
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #d946b5 0%, #e23670 100%); 
                 padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(240,147,251,0.4);'>
-                    <div style='font-size: 14px; color: rgba(255,255,255,0.95); margin-bottom: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Training Streak</div>
+                    <div style='font-size: 14px; color: rgba(255,255,255,0.95); margin-bottom: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>Training Streak 🔥</div>
                     <div style='font-size: 36px; font-weight: bold; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.3);'>{current_streak}</div>
-                    <div style='font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>consecutive sessions</div>
+                    <div style='font-size: 12px; color: rgba(255,255,255,0.8); margin-top: 5px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>1 workout/week to keep alive</div>
                 </div>
             """, unsafe_allow_html=True)
         
