@@ -1045,8 +1045,8 @@ def get_user_1rm(user, exercise, arm):
             key_map = {
                 '20mm Edge': ('20mm', arm.lower()),
                 '14mm Edge': ('14mm', arm.lower()),
-                'Pinch': None,
-                'Wrist Roller': None
+                'Pinch': ('pinch', arm.lower()),
+                'Wrist Roller': ('wrist_roller', arm.lower()),
             }
             if exercise in key_map and key_map[exercise]:
                 edge_size, side = key_map[exercise]
@@ -1084,28 +1084,36 @@ def set_user_1rm(user, exercise, arm, new_1rm):
     try:
         supabase = get_supabase_client()
         if not supabase:
+            print(f"ERROR: Failed to get Supabase client")
             return False
         
         # Map exercise name to profile column
         key_map = {
             '20mm Edge': ('20mm', arm.lower()),
             '14mm Edge': ('14mm', arm.lower()),
+            'Pinch': ('pinch', arm.lower()),
+            'Wrist Roller': ('wrist_roller', arm.lower()),
         }
         
         if exercise not in key_map:
+            print(f"ERROR: Exercise '{exercise}' not in key_map. Available: {list(key_map.keys())}")
             return False
         
         edge_size, side = key_map[exercise]
         col_name = f"{side}_{edge_size}_current"
         
+        print(f"DEBUG: Updating {col_name} for user {user} with value {new_1rm}")
+        
         # Upsert to user_profile table
-        supabase.table("user_profile").upsert({
+        result = supabase.table("user_profile").upsert({
             "username": user,
             col_name: float(new_1rm)
         }, on_conflict="username").execute()
         
+        print(f"DEBUG: Update successful for {col_name}")
         return True
     except Exception as e:
+        print(f"ERROR in set_user_1rm: {str(e)}")
         return False
 
 def get_working_max(user, exercise, arm, weeks=8):

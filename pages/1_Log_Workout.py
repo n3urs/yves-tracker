@@ -865,21 +865,24 @@ def show_1rm_modal():
             success_L = set_user_1rm(selected_user, test_exercise, "L", new_1rm_L)
             success_R = set_user_1rm(selected_user, test_exercise, "R", new_1rm_R)
             
-            if success_L and success_R:
+            if not success_L or not success_R:
+                failed_arms = []
+                if not success_L:
+                    failed_arms.append("Left")
+                if not success_R:
+                    failed_arms.append("Right")
+                st.error(f"❌ Failed to update 1RM for {' and '.join(failed_arms)} arm(s). Check the terminal for details.")
+            elif success_L and success_R:
                 if log_test_as_workout:
                     workout_data_L = {
                         "User": selected_user,
                         "Date": workout_date.strftime("%Y-%m-%d"),
                         "Exercise": f"1RM Test - {test_exercise}",
                         "Arm": "L",
-                        "1RM_Reference": new_1rm_L,
-                        "Target_Percentage": 100,
-                        "Prescribed_Load_kg": new_1rm_L,
                         "Actual_Load_kg": new_1rm_L,
                         "Reps_Per_Set": 1,
                         "Sets_Completed": 1,
-                        "RPE": 10,
-                        "Notes": test_notes
+                        "Notes": test_notes if test_notes else ""
                     }
                     
                     workout_data_R = {
@@ -887,26 +890,23 @@ def show_1rm_modal():
                         "Date": workout_date.strftime("%Y-%m-%d"),
                         "Exercise": f"1RM Test - {test_exercise}",
                         "Arm": "R",
-                        "1RM_Reference": new_1rm_R,
-                        "Target_Percentage": 100,
-                        "Prescribed_Load_kg": new_1rm_R,
                         "Actual_Load_kg": new_1rm_R,
                         "Reps_Per_Set": 1,
                         "Sets_Completed": 1,
-                        "RPE": 10,
-                        "Notes": test_notes
+                        "Notes": test_notes if test_notes else ""
                     }
                     
-                    save_workout_to_sheets( workout_data_L)
-                    save_workout_to_sheets( workout_data_R)
+                    workout_success_L = save_workout_to_sheets(workout_data_L)
+                    workout_success_R = save_workout_to_sheets(workout_data_R)
+                    
+                    if not workout_success_L or not workout_success_R:
+                        st.warning("⚠️ 1RMs updated but failed to log as workout. Check terminal for details.")
                 
                 st.success("✅ 1RMs updated successfully!")
                 st.balloons()
                 time.sleep(1.5)
                 st.session_state.show_1rm_modal = False
                 st.rerun()
-            else:
-                st.error("❌ Failed to update 1RMs. Please try again.")
 
 # Show appropriate modal (only one at a time)
 if st.session_state.show_standard_modal:
