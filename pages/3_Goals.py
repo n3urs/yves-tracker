@@ -75,8 +75,13 @@ def goals_settings_modal(selected_user):
     
     if st.button("💾 Save Settings", use_container_width=True, type="primary"):
         with st.spinner("Saving settings..."):
-            st.warning("⚠️ Custom goal settings need to be implemented with Supabase")
-            # TODO: Implement save_user_settings() in helpers.py
+            set_user_setting(selected_user, "weekly_goal_1_type", new_goal1_type)
+            set_user_setting(selected_user, "weekly_goal_1_target", new_goal1_target)
+            set_user_setting(selected_user, "weekly_goal_2_type", new_goal2_type)
+            set_user_setting(selected_user, "weekly_goal_2_target", new_goal2_target)
+            set_user_setting(selected_user, "weekly_goal_3_type", new_goal3_type)
+            set_user_setting(selected_user, "weekly_goal_3_target", new_goal3_target)
+            st.success("✅ Settings saved!")
             st.rerun()
 
 # ==================== HEADER ====================

@@ -73,15 +73,17 @@ CREATE TABLE activity_log (
 CREATE TABLE custom_workout_templates (
     id BIGSERIAL PRIMARY KEY,
     username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-    template_name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    exercise_1 TEXT,
-    exercise_2 TEXT,
-    exercise_3 TEXT,
-    exercise_4 TEXT,
-    exercise_5 TEXT,
+    workout_name TEXT NOT NULL,
+    workout_type TEXT NOT NULL,
+    description TEXT,
+    tracks_weight BOOLEAN DEFAULT FALSE,
+    tracks_sets BOOLEAN DEFAULT FALSE,
+    tracks_reps BOOLEAN DEFAULT FALSE,
+    tracks_duration BOOLEAN DEFAULT FALSE,
+    tracks_distance BOOLEAN DEFAULT FALSE,
+    tracks_rpe BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(username, template_name)
+    UNIQUE(username, workout_name)
 );
 
 -- Custom workout logs

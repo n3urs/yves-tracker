@@ -162,9 +162,23 @@ with st.form("create_custom_workout"):
         elif not any([track_weight, track_sets, track_reps, track_duration, track_distance, track_rpe]):
             st.error("Please select at least one metric to track!")
         else:
-            st.warning("⚠️ Create workout function needs to be implemented with Supabase")
-            # TODO: Implement save_custom_workout_template() in helpers.py
-            st.rerun()
+            success = save_custom_workout_template(
+                selected_user,
+                workout_name,
+                workout_type,
+                workout_description,
+                track_weight,
+                track_sets,
+                track_reps,
+                track_duration,
+                track_distance,
+                track_rpe
+            )
+            if success:
+                st.success(f"✅ Workout '{workout_name}' created successfully!")
+                st.rerun()
+            else:
+                st.error("Failed to create workout. Please try again.")
 
 # ==================== SIDEBAR INFO ====================
 st.sidebar.markdown("---")

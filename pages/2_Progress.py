@@ -406,7 +406,7 @@ if True:
                     # Weight progression
                     if workout_template['TracksWeight']:
                             # Use kg values directly
-                            custom_logs['Weight_Display'] = custom_logs['Weight_kg']
+                            custom_logs['Weight_Display'] = custom_logs['Weight']
                             
                             fig_weight = px.line(
                                 custom_logs, 
@@ -461,13 +461,13 @@ if True:
                     col_idx = 0
                     if workout_template['TracksWeight']:
                         with stat_cols[col_idx % 4]:
-                            max_weight = custom_logs['Weight_kg'].max()
+                            max_weight = custom_logs['Weight'].max()
                             st.metric("Max Weight", f"{max_weight:.1f} kg")
                             col_idx += 1
                     
                     if workout_template['TracksWeight'] and workout_template['TracksSets'] and workout_template['TracksReps']:
                         with stat_cols[col_idx % 4]:
-                            max_volume = (custom_logs['Weight_kg'] * custom_logs['Sets'] * custom_logs['Reps']).max()
+                            max_volume = (custom_logs['Weight'] * custom_logs['Sets'] * custom_logs['Reps']).max()
                             st.metric("Max Volume", f"{int(max_volume)} kg")
                             col_idx += 1
                     
@@ -491,7 +491,7 @@ if True:
                     # Create display dataframe
                     display_cols = ['Date']
                     if workout_template['TracksWeight']:
-                        display_cols.append('Weight_kg')
+                        display_cols.append('Weight')
                     if workout_template['TracksSets']:
                         display_cols.append('Sets')
                     if workout_template['TracksReps']:

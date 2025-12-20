@@ -10,8 +10,6 @@ from utils.helpers import (
     set_bodyweight,
     get_user_1rm,
     get_working_max,
-    add_new_user,
-    delete_user,
     USER_LIST,
     PIN_LENGTH,
     USER_PLACEHOLDER,
@@ -21,6 +19,8 @@ from utils.helpers import (
     set_endurance_training_enabled,
     get_workout_count,
     change_user_pin,
+    add_new_user,
+    delete_user
 )
 
 import pandas as pd
