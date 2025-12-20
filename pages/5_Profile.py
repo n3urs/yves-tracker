@@ -2,9 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('.')
 from utils.helpers import (
-    init_session_state,
-    get_google_sheet,
-    load_users_from_sheets,
+    init_session_state, load_users_from_sheets,
     load_user_pins_from_sheets,
     user_selectbox_with_pin,
     load_data_from_sheets,
@@ -35,17 +33,11 @@ st.set_page_config(page_title="Profile", page_icon="👤", layout="wide")
 init_session_state()
 inject_global_styles()
 
-# Connect to Google Sheets
-spreadsheet = get_google_sheet()
-workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
+
 
 # Load users
-if spreadsheet:
-    available_users = load_users_from_sheets(spreadsheet)
-    user_pins = load_user_pins_from_sheets(spreadsheet)
-else:
-    available_users = USER_LIST.copy()
-    user_pins = {user: "0000" for user in available_users}
+available_users = load_users_from_sheets()
+user_pins = load_user_pins_from_sheets()
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
@@ -59,7 +51,7 @@ st.session_state.current_user = selected_user
 
 # ==================== SETTINGS DIALOG ====================
 @st.dialog("⚙️ Training Settings", width="large")
-def show_settings_dialog(spreadsheet, selected_user):
+def show_settings_dialog(selected_user):
     """Modal dialog for training settings"""
     
     # Tabs for different setting categories
@@ -69,8 +61,8 @@ def show_settings_dialog(spreadsheet, selected_user):
     with tab1:
         st.markdown("### 🏃 Endurance Training")
         
-        current_endurance_enabled = get_endurance_training_enabled(spreadsheet, selected_user)
-        workout_count_edge = get_workout_count(spreadsheet, selected_user, "20mm Edge")
+        current_endurance_enabled = get_endurance_training_enabled(selected_user)
+        workout_count_edge = get_workout_count(selected_user, "20mm Edge")
         
         col1, col2 = st.columns([2, 1])
         
@@ -104,9 +96,8 @@ def show_settings_dialog(spreadsheet, selected_user):
             )
             
             if endurance_enabled != current_endurance_enabled:
-                set_endurance_training_enabled(spreadsheet, selected_user, endurance_enabled)
+                set_endurance_training_enabled(selected_user, endurance_enabled)
                 st.success(f"✅ Endurance training {'enabled' if endurance_enabled else 'disabled'}!")
-                st.rerun()
         
         with col2:
             if endurance_enabled:
@@ -187,7 +178,7 @@ def show_settings_dialog(spreadsheet, selected_user):
                 elif old_pin == new_pin:
                     st.error("❌ New PIN must be different from current PIN")
                 else:
-                    success, message = change_user_pin(spreadsheet, selected_user, old_pin, new_pin)
+                    success, message = change_user_pin(selected_user, old_pin, new_pin)
                     if success:
                         st.success(f"✅ {message}")
                         st.balloons()
@@ -219,7 +210,7 @@ with header_col2:
             pass
     else:
         if st.button("⚙️", use_container_width=True, help="Training Settings", key="settings_btn"):
-            show_settings_dialog(spreadsheet, selected_user)
+            show_settings_dialog(selected_user)
 
 st.markdown("<div style='margin-bottom: 24px;'></div>", unsafe_allow_html=True)
 
@@ -228,56 +219,51 @@ if selected_user == USER_PLACEHOLDER:
     st.markdown("## 🆕 Create Your Profile")
     st.info("👋 Welcome! Create a new profile to start tracking your training.")
     
-    if spreadsheet:
-        st.markdown("### ➥ Create New User")
-        st.caption("Pins are stored in the `Users` sheet (column `PIN` next to `Username`). Keep them private!")
+    st.markdown("### ➥ Create New User")
+    st.caption("Pins are stored in the `Users` sheet (column `PIN` next to `Username`). Keep them private!")
 
-        col_user1, col_user2, col_user3, col_user4 = st.columns([2, 1.5, 1.2, 1])
+    col_user1, col_user2, col_user3, col_user4 = st.columns([2, 1.5, 1.2, 1])
 
-        with col_user1:
-            new_username = st.text_input("Username:", placeholder="Enter new username", key="new_user_input")
+    with col_user1:
+        new_username = st.text_input("Username:", placeholder="Enter new username", key="new_user_input")
 
-        with col_user2:
-            initial_bw = st.number_input("Initial Bodyweight (kg):", min_value=40.0, max_value=150.0, value=78.0, step=0.5, key="new_user_bw")
+    with col_user2:
+        initial_bw = st.number_input("Initial Bodyweight (kg):", min_value=40.0, max_value=150.0, value=78.0, step=0.5, key="new_user_bw")
 
-        with col_user3:
-            new_user_pin = st.text_input(f"4-digit PIN:", max_chars=PIN_LENGTH, type="password", key="new_user_pin")
+    with col_user3:
+        new_user_pin = st.text_input(f"4-digit PIN:", max_chars=PIN_LENGTH, type="password", key="new_user_pin")
 
-        with col_user4:
-            st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
-            if st.button("Create User", use_container_width=True):
-                if not new_username or new_username.strip() == "":
-                    st.error("❌ Please enter a username!")
-                elif not new_user_pin or len(new_user_pin) != PIN_LENGTH or not new_user_pin.isdigit():
-                    st.error("❌ PIN must be exactly 4 digits.")
+    with col_user4:
+        st.markdown("<div style='margin-top: 32px;'></div>", unsafe_allow_html=True)
+        if st.button("Create User", use_container_width=True):
+            if not new_username or new_username.strip() == "":
+                st.error("❌ Please enter a username!")
+            elif not new_user_pin or len(new_user_pin) != PIN_LENGTH or not new_user_pin.isdigit():
+                st.error("❌ PIN must be exactly 4 digits.")
+            else:
+                cleaned_username = new_username.strip()
+                
+                # Get current users to prevent duplicates
+                current_users = load_users_from_sheets()
+                if cleaned_username in current_users:
+                    st.error(f"❌ User '{cleaned_username}' already exists!")
                 else:
-                    if not spreadsheet:
-                        st.error("❌ Could not connect to Google Sheets.")
-                    else:
-                        cleaned_username = new_username.strip()
-                        
-                        # Get current users to prevent duplicates
-                        current_users = load_users_from_sheets(spreadsheet)
-                        if cleaned_username in current_users:
-                            st.error(f"❌ User '{cleaned_username}' already exists!")
+                        ok, msg = add_new_user(cleaned_username, initial_bw, pin=new_user_pin)
+                        if ok:
+                            st.success(f"✅ {msg}")
+                            st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
+                            st.balloons()
+                            st.info("🔄 Profile created! Now select your profile from the sidebar and enter your PIN to log in.")
+                            st.rerun()
                         else:
-                            ok, msg = add_new_user(spreadsheet, cleaned_username, initial_bw, pin=new_user_pin)
-                            if ok:
-                                st.success(f"✅ {msg}")
-                                st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
-                                st.balloons()
-                                st.info("🔄 Profile created! Now select your profile from the sidebar and enter your PIN to log in.")
-                                st.rerun()
-                            else:
-                                st.error(f"❌ {msg}")
-    else:
-        st.error("❌ Could not connect to Google Sheets.")
+                            st.error(f"❌ {msg}")
     
     st.stop()
 
-if workout_sheet:
+# All data comes from Supabase now
+if True:
     # Load data
-    df = load_data_from_sheets(workout_sheet, user=selected_user)
+    df = load_data_from_sheets(None, user=selected_user)
     
     # ==================== PERSONAL STATS OVERVIEW ====================
     st.markdown(f"## 💪 {selected_user}'s Training Profile")
@@ -356,7 +342,7 @@ if workout_sheet:
     # ==================== BODYWEIGHT ====================
     st.markdown("### ⚖️ Bodyweight")
     
-    current_bw = get_bodyweight(spreadsheet, selected_user) if spreadsheet else 78.0
+    current_bw = get_bodyweight(selected_user)
     
     # Display current bodyweight
     st.markdown(f"""
@@ -383,14 +369,14 @@ if workout_sheet:
     
     with col_bw2:
         if st.button("⚖️ Update Bodyweight", use_container_width=True):
-            if new_bw != current_bw and spreadsheet:
-                set_bodyweight(spreadsheet, selected_user, new_bw)
+            if new_bw != current_bw:
+                set_bodyweight(selected_user, new_bw)
                 st.success(f"✅ Updated to {new_bw:.1f}kg")
                 st.rerun()
     
     # Bodyweight history chart
     from utils.helpers import get_bodyweight_history
-    bw_history = get_bodyweight_history(spreadsheet, selected_user)
+    bw_history = get_bodyweight_history(selected_user)
     
     if not bw_history.empty and len(bw_history) > 1:
         st.markdown("#### 📊 Bodyweight History")
@@ -469,12 +455,12 @@ if workout_sheet:
     for idx, (col, exercise, color) in enumerate(zip([col1, col2, col3], exercises_display, colors)):
         with col:
             # Get stored 1RM (last recorded)
-            recorded_L = get_user_1rm(spreadsheet, selected_user, exercise, "L")
-            recorded_R = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+            recorded_L = get_user_1rm(selected_user, exercise, "L")
+            recorded_R = get_user_1rm(selected_user, exercise, "R")
             
             # Get working max (predicted from recent performance)
-            predicted_L = get_working_max(spreadsheet, selected_user, exercise, "L")
-            predicted_R = get_working_max(spreadsheet, selected_user, exercise, "R")
+            predicted_L = get_working_max(selected_user, exercise, "L")
+            predicted_R = get_working_max(selected_user, exercise, "R")
             
             left_vals.append(predicted_L)
             right_vals.append(predicted_R)
@@ -591,25 +577,22 @@ if workout_sheet:
             elif not new_user_pin or len(new_user_pin) != PIN_LENGTH or not new_user_pin.isdigit():
                 st.error("❌ PIN must be exactly 4 digits.")
             else:
-                if not spreadsheet:
-                    st.error("❌ Could not connect to Google Sheets.")
+                cleaned_username = new_username.strip()
+                
+                # Get current users to prevent duplicates
+                current_users = load_users_from_sheets()
+                if cleaned_username in current_users:
+                    st.error(f"❌ User '{cleaned_username}' already exists!")
                 else:
-                    cleaned_username = new_username.strip()
-                    
-                    # Get current users to prevent duplicates
-                    current_users = load_users_from_sheets(spreadsheet)
-                    if cleaned_username in current_users:
-                        st.error(f"❌ User '{cleaned_username}' already exists!")
+                    ok, msg = add_new_user(cleaned_username, initial_bw, pin=new_user_pin)
+                    if ok:
+                        st.success(f"✅ {msg}")
+                        st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
+                        st.balloons()
+                        st.info("🔄 Refreshing to load new user...")
+                        st.rerun()
                     else:
-                        ok, msg = add_new_user(spreadsheet, cleaned_username, initial_bw, pin=new_user_pin)
-                        if ok:
-                            st.success(f"✅ {msg}")
-                            st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
-                            st.balloons()
-                            st.info("🔄 Refreshing to load new user...")
-                            st.rerun()
-                        else:
-                            st.error(f"❌ {msg}")
+                        st.error(f"❌ {msg}")
 
     st.markdown("---")
 
@@ -630,7 +613,7 @@ if workout_sheet:
                 st.session_state.confirm_delete = selected_user
                 st.warning(f"⚠️ Click 'Delete My Profile' again to confirm deletion of **{selected_user}**")
             else:
-                ok, msg = delete_user(spreadsheet, selected_user)
+                ok, msg = delete_user(selected_user)
                 if ok:
                     st.success(f"✅ Your profile **{selected_user}** has been deleted")
                     st.session_state.confirm_delete = None

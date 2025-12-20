@@ -25,16 +25,11 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Connect to Google Sheets
-spreadsheet = get_google_sheet()
+
 
 # User selector in sidebar
-if spreadsheet:
-    available_users = load_users_from_sheets(spreadsheet)
-    user_pins = load_user_pins_from_sheets(spreadsheet)
-else:
-    available_users = USER_LIST.copy()
-    user_pins = {user: "0000" for user in available_users}
+available_users = load_users_from_sheets()
+user_pins = load_user_pins_from_sheets()
 
 st.sidebar.header("👤 User")
 selected_user = user_selectbox_with_pin(
@@ -50,35 +45,7 @@ if selected_user == USER_PLACEHOLDER:
 
 st.session_state.current_user = selected_user
 
-# Load existing custom workout templates
-def load_custom_workout_templates(spreadsheet):
-    """Load all custom workout templates"""
-    try:
-        try:
-            template_sheet = spreadsheet.worksheet("CustomWorkoutTemplates")
-        except:
-            # Create sheet if it doesn't exist
-            template_sheet = spreadsheet.add_worksheet(title="CustomWorkoutTemplates", rows=1000, cols=10)
-            template_sheet.append_row([
-                "WorkoutID", "WorkoutName", "CreatedBy", "WorkoutType", 
-                "TracksWeight", "TracksSets", "TracksReps", "TracksDuration", 
-                "TracksDistance", "TracksRPE", "Description", "CreatedDate"
-            ])
-        
-        records = template_sheet.get_all_records()
-        if records:
-            df = pd.DataFrame(records)
-            # Convert TRUE/FALSE strings to actual booleans
-            bool_columns = ['TracksWeight', 'TracksSets', 'TracksReps', 'TracksDuration', 'TracksDistance', 'TracksRPE']
-            for col in bool_columns:
-                if col in df.columns:
-                    df[col] = df[col].apply(lambda x: str(x).upper() == "TRUE")
-            return df
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Error loading templates: {e}")
-        return pd.DataFrame()
-
+# Load existing custom workout templates from Supabase via helpers
 def get_user_custom_workouts(df_templates, user):
     """Get custom workouts created by a specific user"""
     if df_templates.empty:
@@ -92,7 +59,7 @@ def get_other_users_workouts(df_templates, user):
     return df_templates[df_templates['CreatedBy'] != user]
 
 # Load templates
-df_templates = load_custom_workout_templates(spreadsheet)
+df_templates = load_custom_workout_templates()
 
 # ==================== YOUR CUSTOM WORKOUTS ====================
 st.markdown("## 💪 Your Custom Workouts")
@@ -120,16 +87,8 @@ if not user_workouts.empty:
             
             with col2:
                 if st.button("🗑️ Delete", key=f"delete_{workout['WorkoutID']}"):
-                    try:
-                        template_sheet = spreadsheet.worksheet("CustomWorkoutTemplates")
-                        # Find and delete the row
-                        cell = template_sheet.find(str(workout['WorkoutID']))
-                        if cell:
-                            template_sheet.delete_rows(cell.row)
-                            st.success("Workout deleted!")
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Error deleting workout: {e}")
+                    st.warning("⚠️ Delete function needs to be implemented with Supabase")
+                    # TODO: Implement delete_custom_workout_template() in helpers.py
 else:
     st.info("You haven't created any custom workouts yet. Create one below!")
 
@@ -159,29 +118,8 @@ if not other_workouts.empty:
             
             with col2:
                 if st.button("📋 Copy to My Workouts", key=f"copy_{workout['WorkoutID']}"):
-                    try:
-                        template_sheet = spreadsheet.worksheet("CustomWorkoutTemplates")
-                        # Generate new ID
-                        new_id = f"{selected_user}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                        # Add as new row with current user as creator
-                        template_sheet.append_row([
-                            new_id,
-                            workout['WorkoutName'],
-                            selected_user,
-                            workout['WorkoutType'],
-                            "TRUE" if workout.get('TracksWeight', False) else "FALSE",
-                            "TRUE" if workout.get('TracksSets', False) else "FALSE",
-                            "TRUE" if workout.get('TracksReps', False) else "FALSE",
-                            "TRUE" if workout.get('TracksDuration', False) else "FALSE",
-                            "TRUE" if workout.get('TracksDistance', False) else "FALSE",
-                            "TRUE" if workout.get('TracksRPE', False) else "FALSE",
-                            workout.get('Description', ''),
-                            datetime.now().strftime("%Y-%m-%d")
-                        ])
-                        st.success(f"Copied '{workout['WorkoutName']}' to your workouts!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error copying workout: {e}")
+                    st.warning("⚠️ Copy function needs to be implemented with Supabase")
+                    # TODO: Implement copy_custom_workout_template() in helpers.py
 else:
     st.info("No workouts created by other users yet.")
 
@@ -224,34 +162,9 @@ with st.form("create_custom_workout"):
         elif not any([track_weight, track_sets, track_reps, track_duration, track_distance, track_rpe]):
             st.error("Please select at least one metric to track!")
         else:
-            try:
-                template_sheet = spreadsheet.worksheet("CustomWorkoutTemplates")
-                
-                # Generate unique ID
-                workout_id = f"{selected_user}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                
-                # Add new workout template
-                template_sheet.append_row([
-                    workout_id,
-                    workout_name,
-                    selected_user,
-                    workout_type,
-                    "TRUE" if track_weight else "FALSE",
-                    "TRUE" if track_sets else "FALSE",
-                    "TRUE" if track_reps else "FALSE",
-                    "TRUE" if track_duration else "FALSE",
-                    "TRUE" if track_distance else "FALSE",
-                    "TRUE" if track_rpe else "FALSE",
-                    workout_description,
-                    datetime.now().strftime("%Y-%m-%d")
-                ])
-                
-                st.success(f"✅ Created custom workout: {workout_name}!")
-                st.info("You can now log this workout from the Log Workout page.")
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"Error creating workout: {e}")
+            st.warning("⚠️ Create workout function needs to be implemented with Supabase")
+            # TODO: Implement save_custom_workout_template() in helpers.py
+            st.rerun()
 
 # ==================== SIDEBAR INFO ====================
 st.sidebar.markdown("---")

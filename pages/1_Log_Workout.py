@@ -28,17 +28,9 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Connect to sheet
-spreadsheet = get_google_sheet()
-workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
-
-# Load users dynamically from Google Sheets
-if spreadsheet:
-    available_users = load_users_from_sheets(spreadsheet)
-    user_pins = load_user_pins_from_sheets(spreadsheet)
-else:
-    available_users = USER_LIST.copy()
-    user_pins = {user: "0000" for user in available_users}
+# Load users
+available_users = load_users_from_sheets()
+user_pins = load_user_pins_from_sheets()
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
@@ -57,7 +49,7 @@ if selected_user == USER_PLACEHOLDER:
 # Bodyweight input
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚖️ Bodyweight")
-current_bw_kg = get_bodyweight(spreadsheet, selected_user) if spreadsheet else 78.0
+current_bw_kg = get_bodyweight(selected_user)
 
 new_bw_kg = st.sidebar.number_input(
     "Your bodyweight (kg):",
@@ -68,21 +60,17 @@ new_bw_kg = st.sidebar.number_input(
     key="bodyweight_input"
 )
 
-if new_bw_kg != current_bw_kg and spreadsheet:
-    set_bodyweight(spreadsheet, selected_user, new_bw_kg)
+if new_bw_kg != current_bw_kg:
+    set_bodyweight(selected_user, new_bw_kg)
     st.sidebar.success(f"✅ Bodyweight updated to {new_bw_kg:.1f}kg")
 
-# Check if connected before showing tabs
-if not spreadsheet:
-    st.error("❌ Could not connect to Google Sheets. Please check your configuration.")
-else:
-    # Initialize modal states
-    if 'show_standard_modal' not in st.session_state:
-        st.session_state.show_standard_modal = False
-    if 'show_custom_modal' not in st.session_state:
-        st.session_state.show_custom_modal = False
-    if 'show_activity_modal' not in st.session_state:
-        st.session_state.show_activity_modal = False
+# Initialize modal states
+if 'show_standard_modal' not in st.session_state:
+    st.session_state.show_standard_modal = False
+if 'show_custom_modal' not in st.session_state:
+    st.session_state.show_custom_modal = False
+if 'show_activity_modal' not in st.session_state:
+    st.session_state.show_activity_modal = False
     if 'show_1rm_modal' not in st.session_state:
         st.session_state.show_1rm_modal = False
     if 'selected_activity_type' not in st.session_state:
@@ -207,17 +195,17 @@ else:
         exercise = st.session_state.selected_exercise
         
         # Get working max
-        current_1rm_L = get_working_max(spreadsheet, selected_user, exercise, "L")
-        current_1rm_R = get_working_max(spreadsheet, selected_user, exercise, "R")
+        current_1rm_L = get_working_max(selected_user, exercise, "L")
+        current_1rm_R = get_working_max(selected_user, exercise, "R")
         
         st.markdown("---")
         
         # Get last workout data
-        last_workout_L = get_last_workout(spreadsheet, selected_user, exercise, "L")
-        last_workout_R = get_last_workout(spreadsheet, selected_user, exercise, "R")
+        last_workout_L = get_last_workout(selected_user, exercise, "L")
+        last_workout_R = get_last_workout(selected_user, exercise, "R")
         
         # Check if endurance workout
-        is_endurance = is_endurance_workout(spreadsheet, selected_user, exercise)
+        is_endurance = is_endurance_workout(selected_user, exercise)
         
         # Generate suggestions
         suggestion_L = generate_workout_suggestion(last_workout_L, is_endurance)
@@ -473,12 +461,12 @@ else:
                     "Notes": final_notes
                 }
                 
-                success_L = save_workout_to_sheets(workout_sheet, workout_data_L)
-                success_R = save_workout_to_sheets(workout_sheet, workout_data_R)
+                success_L = save_workout_to_sheets( workout_data_L)
+                success_R = save_workout_to_sheets( workout_data_R)
                 
                 if success_L and success_R:
-                    if get_endurance_training_enabled(spreadsheet, selected_user):
-                        increment_workout_count(spreadsheet, selected_user, exercise)
+                    if get_endurance_training_enabled(selected_user):
+                        increment_workout_count(selected_user, exercise)
                     
                     st.session_state.modal_quick_note = ""
                     st.session_state.show_standard_modal = False
@@ -493,7 +481,7 @@ else:
     @st.dialog("✨ Log Custom Workout", width="large")
     def show_custom_workout_modal():
         # Load user's custom workouts
-        user_workouts = get_user_custom_workouts(spreadsheet, selected_user)
+        user_workouts = get_user_custom_workouts(selected_user)
         
         if user_workouts.empty:
             st.warning("You haven't created any custom workouts yet!")
@@ -628,7 +616,6 @@ else:
         with col_submit:
             if st.button("✅ Log Custom Workout", type="primary", use_container_width=True, key="modal_custom_submit"):
                 success = log_custom_workout(
-                    spreadsheet=spreadsheet,
                     user=selected_user,
                     workout_id=workout_details['WorkoutID'],
                     workout_name=selected_workout_name,
@@ -719,7 +706,7 @@ else:
         
         with col_submit:
             if st.button(f"✅ Log {activity_type}", type="primary", use_container_width=True, key="modal_activity_submit"):
-                if log_activity_to_sheets(spreadsheet, selected_user, activity_type, activity_duration, activity_notes, activity_date):
+                if log_activity_to_sheets(selected_user, activity_type, activity_duration, activity_notes, activity_date):
                     st.session_state.show_activity_modal = False
                     duration_text = f" ({activity_duration} min)" if activity_duration else ""
                     st.success(f"✅ {activity_type} session logged for {activity_date.strftime('%Y-%m-%d')}!{duration_text}")
@@ -750,8 +737,8 @@ else:
             label_visibility="collapsed"
         )
         
-        current_1rm_L_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "L")
-        current_1rm_R_test = get_user_1rm(spreadsheet, selected_user, test_exercise, "R")
+        current_1rm_L_test = get_user_1rm(selected_user, test_exercise, "L")
+        current_1rm_R_test = get_user_1rm(selected_user, test_exercise, "R")
         
         st.markdown("---")
         st.markdown("### 📊 Current 1RMs")
@@ -839,8 +826,8 @@ else:
         
         with col_submit:
             if st.button("🏆 Update 1RMs", type="primary", use_container_width=True, key="modal_1rm_submit"):
-                success_L = update_user_1rm(spreadsheet, selected_user, test_exercise, "L", new_1rm_L)
-                success_R = update_user_1rm(spreadsheet, selected_user, test_exercise, "R", new_1rm_R)
+                success_L = update_user_1rm(selected_user, test_exercise, "L", new_1rm_L)
+                success_R = update_user_1rm(selected_user, test_exercise, "R", new_1rm_R)
                 
                 if success_L and success_R:
                     if log_test_as_workout:
@@ -874,8 +861,8 @@ else:
                             "Notes": test_notes
                         }
                         
-                        save_workout_to_sheets(workout_sheet, workout_data_L)
-                        save_workout_to_sheets(workout_sheet, workout_data_R)
+                        save_workout_to_sheets( workout_data_L)
+                        save_workout_to_sheets( workout_data_R)
                     
                     st.session_state.show_1rm_modal = False
                     st.success("✅ 1RMs updated successfully!")

@@ -21,36 +21,31 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Connect to Google Sheets
-spreadsheet = get_google_sheet()
-workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
+
 
 # Get current user
 current_user = st.session_state.get('current_user', None)
 
-if workout_sheet:
-    df = load_data_from_sheets(workout_sheet)
+# All data comes from Supabase now
+if True:
+    df = load_data_from_sheets(None)
     
     if len(df) > 0:
-        # Get bodyweights for all users
+        # Get bodyweights for all users using Supabase
         user_bodyweights = {}
-        if spreadsheet:
-            try:
-                bodyweights_sheet = spreadsheet.worksheet("Bodyweights")
-                bodyweights_data = bodyweights_sheet.get_all_values()
-                
-                for row in bodyweights_data[1:]:  # Skip header
-                    if len(row) >= 2 and row[0]:  # Check username exists
-                        username = row[0].strip()
-                        try:
-                            bodyweight = float(row[1])
-                            user_bodyweights[username] = bodyweight
-                        except ValueError:
-                            user_bodyweights[username] = 78.0  # Default
-            except Exception as e:
-                # Default bodyweights if sheet not found
-                for user in df['User'].unique():
-                    user_bodyweights[user] = 78.0
+        try:
+            supabase = get_supabase_client()
+            if supabase:
+                response = supabase.table("bodyweights").select("username, bodyweight_kg").execute()
+                for row in response.data:
+                    username = row.get("username")
+                    bodyweight = row.get("bodyweight_kg")
+                    if username and bodyweight:
+                        user_bodyweights[username] = float(bodyweight)
+        except Exception as e:
+            # Default bodyweights if fetch fails
+            for user in df['User'].unique():
+                user_bodyweights[user] = 78.0
         
         # Helper function to create podium display
         def create_podium(leaderboard_data, title, emoji):

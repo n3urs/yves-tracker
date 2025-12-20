@@ -590,98 +590,63 @@ def get_supabase_client():
         st.error(f"Error connecting to Supabase: {e}")
         return None
 
-# Legacy alias for compatibility
-# Google Sheets has been fully replaced by Supabase
-# All data operations now go directly to Supabase
+# Legacy alias
+def get_google_sheet():
+    return get_supabase_client()
 
 @st.cache_data(ttl=120)  # Cache for 2 minutes
-def _load_table_data(table_name):
-    """Internal cached function to load data from a specific table"""
+def _load_sheet_data(sheet_name):
+    """Internal cached function to load data from a specific sheet"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
+        spreadsheet = get_google_sheet()
+        if not spreadsheet:
             return []
-        response = supabase.table(table_name).select("*").execute()
-        return response.data
-    except Exception as e:
+        worksheet = spreadsheet.worksheet(sheet_name)
+        return worksheet.get_all_records()
+    except:
         return []
 
-# Alias for backwards compatibility
-_load_sheet_data = _load_table_data
-
 def load_data_from_sheets(worksheet, user=None):
-    """Load all data from workouts table, optionally filtered by user"""
+    """Load all data from workout log sheet (Sheet1), optionally filtered by user"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return pd.DataFrame()
-        
-        query = supabase.table("workouts").select("*")
-        if user:
-            query = query.eq("username", user)
-        
-        response = query.execute()
-        if response.data:
-            df = pd.DataFrame(response.data)
-            # Rename columns to match old Google Sheets format expected by pages
-            column_map = {
-                'id': 'ID',
-                'username': 'User',
-                'date': 'Date',
-                'exercise': 'Exercise',
-                'arm': 'Arm',
-                'sets': 'Sets_Completed',
-                'reps': 'Reps_Per_Set',
-                'weight': 'Actual_Load_kg',
-                'rpe': 'RPE',
-                'notes': 'Notes',
-                'timestamp': 'Timestamp'
-            }
-            df = df.rename(columns=column_map)
-            
-            # Add missing columns that the app expects
-            if 'Planned_Load_kg' not in df.columns:
-                df['Planned_Load_kg'] = df['Actual_Load_kg']
-            if 'Sets' not in df.columns:
-                df['Sets'] = df['Sets_Completed']
-            if 'Reps' not in df.columns:
-                df['Reps'] = df['Reps_Per_Set']
-            if 'Weight' not in df.columns:
-                df['Weight'] = df['Actual_Load_kg']
-                
+        data = _load_sheet_data("Sheet1")
+        if data:
+            df = pd.DataFrame(data)
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
             return df
-        return pd.DataFrame()
+        else:
+            return pd.DataFrame(columns=[
+                "User", "Date", "Exercise", "Arm", "1RM_Reference", "Target_Percentage",
+                "Prescribed_Load_kg", "Actual_Load_kg", "Reps_Per_Set",
+                "Sets_Completed", "RPE", "Notes"
+            ])
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame()
 
 def save_workout_to_sheets(worksheet, row_data):
-    """Save a new workout to the workouts table"""
+    """Append a new workout to the Sheet1"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
+        clean_data = {}
+        for key, value in row_data.items():
+            if isinstance(value, (np.integer, np.int64)):
+                clean_data[key] = int(value)
+            elif isinstance(value, (np.floating, np.float64)):
+                clean_data[key] = float(value)
+            else:
+                clean_data[key] = value
+        worksheet.append_row(list(clean_data.values()))
         
-        # Map old column names to new schema
-        workout_data = {
-            "username": row_data.get("User"),
-            "date": row_data.get("Date"),
-            "exercise": row_data.get("Exercise"),
-            "arm": row_data.get("Arm"),
-            "sets": row_data.get("Sets_Completed") or row_data.get("Sets"),
-            "reps": row_data.get("Reps_Per_Set") or row_data.get("Reps"),
-            "weight": row_data.get("Actual_Load_kg") or row_data.get("Weight"),
-            "notes": row_data.get("Notes", "")
-        }
+        # Clear the cache after saving
+        _load_sheet_data.clear()
         
-        supabase.table("workouts").insert(workout_data).execute()
-        _load_table_data.clear()
         return True
     except Exception as e:
         st.error(f"Error saving workout: {e}")
         return False
 
-def get_last_workout(user, exercise, arm):
+def get_last_workout(spreadsheet, user, exercise, arm):
     """Get the most recent workout for a specific user, exercise, and arm"""
     try:
         df = load_data_from_sheets(spreadsheet, user)
@@ -786,17 +751,15 @@ def generate_workout_suggestion(last_workout_data, is_endurance=False):
             'is_endurance': False
         }
 
-def load_users_from_sheets():
-    """Load unique users from users table"""
+def load_users_from_sheets(spreadsheet):
+    """Load unique users from Users sheet"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return USER_LIST.copy()
-        
-        response = supabase.table("users").select("username").execute()
-        if response.data:
-            users = [user["username"] for user in response.data]
-            return users if users else USER_LIST.copy()
+        data = _load_sheet_data("Users")
+        if data:
+            df = pd.DataFrame(data)
+            if "Username" in df.columns:
+                users = df["Username"].tolist()
+                return users if users else USER_LIST.copy()
         return USER_LIST.copy()
     except Exception as e:
         return USER_LIST.copy()
@@ -819,21 +782,18 @@ def _normalize_pin_value(pin_value):
         return pin_str.zfill(PIN_LENGTH)
     return None
 
-def load_user_pins_from_sheets():
+def load_user_pins_from_sheets(spreadsheet):
     """Return a dict mapping usernames to their 4-digit PINs."""
     pins = {user: None for user in USER_LIST}
     pins[USER_PLACEHOLDER] = None
-    
+    if not spreadsheet:
+        return pins
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return pins
-            
-        response = supabase.table("users").select("username, pin").execute()
-        for user in response.data:
-            username = user.get("username")
+        data = _load_sheet_data("Users")
+        for record in data:
+            username = record.get("Username")
             if username:
-                pins[username] = _normalize_pin_value(user.get("pin"))
+                pins[username] = _normalize_pin_value(record.get("PIN"))
         return pins
     except Exception:
         return pins
@@ -950,70 +910,73 @@ def evaluate_badges(stats):
         })
     return evaluated
 
-def get_bodyweight(user):
-    """Get user's bodyweight from bodyweights table"""
+def get_bodyweight(spreadsheet, user):
+    """Get user's bodyweight from Bodyweights sheet"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return 78.0
-        
-        response = supabase.table("bodyweights").select("bodyweight_kg").eq("username", user).execute()
-        if response.data and len(response.data) > 0:
-            return float(response.data[0]["bodyweight_kg"])
+        records = _load_sheet_data("Bodyweights")
+        for record in records:
+            if record.get("User") == user:
+                return float(record.get("Bodyweight_kg", 78.0))
         return 78.0
     except:
         return 78.0
 
-def get_bodyweight_history(user):
+def get_bodyweight_history(spreadsheet, user):
     """Get user's bodyweight history over time"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
+        records = _load_sheet_data("BodyweightHistory")
+        if not records:
             return pd.DataFrame()
         
-        response = supabase.table("bodyweight_history").select("date, bodyweight_kg").eq("username", user).order("date").execute()
-        if not response.data:
-            return pd.DataFrame()
+        df = pd.DataFrame(records)
+        if "User" in df.columns:
+            df = df[df["User"] == user]
         
-        df = pd.DataFrame(response.data)
-        if len(df) > 0:
-            df['date'] = pd.to_datetime(df['date'], errors='coerce')
-            df['bodyweight_kg'] = pd.to_numeric(df['bodyweight_kg'], errors='coerce')
-            df = df.rename(columns={'date': 'Date', 'bodyweight_kg': 'Bodyweight_kg'})
+        if len(df) > 0 and "Date" in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            df['Bodyweight_kg'] = pd.to_numeric(df['Bodyweight_kg'], errors='coerce')
+            df = df.sort_values('Date')
             return df[['Date', 'Bodyweight_kg']]
         
         return pd.DataFrame()
     except:
         return pd.DataFrame()
 
-def set_bodyweight(user, bodyweight):
-    """Update user's bodyweight in bodyweights table and log history"""
+def set_bodyweight(spreadsheet, user, bodyweight):
+    """Update user's bodyweight in Bodyweights sheet and log history"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
+        # Update current bodyweight
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        records = bw_sheet.get_all_records()
+        user_exists = False
+        for idx, record in enumerate(records):
+            if record.get("User") == user:
+                bw_sheet.update_cell(idx + 2, 2, float(bodyweight))
+                user_exists = True
+                break
+        if not user_exists:
+            bw_sheet.append_row([user, float(bodyweight)])
         
-        # Update current bodyweight (upsert)
-        supabase.table("bodyweights").upsert({
-            "username": user,
-            "bodyweight_kg": float(bodyweight)
-        }).execute()
+        # Log bodyweight history with timestamp
+        try:
+            bw_history_sheet = spreadsheet.worksheet("BodyweightHistory")
+        except:
+            # Create sheet if it doesn't exist
+            bw_history_sheet = spreadsheet.add_worksheet(title="BodyweightHistory", rows=1000, cols=3)
+            bw_history_sheet.append_row(["User", "Date", "Bodyweight_kg"])
         
-        # Log bodyweight history
+        # Append new bodyweight record with current date
+        from datetime import datetime
         today = datetime.now().strftime("%Y-%m-%d")
-        supabase.table("bodyweight_history").insert({
-            "username": user,
-            "date": today,
-            "bodyweight_kg": float(bodyweight)
-        }).execute()
+        bw_history_sheet.append_row([user, today, float(bodyweight)])
         
-        _load_table_data.clear()
+        _load_sheet_data.clear()
         return True
     except Exception as e:
         st.error(f"Error updating bodyweight: {e}")
         return False
 
-def get_user_1rms(user, exercise, arm):
+def get_user_1rms(spreadsheet, user, exercise, arm):
     """Get user's 1RM from UserProfile sheet"""
     try:
         records = _load_sheet_data("UserProfile")
@@ -1027,92 +990,299 @@ def get_user_1rms(user, exercise, arm):
         pass
     return float(105 if "Edge" in exercise else 85 if "Pinch" in exercise else 75)
 
-def get_user_1rm(user, exercise, arm):
-    """Get user's 1RM - first try user_profile table, then fall back to workout history"""
+def get_user_1rm(spreadsheet, user, exercise, arm):
+    """Get user's 1RM - first try UserProfile sheet, then fall back to workout history"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return 0.0
-        
-        # First try user_profile table
-        response = supabase.table("user_profile").select("*").eq("username", user).execute()
-        if response.data:
-            profile = response.data[0]
-            # Map exercise name to profile column
-            key_map = {
-                '20mm Edge': ('20mm', arm.lower()),
-                '14mm Edge': ('14mm', arm.lower()),
-                'Pinch': None,
-                'Wrist Roller': None
-            }
-            if exercise in key_map and key_map[exercise]:
-                edge_size, side = key_map[exercise]
-                col_name = f"{side}_{edge_size}_current"
-                value = profile.get(col_name)
+        records = _load_sheet_data("UserProfile")
+        for record in records:
+            if record.get("User") == user:
+                key = f"{exercise}_{arm}_1RM"
+                value = record.get(key, None)
                 if value and value > 0:
                     return float(value)
     except:
         pass
     
     try:
-        # Fall back to workout history - find max weight for this exercise/arm
-        # Look for both exact matches and "1RM Test - " prefixed exercises
-        response = supabase.table("workouts").select("exercise", "weight").eq("username", user).eq("arm", arm).execute()
-        
-        if response.data:
-            # Filter for exercises matching exactly or containing the exercise name
-            weights = []
-            for w in response.data:
-                if w.get('weight') is not None and w.get('weight') > 0:
-                    # Match exact or "1RM Test - Exercise" or just contains exercise name
-                    if w['exercise'] == exercise or w['exercise'] == f"1RM Test - {exercise}" or exercise in w['exercise']:
-                        weights.append(w['weight'])
+        data = _load_sheet_data("Sheet1")
+        if data:
+            df = pd.DataFrame(data)
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
             
-            if weights:
-                max_weight = max(weights)
-                return float(max_weight)
+            if len(df) > 0:
+                df_filtered = df[
+                    (df['Exercise'].str.contains(exercise, na=False)) &
+                    (df['Arm'] == arm)
+                ]
+                if len(df_filtered) > 0:
+                    df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
+                    max_weight = df_filtered['Actual_Load_kg'].max()
+                    if pd.notna(max_weight) and max_weight > 0:
+                        return float(max_weight)
     except:
         pass
     
     return 0.0
 
-def get_working_max(user, exercise, arm, weeks=8):
+def update_user_1rm(spreadsheet, user, exercise, arm, new_1rm):
+    """Update user's 1RM in UserProfile sheet"""
+    try:
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        records = profile_sheet.get_all_records()
+        for idx, record in enumerate(records):
+            if record.get("User") == user:
+                key = f"{exercise}_{arm}_1RM"
+                headers = list(record.keys())
+                if key in headers:
+                    col_idx = headers.index(key) + 1
+                    profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
+                    _load_sheet_data.clear()
+                    return True
+        
+        headers = profile_sheet.row_values(1)
+        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
+        key = f"{exercise}_{arm}_1RM"
+        if key in headers:
+            col_idx = headers.index(key)
+            new_row[col_idx] = float(new_1rm)
+        profile_sheet.append_row(new_row)
+        _load_sheet_data.clear()
+        return True
+    except Exception as e:
+        return False
+
+def add_new_user(spreadsheet, username, bodyweight=78.0, pin=None):
+    """Add a new user with required PIN to all necessary sheets."""
+    try:
+        if not pin or len(str(pin)) != PIN_LENGTH or not str(pin).isdigit():
+            return False, "PIN must be a 4-digit number."
+        cleaned_pin = str(pin).zfill(PIN_LENGTH)
+        users_sheet = spreadsheet.worksheet("Users")
+        users_sheet.append_row([username, cleaned_pin])
+        
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_sheet.append_row([username, float(bodyweight)])
+        
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
+        
+        _load_sheet_data.clear()
+        
+        return True, "User created successfully!"
+    except Exception as e:
+        return False, f"Error creating user: {e}"
+
+# ==================== HELPER FUNCTIONS ====================
+def calculate_plates(target_kg, pin_kg=1):
+    """Find nearest achievable load with exact plate breakdown."""
+    load_per_side = (target_kg - pin_kg) / 2
+    best_diff = float('inf')
+    best_load = target_kg
+    best_plates = []
+    
+    for multiplier in range(int(load_per_side * 4) - 5, int(load_per_side * 4) + 10):
+        test_per_side = multiplier / 4
+        test_total = test_per_side * 2 + pin_kg
+        
+        if test_total > target_kg + 3 or test_total < target_kg - 3:
+            continue
+        
+        plates = []
+        remaining = test_per_side
+        for plate in PLATE_SIZES:
+            while remaining >= plate - 0.001:
+                plates.append(plate)
+                remaining -= plate
+        
+        if remaining < 0.001:
+            diff = abs(test_total - target_kg)
+            if diff < best_diff:
+                best_diff = diff
+                best_load = test_total
+                best_plates = sorted(plates, reverse=True)
+    
+    if best_plates:
+        plates_str = f"{' + '.join(map(str, best_plates))} kg per side"
+        if abs(best_load - target_kg) < 0.1:
+            return plates_str, best_load
+        else:
+            return f"{plates_str} (actual: {best_load}kg)", best_load
+    
+    return "No exact combo found", target_kg
+
+def estimate_1rm_epley(load_kg, reps):
+    """Epley formula: 1RM = weight * (1 + reps/30)"""
+    if reps == 1:
+        return load_kg
+    return load_kg * (1 + reps / 30)
+
+def calculate_relative_strength(avg_load, bodyweight):
+    """Calculate relative strength: load / bodyweight"""
+    if bodyweight is not None and bodyweight > 0:
+        return avg_load / bodyweight
+    return 0
+
+def create_heatmap(df):
+    """Create training consistency heatmap data"""
+    try:
+        if len(df) == 0:
+            return None
+        
+        df_copy = df.copy()
+        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
+        
+        end_date = datetime.now()
+        start_date = end_date - timedelta(weeks=12)
+        df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
+        
+        if len(df_filtered) == 0:
+            return None
+        
+        heatmap_data = np.zeros((7, 12))
+        for _, row in df_filtered.iterrows():
+            date = row['Date']
+            week = min((end_date - date).days // 7, 11)
+            day_of_week = date.weekday()
+            if week < 12 and day_of_week < 7:
+                heatmap_data[day_of_week, 11 - week] += 1
+        
+        return heatmap_data, (start_date, end_date)
+    except Exception as e:
+        return None
+
+def delete_user(spreadsheet, username):
+    """Delete a user from all sheets"""
+    try:
+        # Delete from Users sheet
+        users_sheet = spreadsheet.worksheet("Users")
+        users_data = users_sheet.get_all_values()
+        for idx, row in enumerate(users_data):
+            if len(row) > 0 and row[0] == username:
+                users_sheet.delete_rows(idx + 1)
+                break
+        
+        # Delete from Bodyweights sheet
+        bw_sheet = spreadsheet.worksheet("Bodyweights")
+        bw_data = bw_sheet.get_all_values()
+        for idx, row in enumerate(bw_data):
+            if len(row) > 0 and row[0] == username:
+                bw_sheet.delete_rows(idx + 1)
+                break
+        
+        # Delete from UserProfile sheet
+        profile_sheet = spreadsheet.worksheet("UserProfile")
+        profile_data = profile_sheet.get_all_values()
+        for idx, row in enumerate(profile_data):
+            if len(row) > 0 and row[0] == username:
+                profile_sheet.delete_rows(idx + 1)
+                break
+        
+        # Delete workout data from Sheet1
+        workout_sheet = spreadsheet.worksheet("Sheet1")
+        workout_data = workout_sheet.get_all_values()
+        rows_to_delete = []
+        for idx, row in enumerate(workout_data):
+            if len(row) > 0 and row[0] == username:  # Assuming User is first column
+                rows_to_delete.append(idx + 1)
+        
+        # Delete rows in reverse order to avoid index shifting
+        for row_idx in sorted(rows_to_delete, reverse=True):
+            workout_sheet.delete_rows(row_idx)
+        
+        _load_sheet_data.clear()
+        
+        return True, f"User '{username}' deleted successfully!"
+    except Exception as e:
+        return False, f"Error deleting user: {e}"
+
+# ==================== ACTIVITY LOGGING ====================
+def log_activity_to_sheets(spreadsheet, user, activity_type, duration_min=None, notes="", session_date=None):
+    """
+    Log a simple activity (Climbing, Board, Work Pullups, or Gym) to ActivityLog sheet.
+    activity_type: "Gym", "Climbing", "Board", "Work"
+    session_date: datetime.date object (defaults to today)
+    """
+    try:
+        # Get or create ActivityLog sheet
+        all_sheets = [ws.title for ws in spreadsheet.worksheets()]
+        if "ActivityLog" in all_sheets:
+            activity_sheet = spreadsheet.worksheet("ActivityLog")
+        else:
+            activity_sheet = spreadsheet.add_worksheet(title="ActivityLog", rows=1000, cols=6)
+            activity_sheet.append_row(["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+        
+        # Use provided date or default to today
+        if session_date is None:
+            session_date = datetime.now().date()
+        
+        # Prepare row
+        row_data = [
+            user,
+            session_date.strftime("%Y-%m-%d"),
+            activity_type,
+            duration_min if duration_min else "",
+            notes,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ]
+        
+        activity_sheet.append_row(row_data)
+        _load_sheet_data.clear()  # Clear cache
+        return True
+    except Exception as e:
+        st.error(f"Error logging activity: {e}")
+        return False
+
+
+
+def load_activity_log(spreadsheet, user=None):
+    """Load activity log from ActivityLog sheet, optionally filtered by user."""
+    try:
+        data = _load_sheet_data("ActivityLog")
+        if data:
+            df = pd.DataFrame(data)
+            if user and "User" in df.columns:
+                df = df[df["User"] == user]
+            return df
+        else:
+            return pd.DataFrame(columns=["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+    except Exception as e:
+        return pd.DataFrame(columns=["User", "Date", "ActivityType", "DurationMin", "Notes", "Timestamp"])
+
+def get_working_max(spreadsheet, user, exercise, arm, weeks=8):
     """
     Calculate working max based on recent best performance.
     Returns the higher of: stored 1RM or estimated from recent lifts (last 8 weeks).
     """
     # Get stored 1RM (baseline from tests)
-    stored_1rm = get_user_1rm(user, exercise, arm)
+    stored_1rm = get_user_1rm(spreadsheet, user, exercise, arm)
     
     # Get best recent lift and estimate 1RM from it
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return stored_1rm
-        
-        cutoff_date = (datetime.now() - timedelta(weeks=weeks)).strftime("%Y-%m-%d")
-        
-        # Query workouts table for recent sets
-        response = supabase.table("workouts").select("*").eq("username", user).eq("arm", arm).gte("date", cutoff_date).execute()
-        
-        if response.data:
-            df = pd.DataFrame(response.data)
+        data = _load_sheet_data("Sheet1")
+        if data:
+            df = pd.DataFrame(data)
+            cutoff_date = datetime.now() - timedelta(weeks=weeks)
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
             
-            # Filter for this exercise and exclude 1RM tests
+            # Filter for this exercise, arm, recent dates, and exclude 1RM tests
             df_filtered = df[
-                (df['exercise'].str.contains(exercise, na=False)) &
-                (~df['exercise'].str.contains('1RM Test', na=False))
+                (df['User'] == user) &
+                (df['Exercise'].str.contains(exercise, na=False)) &
+                (df['Arm'] == arm) &
+                (df['Date'] >= cutoff_date) &
+                (~df['Exercise'].str.contains('1RM Test', na=False))
             ]
             
             if len(df_filtered) > 0:
-                # Convert to numeric - use Supabase column names
-                df_filtered['weight'] = pd.to_numeric(df_filtered['weight'], errors='coerce')
-                df_filtered['reps'] = pd.to_numeric(df_filtered['reps'], errors='coerce')
+                # Convert to numeric
+                df_filtered['Actual_Load_kg'] = pd.to_numeric(df_filtered['Actual_Load_kg'], errors='coerce')
+                df_filtered['Reps_Per_Set'] = pd.to_numeric(df_filtered['Reps_Per_Set'], errors='coerce')
                 
                 # Calculate estimated 1RM for each set using Epley formula
                 df_filtered['Estimated_1RM'] = df_filtered.apply(
-                    lambda row: estimate_1rm_epley(row['weight'], row['reps']) 
-                    if pd.notna(row['weight']) and pd.notna(row['reps']) else 0,
+                    lambda row: estimate_1rm_epley(row['Actual_Load_kg'], row['Reps_Per_Set']) 
+                    if pd.notna(row['Actual_Load_kg']) and pd.notna(row['Reps_Per_Set']) else 0,
                     axis=1
                 )
                 
@@ -1267,438 +1437,84 @@ def generate_instagram_story(user, stats_dict):
     
     return img
 
-def update_user_1rm(user, exercise, arm, new_1rm):
-    """Update user's 1RM in UserProfile sheet"""
+# ==================== CUSTOM WORKOUT FUNCTIONS ====================
+
+def load_custom_workout_templates(spreadsheet):
+    """Load all custom workout templates from Google Sheets"""
     try:
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        records = profile_sheet.get_all_records()
-        for idx, record in enumerate(records):
-            if record.get("User") == user:
-                key = f"{exercise}_{arm}_1RM"
-                headers = list(record.keys())
-                if key in headers:
-                    col_idx = headers.index(key) + 1
-                    profile_sheet.update_cell(idx + 2, col_idx, float(new_1rm))
-                    _load_sheet_data.clear()
-                    return True
-        
-        headers = profile_sheet.row_values(1)
-        new_row = [user, 78.0, 105, 105, 85, 85, 75, 75]
-        key = f"{exercise}_{arm}_1RM"
-        if key in headers:
-            col_idx = headers.index(key)
-            new_row[col_idx] = float(new_1rm)
-        profile_sheet.append_row(new_row)
-        _load_sheet_data.clear()
-        return True
-    except Exception as e:
-        return False
-
-def add_new_user(username, bodyweight=78.0, pin=None):
-    """Add a new user with required PIN to all necessary sheets."""
-    try:
-        if not pin or len(str(pin)) != PIN_LENGTH or not str(pin).isdigit():
-            return False, "PIN must be a 4-digit number."
-        cleaned_pin = str(pin).zfill(PIN_LENGTH)
-        users_sheet = spreadsheet.worksheet("Users")
-        users_sheet.append_row([username, cleaned_pin])
-        
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        bw_sheet.append_row([username, float(bodyweight)])
-        
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        profile_sheet.append_row([username, float(bodyweight), 105, 105, 85, 85, 75, 75])
-        
-        _load_sheet_data.clear()
-        
-        return True, "User created successfully!"
-    except Exception as e:
-        return False, f"Error creating user: {e}"
-
-# ==================== HELPER FUNCTIONS ====================
-def calculate_plates(target_kg, pin_kg=1):
-    """Find nearest achievable load with exact plate breakdown."""
-    load_per_side = (target_kg - pin_kg) / 2
-    best_diff = float('inf')
-    best_load = target_kg
-    best_plates = []
-    
-    for multiplier in range(int(load_per_side * 4) - 5, int(load_per_side * 4) + 10):
-        test_per_side = multiplier / 4
-        test_total = test_per_side * 2 + pin_kg
-        
-        if test_total > target_kg + 3 or test_total < target_kg - 3:
-            continue
-        
-        plates = []
-        remaining = test_per_side
-        for plate in PLATE_SIZES:
-            while remaining >= plate - 0.001:
-                plates.append(plate)
-                remaining -= plate
-        
-        if remaining < 0.001:
-            diff = abs(test_total - target_kg)
-            if diff < best_diff:
-                best_diff = diff
-                best_load = test_total
-                best_plates = sorted(plates, reverse=True)
-    
-    if best_plates:
-        plates_str = f"{' + '.join(map(str, best_plates))} kg per side"
-        if abs(best_load - target_kg) < 0.1:
-            return plates_str, best_load
-        else:
-            return f"{plates_str} (actual: {best_load}kg)", best_load
-    
-    return "No exact combo found", target_kg
-
-def estimate_1rm_epley(load_kg, reps):
-    """Epley formula: 1RM = weight * (1 + reps/30)"""
-    if reps == 1:
-        return load_kg
-    return load_kg * (1 + reps / 30)
-
-def calculate_relative_strength(avg_load, bodyweight):
-    """Calculate relative strength: load / bodyweight"""
-    if bodyweight is not None and bodyweight > 0:
-        return avg_load / bodyweight
-    return 0
-
-def create_heatmap(df):
-    """Create training consistency heatmap data"""
-    try:
-        if len(df) == 0:
-            return None
-        
-        df_copy = df.copy()
-        df_copy['Date'] = pd.to_datetime(df_copy['Date'])
-        
-        end_date = datetime.now()
-        start_date = end_date - timedelta(weeks=12)
-        df_filtered = df_copy[(df_copy['Date'] >= start_date) & (df_copy['Date'] <= end_date)]
-        
-        if len(df_filtered) == 0:
-            return None
-        
-        heatmap_data = np.zeros((7, 12))
-        for _, row in df_filtered.iterrows():
-            date = row['Date']
-            week = min((end_date - date).days // 7, 11)
-            day_of_week = date.weekday()
-            if week < 12 and day_of_week < 7:
-                heatmap_data[day_of_week, 11 - week] += 1
-        
-        return heatmap_data, (start_date, end_date)
-    except Exception as e:
-        return None
-
-def delete_user(username):
-    """Delete a user from all sheets"""
-    try:
-        # Delete from Users sheet
-        users_sheet = spreadsheet.worksheet("Users")
-        users_data = users_sheet.get_all_values()
-        for idx, row in enumerate(users_data):
-            if len(row) > 0 and row[0] == username:
-                users_sheet.delete_rows(idx + 1)
-                break
-        
-        # Delete from Bodyweights sheet
-        bw_sheet = spreadsheet.worksheet("Bodyweights")
-        bw_data = bw_sheet.get_all_values()
-        for idx, row in enumerate(bw_data):
-            if len(row) > 0 and row[0] == username:
-                bw_sheet.delete_rows(idx + 1)
-                break
-        
-        # Delete from UserProfile sheet
-        profile_sheet = spreadsheet.worksheet("UserProfile")
-        profile_data = profile_sheet.get_all_values()
-        for idx, row in enumerate(profile_data):
-            if len(row) > 0 and row[0] == username:
-                profile_sheet.delete_rows(idx + 1)
-                break
-        
-        # Delete workout data from Sheet1
-        workout_sheet = spreadsheet.worksheet("Sheet1")
-        workout_data = workout_sheet.get_all_values()
-        rows_to_delete = []
-        for idx, row in enumerate(workout_data):
-            if len(row) > 0 and row[0] == username:  # Assuming User is first column
-                rows_to_delete.append(idx + 1)
-        
-        # Delete rows in reverse order to avoid index shifting
-        for row_idx in sorted(rows_to_delete, reverse=True):
-            workout_sheet.delete_rows(row_idx)
-        
-        _load_sheet_data.clear()
-        
-        return True, f"User '{username}' deleted successfully!"
-    except Exception as e:
-        return False, f"Error deleting user: {e}"
-
-# ==================== ACTIVITY LOGGING ====================
-def log_activity_to_sheets(user, activity_type, duration_min=None, notes="", session_date=None):
-    """
-    Log a simple activity (Climbing, Board, Work Pullups, or Gym) to activity_log table.
-    """
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
-        
-        if session_date is None:
-            session_date = datetime.now().date()
-        
-        date_str = session_date.strftime("%Y-%m-%d")
-        
-        activity_data = {
-            "username": user,
-            "date": date_str,
-            "activity_type": activity_type,
-            "duration_min": duration_min,
-            "notes": notes or ""
-        }
-        
-        supabase.table("activity_log").insert(activity_data).execute()
-        _load_table_data.clear()
-        return True
-    except Exception as e:
-        st.error(f"Error logging activity: {e}")
-        return False
-
-
-
-def load_activity_log(user=None):
-    """Load activity log from activity_log table"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return pd.DataFrame()
-        
-        query = supabase.table("activity_log").select("*")
-        if user:
-            query = query.eq("username", user)
-        
-        response = query.execute()
-        if response.data:
-            df = pd.DataFrame(response.data)
-            df = df.rename(columns={
-                'username': 'User',
-                'date': 'Date',
-                'activity_type': 'ActivityType',
-                'duration_min': 'DurationMin',
-                'notes': 'Notes'
-            })
-            return df
-        return pd.DataFrame()
-    except Exception as e:
-        return pd.DataFrame()
-
-def load_custom_workout_templates():
-    """Load all custom workout templates from custom_workout_templates table"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return pd.DataFrame()
-        
-        response = supabase.table("custom_workout_templates").select("*").execute()
-        if response.data:
-            df = pd.DataFrame(response.data)
-            # Rename columns to match old format
-            column_map = {
-                'username': 'CreatedBy',
-                'template_name': 'WorkoutName',
-                'category': 'Category',
-                'exercise_1': 'Exercise1',
-                'exercise_2': 'Exercise2',
-                'exercise_3': 'Exercise3',
-                'exercise_4': 'Exercise4',
-                'exercise_5': 'Exercise5'
-            }
-            df = df.rename(columns=column_map)
+        template_sheet = spreadsheet.worksheet("CustomWorkoutTemplates")
+        records = template_sheet.get_all_records()
+        if records:
+            df = pd.DataFrame(records)
+            # Convert TRUE/FALSE strings to actual booleans
+            bool_columns = ['TracksWeight', 'TracksSets', 'TracksReps', 'TracksDuration', 'TracksDistance', 'TracksRPE']
+            for col in bool_columns:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: str(x).upper() == "TRUE")
             return df
         return pd.DataFrame()
     except:
         return pd.DataFrame()
 
-def load_custom_workout_logs(user, workout_id=None):
-    """Load custom workout logs for a user from custom_workout_logs table"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return pd.DataFrame()
-        
-        query = supabase.table("custom_workout_logs").select("*").eq("username", user)
-        if workout_id:
-            query = query.eq("workout_id", workout_id)
-        
-        response = query.execute()
-        if response.data:
-            df = pd.DataFrame(response.data)
-            # Rename columns to match old format
-            column_map = {
-                'username': 'User',
-                'date': 'Date',
-                'workout_id': 'WorkoutID',
-                'workout_name': 'WorkoutName',
-                'weight_kg': 'Weight_kg',
-                'sets': 'Sets',
-                'reps': 'Reps',
-                'duration_min': 'Duration_min',
-                'distance_km': 'Distance_km',
-                'rpe': 'RPE',
-                'notes': 'Notes'
-            }
-            df = df.rename(columns=column_map)
-            
-            if len(df) > 0 and 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            
-            return df
-        return pd.DataFrame()
-    except:
-        return pd.DataFrame()
-
-def get_user_custom_workouts(user):
+def get_user_custom_workouts(spreadsheet, user):
     """Get custom workouts for a specific user"""
-    df_templates = load_custom_workout_templates()
+    df_templates = load_custom_workout_templates(spreadsheet)
     if df_templates.empty:
         return pd.DataFrame()
     return df_templates[df_templates['CreatedBy'] == user]
 
-def load_goals(user=None):
-    """Load goals from Supabase goals table"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return pd.DataFrame()
-        
-        query = supabase.table("goals").select("*")
-        if user:
-            query = query.eq("username", user)
-        
-        response = query.execute()
-        if response.data:
-            df = pd.DataFrame(response.data)
-            # Rename columns to match old format but keep id
-            column_map = {
-                'username': 'User',
-                'exercise': 'Exercise',
-                'arm': 'Arm',
-                'target_weight': 'Target_Weight',
-                'completed': 'Completed',
-                'date_set': 'Date_Set',
-                'date_completed': 'Date_Completed'
-            }
-            # Only rename columns that exist
-            df = df.rename(columns={k: v for k, v in column_map.items() if k in df.columns})
-            return df
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Error loading goals: {e}")
-        return pd.DataFrame()
-
-def save_goal(user, exercise, arm, target_weight):
-    """Save a new goal to Supabase goals table"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
-        
-        today = datetime.now().strftime("%Y-%m-%d")
-        supabase.table("goals").insert({
-            "username": user,
-            "exercise": exercise,
-            "arm": arm,
-            "target_weight": float(target_weight),
-            "completed": False,
-            "date_set": today
-        }).execute()
-        
-        return True
-    except Exception as e:
-        st.error(f"Error saving goal: {e}")
-        return False
-
-def complete_goal(goal_id):
-    """Mark a goal as completed in Supabase"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
-        
-        today = datetime.now().strftime("%Y-%m-%d")
-        supabase.table("goals").update({
-            "completed": True,
-            "date_completed": today
-        }).eq("id", goal_id).execute()
-        
-        return True
-    except Exception as e:
-        st.error(f"Error completing goal: {e}")
-        return False
-
-def delete_goal(goal_id):
-    """Delete a goal from Supabase"""
-    try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
-        
-        supabase.table("goals").delete().eq("id", goal_id).execute()
-        return True
-    except Exception as e:
-        st.error(f"Error deleting goal: {e}")
-        return False
-
-def log_custom_workout(user, workout_id, workout_name, date, 
+def log_custom_workout(spreadsheet, user, workout_id, workout_name, date, 
                        weight=None, sets=None, reps=None, duration=None, 
                        distance=None, rpe=None, notes=""):
     """Log a custom workout session"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
+        try:
+            log_sheet = spreadsheet.worksheet("CustomWorkoutLogs")
+        except:
+            # Create sheet if it doesn't exist
+            log_sheet = spreadsheet.add_worksheet(title="CustomWorkoutLogs", rows=1000, cols=11)
+            log_sheet.append_row([
+                "LogID", "User", "WorkoutID", "WorkoutName", "Date", 
+                "Weight_kg", "Sets", "Reps", "Duration_min", "Distance_km", "RPE", "Notes"
+            ])
         
         # Generate unique log ID
         log_id = f"{user}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
         
-        # Insert log entry into custom_workout_logs table
-        log_data = {
-            "log_id": log_id,
-            "username": user,
-            "workout_id": workout_id,
-            "workout_name": workout_name,
-            "date": date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(date, datetime) else date,
-            "weight_kg": float(weight) if weight else None,
-            "sets": int(sets) if sets else None,
-            "reps": int(reps) if reps else None,
-            "duration_min": float(duration) if duration else None,
-            "distance_km": float(distance) if distance else None,
-            "rpe": int(rpe) if rpe else None,
-            "notes": notes or ""
-        }
-        
-        supabase.table("custom_workout_logs").insert(log_data).execute()
+        # Append log entry
+        log_sheet.append_row([
+            log_id,
+            user,
+            workout_id,
+            workout_name,
+            date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(date, datetime) else date,
+            float(weight) if weight else "",
+            int(sets) if sets else "",
+            int(reps) if reps else "",
+            float(duration) if duration else "",
+            float(distance) if distance else "",
+            int(rpe) if rpe else "",
+            notes
+        ])
         
         # Update activity log
-        activity_data = {
-            "username": user,
-            "date": date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(date, datetime) else date,
-            "activity_type": "Custom Workout",
-            "notes": workout_name
-        }
-        supabase.table("activity_log").insert(activity_data).execute()
+        try:
+            activity_sheet = spreadsheet.worksheet("ActivityLog")
+            activity_sheet.append_row([
+                user,
+                date.strftime("%Y-%m-%d %H:%M:%S") if isinstance(date, datetime) else date,
+                "Custom Workout",
+                workout_name
+            ])
+        except:
+            pass
         
-        _load_table_data.clear()
         return True
     except Exception as e:
         st.error(f"Error logging custom workout: {e}")
         return False
 
-def load_custom_workout_logs(user, workout_id=None):
+def load_custom_workout_logs(spreadsheet, user, workout_id=None):
     """Load custom workout logs for a user, optionally filtered by workout_id"""
     try:
         log_sheet = spreadsheet.worksheet("CustomWorkoutLogs")
@@ -1722,48 +1538,67 @@ def load_custom_workout_logs(user, workout_id=None):
 
 # ==================== USER SETTINGS FOR ENDURANCE TRAINING ====================
 
-def get_user_setting(user, setting_key, default_value=None):
-    """Get a user setting value from user_settings table"""
+def get_user_setting(spreadsheet, user, setting_key, default_value=None):
+    """Get a specific user setting"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return default_value
+        settings_sheet = spreadsheet.worksheet("UserSettings")
+        records = settings_sheet.get_all_records()
         
-        response = supabase.table("user_settings").select("setting_value").eq("username", user).eq("setting_key", setting_key).execute()
-        if response.data and len(response.data) > 0:
-            return response.data[0]["setting_value"]
+        for record in records:
+            if record.get("User") == user and record.get("SettingKey") == setting_key:
+                value = record.get("SettingValue", default_value)
+                # Convert string booleans to actual booleans
+                if value in ["True", "true", "TRUE"]:
+                    return True
+                elif value in ["False", "false", "FALSE"]:
+                    return False
+                return value
+        
         return default_value
     except:
+        # Sheet doesn't exist yet, return default
         return default_value
 
-def set_user_setting(user, setting_key, setting_value):
-    """Set a user setting value in user_settings table"""
+def set_user_setting(spreadsheet, user, setting_key, setting_value):
+    """Set or update a user setting"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False
+        # Try to get the sheet, create if it doesn't exist
+        try:
+            settings_sheet = spreadsheet.worksheet("UserSettings")
+        except:
+            settings_sheet = spreadsheet.add_worksheet(title="UserSettings", rows=1000, cols=3)
+            settings_sheet.append_row(["User", "SettingKey", "SettingValue"])
         
-        supabase.table("user_settings").upsert({
-            "username": user,
-            "setting_key": setting_key,
-            "setting_value": str(setting_value)
-        }, on_conflict="username,setting_key").execute()
+        records = settings_sheet.get_all_records()
         
-        _load_table_data.clear()
+        # Check if setting exists
+        setting_exists = False
+        for idx, record in enumerate(records):
+            if record.get("User") == user and record.get("SettingKey") == setting_key:
+                # Update existing setting
+                settings_sheet.update_cell(idx + 2, 3, str(setting_value))
+                setting_exists = True
+                break
+        
+        if not setting_exists:
+            # Add new setting
+            settings_sheet.append_row([user, setting_key, str(setting_value)])
+        
+        _load_sheet_data.clear()
         return True
     except Exception as e:
-        st.error(f"Error setting user setting: {e}")
+        st.error(f"Error updating setting: {e}")
         return False
 
-def get_endurance_training_enabled(user):
+def get_endurance_training_enabled(spreadsheet, user):
     """Check if endurance training is enabled for user"""
     return get_user_setting(spreadsheet, user, "endurance_training_enabled", False)
 
-def set_endurance_training_enabled(user, enabled):
+def set_endurance_training_enabled(spreadsheet, user, enabled):
     """Enable or disable endurance training for user"""
     return set_user_setting(spreadsheet, user, "endurance_training_enabled", enabled)
 
-def get_workout_count(user, exercise):
+def get_workout_count(spreadsheet, user, exercise):
     """Get the workout count for tracking endurance cycles (resets every 3)"""
     count = get_user_setting(spreadsheet, user, f"workout_count_{exercise}", 0)
     try:
@@ -1771,7 +1606,7 @@ def get_workout_count(user, exercise):
     except:
         return 0
 
-def increment_workout_count(user, exercise):
+def increment_workout_count(spreadsheet, user, exercise):
     """Increment workout count and return new count (cycles 1, 2, 0)"""
     current_count = get_workout_count(spreadsheet, user, exercise)
     new_count = (current_count + 1) % 3
@@ -1828,34 +1663,29 @@ def get_weight_unit_label(spreadsheet, user):
     """Get the weight unit label for display (kg or lbs)"""
     return get_weight_units(spreadsheet, user)
 
-def change_user_pin(user, old_pin, new_pin):
+def change_user_pin(spreadsheet, user, old_pin, new_pin):
     """Change user's PIN"""
     try:
-        supabase = get_supabase_client()
-        if not supabase:
-            return False, "Database connection error"
-        
         # Verify old PIN first
-        response = supabase.table("users").select("*").eq("username", user).execute()
+        users_sheet = spreadsheet.worksheet("Users")
+        records = users_sheet.get_all_records()
         
-        if not response.data:
-            return False, "User not found"
+        for idx, record in enumerate(records):
+            if record.get("Username") == user:
+                stored_pin = str(record.get("PIN", "")).strip()
+                if stored_pin != old_pin:
+                    return False, "Incorrect current PIN"
+                
+                # Validate new PIN
+                if len(new_pin) != PIN_LENGTH or not new_pin.isdigit():
+                    return False, f"New PIN must be exactly {PIN_LENGTH} digits"
+                
+                # Update PIN
+                users_sheet.update_cell(idx + 2, 2, new_pin)
+                _load_sheet_data.clear()
+                return True, "PIN changed successfully"
         
-        user_data = response.data[0]
-        stored_pin = str(user_data.get("pin", "")).strip()
-        
-        if stored_pin != old_pin:
-            return False, "Incorrect current PIN"
-        
-        # Validate new PIN
-        if len(new_pin) != PIN_LENGTH or not new_pin.isdigit():
-            return False, f"New PIN must be exactly {PIN_LENGTH} digits"
-        
-        # Update PIN
-        supabase.table("users").update({"pin": new_pin}).eq("username", user).execute()
-        _load_table_data.clear()
-        return True, "PIN changed successfully"
-        
+        return False, "User not found"
     except Exception as e:
         return False, f"Error changing PIN: {e}"
 

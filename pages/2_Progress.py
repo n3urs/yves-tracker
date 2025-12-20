@@ -26,17 +26,11 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Connect to Google Sheets
-spreadsheet = get_google_sheet()
-workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
+
 
 # Load users
-if spreadsheet:
-    available_users = load_users_from_sheets(spreadsheet)
-    user_pins = load_user_pins_from_sheets(spreadsheet)
-else:
-    available_users = USER_LIST.copy()
-    user_pins = {user: "0000" for user in available_users}
+available_users = load_users_from_sheets()
+user_pins = load_user_pins_from_sheets()
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
@@ -53,8 +47,9 @@ if selected_user == USER_PLACEHOLDER:
     st.stop()
 
 # Load data
-if workout_sheet:
-    df = load_data_from_sheets(workout_sheet, user=selected_user)
+# All data comes from Supabase now
+if True:
+    df = load_data_from_sheets(None, user=selected_user)
     
     if len(df) > 0:
         # Convert date column
@@ -210,7 +205,7 @@ if workout_sheet:
         st.caption("💡 Your strength divided by bodyweight. Higher = better climbing performance!")
         
         # Get bodyweight history
-        bw_history = get_bodyweight_history(spreadsheet, selected_user)
+        bw_history = get_bodyweight_history(selected_user)
         
         if not bw_history.empty and len(df_filtered) > 0:
             # Create a merged dataframe with workout loads and bodyweight
@@ -220,7 +215,7 @@ if workout_sheet:
             df_strength['Bodyweight_kg'] = df_strength['Date'].apply(
                 lambda x: bw_history[bw_history['Date'] <= x]['Bodyweight_kg'].iloc[-1] 
                 if len(bw_history[bw_history['Date'] <= x]) > 0 
-                else get_bodyweight(spreadsheet, selected_user)
+                else get_bodyweight(selected_user)
             )
             
             # Calculate relative strength (load / bodyweight)
@@ -352,7 +347,7 @@ if workout_sheet:
         st.markdown("## 🏋️ Custom Workout Progress")
         
         # Load user's custom workouts
-        user_workouts = get_user_custom_workouts(spreadsheet, selected_user)
+        user_workouts = get_user_custom_workouts(selected_user)
         
         if user_workouts.empty:
             st.info("No custom workouts created yet. Go to Custom Workouts page to create one!")
@@ -368,7 +363,7 @@ if workout_sheet:
                 )
                 
                 # Load custom workout logs
-                custom_logs = load_custom_workout_logs(spreadsheet, selected_user)
+                custom_logs = load_custom_workout_logs(selected_user)
                 
                 # Filter by selected workout
                 custom_logs = custom_logs[

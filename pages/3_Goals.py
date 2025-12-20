@@ -6,7 +6,6 @@ from utils.helpers import USER_PLACEHOLDER, _load_sheet_data
 import pandas as pd
 from datetime import datetime, timedelta
 import time
-import gspread
 
 st.set_page_config(page_title="Goals", page_icon="🎯", layout="wide")
 
@@ -15,7 +14,7 @@ inject_global_styles()
 
 # ==================== SETTINGS MODAL ====================
 @st.dialog("⚙️ Weekly Goals Settings", width="large")
-def goals_settings_modal(spreadsheet, selected_user):
+def goals_settings_modal(selected_user):
     """Modal for customizing weekly training goals"""
     st.markdown("Customize your weekly training targets")
     
@@ -29,14 +28,14 @@ def goals_settings_modal(spreadsheet, selected_user):
     }
     
     # Load current settings
-    goal1_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_1_type", "Gym")
-    goal1_target = get_user_setting(spreadsheet, selected_user, "weekly_goal_1_target", 3)
+    goal1_type = get_user_setting(selected_user, "weekly_goal_1_type", "Gym")
+    goal1_target = get_user_setting(selected_user, "weekly_goal_1_target", 3)
     
-    goal2_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_2_type", "Board")
-    goal2_target = get_user_setting(spreadsheet, selected_user, "weekly_goal_2_target", 1)
+    goal2_type = get_user_setting(selected_user, "weekly_goal_2_type", "Board")
+    goal2_target = get_user_setting(selected_user, "weekly_goal_2_target", 1)
     
-    goal3_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_3_type", "Climbing")
-    goal3_target = get_user_setting(spreadsheet, selected_user, "weekly_goal_3_target", 3)
+    goal3_type = get_user_setting(selected_user, "weekly_goal_3_type", "Climbing")
+    goal3_target = get_user_setting(selected_user, "weekly_goal_3_target", 3)
     
     st.markdown("#### Goal 1")
     col1, col2 = st.columns([2, 1])
@@ -76,60 +75,9 @@ def goals_settings_modal(spreadsheet, selected_user):
     
     if st.button("💾 Save Settings", use_container_width=True, type="primary"):
         with st.spinner("Saving settings..."):
-            try:
-                # Get or create UserSettings sheet
-                try:
-                    settings_sheet = spreadsheet.worksheet("UserSettings")
-                except gspread.exceptions.WorksheetNotFound:
-                    settings_sheet = spreadsheet.add_worksheet(title="UserSettings", rows=1000, cols=3)
-                    settings_sheet.append_row(["User", "SettingKey", "SettingValue"])
-                    time.sleep(0.5)
-                
-                # Load all settings for this user
-                records = settings_sheet.get_all_records()
-                
-                # Settings to update
-                settings_to_save = {
-                    "weekly_goal_1_type": new_goal1_type,
-                    "weekly_goal_1_target": new_goal1_target,
-                    "weekly_goal_2_type": new_goal2_type,
-                    "weekly_goal_2_target": new_goal2_target,
-                    "weekly_goal_3_type": new_goal3_type,
-                    "weekly_goal_3_target": new_goal3_target,
-                }
-                
-                # Update existing rows or collect new ones
-                cells_to_update = []
-                new_rows = []
-                
-                for setting_key, setting_value in settings_to_save.items():
-                    found = False
-                    for idx, record in enumerate(records):
-                        if record.get("User") == selected_user and record.get("SettingKey") == setting_key:
-                            # Collect cell updates for batch operation
-                            cells_to_update.append(gspread.cell.Cell(idx + 2, 3, str(setting_value)))
-                            found = True
-                            break
-                    if not found:
-                        new_rows.append([selected_user, setting_key, str(setting_value)])
-                
-                # Batch update all existing cells in one API call
-                if cells_to_update:
-                    settings_sheet.update_cells(cells_to_update)
-                
-                # Batch append all new rows in one API call
-                if new_rows:
-                    settings_sheet.append_rows(new_rows)
-                
-                # Clear cache
-                _load_sheet_data.clear()
-                
-                st.success("✅ Settings saved!")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error saving settings: {e}")
-                st.info("💡 If you see a quota error, wait a minute and try again")
+            st.warning("⚠️ Custom goal settings need to be implemented with Supabase")
+            # TODO: Implement save_user_settings() in helpers.py
+            st.rerun()
 
 # ==================== HEADER ====================
 st.markdown("""
@@ -143,17 +91,11 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Connect to Google Sheets
-spreadsheet = get_google_sheet()
-workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
+
 
 # Load users
-if spreadsheet:
-    available_users = load_users_from_sheets(spreadsheet)
-    user_pins = load_user_pins_from_sheets(spreadsheet)
-else:
-    available_users = USER_LIST.copy()
-    user_pins = {user: "0000" for user in available_users}
+available_users = load_users_from_sheets()
+user_pins = load_user_pins_from_sheets()
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
@@ -173,12 +115,13 @@ if selected_user == USER_PLACEHOLDER:
 col_left, col_right = st.columns([6, 1])
 with col_right:
     if st.button("⚙️", key="goals_settings_btn", help="Weekly Goals Settings"):
-        goals_settings_modal(spreadsheet, selected_user)
+        goals_settings_modal(selected_user)
 
-if workout_sheet:
+# All data comes from Supabase now
+if True:
     # Load data
-    df = load_data_from_sheets(workout_sheet, user=selected_user)
-    activity_df = load_activity_log(spreadsheet, user=selected_user)
+    df = load_data_from_sheets(None, user=selected_user)
+    activity_df = load_activity_log(user=selected_user)
     
     # ==================== WEEKLY GOALS - MAIN SECTION ====================
     st.markdown("""
@@ -192,14 +135,14 @@ if workout_sheet:
     """, unsafe_allow_html=True)
     
     # Load user's goal settings
-    goal1_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_1_type", "Gym")
-    goal1_target = int(get_user_setting(spreadsheet, selected_user, "weekly_goal_1_target", 3))
+    goal1_type = get_user_setting(selected_user, "weekly_goal_1_type", "Gym")
+    goal1_target = int(get_user_setting(selected_user, "weekly_goal_1_target", 3))
     
-    goal2_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_2_type", "Board")
-    goal2_target = int(get_user_setting(spreadsheet, selected_user, "weekly_goal_2_target", 1))
+    goal2_type = get_user_setting(selected_user, "weekly_goal_2_type", "Board")
+    goal2_target = int(get_user_setting(selected_user, "weekly_goal_2_target", 1))
     
-    goal3_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_3_type", "Climbing")
-    goal3_target = int(get_user_setting(spreadsheet, selected_user, "weekly_goal_3_target", 3))
+    goal3_type = get_user_setting(selected_user, "weekly_goal_3_type", "Climbing")
+    goal3_target = int(get_user_setting(selected_user, "weekly_goal_3_target", 3))
     
     # Activity type metadata
     activity_types = {
@@ -220,7 +163,7 @@ if workout_sheet:
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
     df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today)]
     
-    custom_workout_df = load_custom_workout_logs(spreadsheet, selected_user) if spreadsheet else pd.DataFrame()
+    custom_workout_df = load_custom_workout_logs(selected_user)
     
     def count_sessions(goal_type):
         """Count sessions for a specific goal type this week"""
@@ -332,49 +275,26 @@ if workout_sheet:
     # ==================== WEIGHT GOALS ====================
     st.markdown("### 🎯 Your Weight Goals")
     
-    # Initialize goals sheet - IMPROVED ERROR HANDLING
+    # Load active goals from Supabase
     try:
-        # Try to get existing Goals worksheet
-        all_sheets = [ws.title for ws in spreadsheet.worksheets()]
+        goals_df = load_goals(selected_user)
         
-        if "Goals" in all_sheets:
-            goals_sheet = spreadsheet.worksheet("Goals")
-        else:
-            # Only create if it doesn't exist
-            time.sleep(0.5)  # Prevent rate limiting
-            goals_sheet = spreadsheet.add_worksheet(title="Goals", rows=100, cols=10)
-            goals_sheet.append_row(["User", "Exercise", "Arm", "Target_Weight", "Completed", "Date_Set", "Date_Completed"])
-    except Exception as e:
-        st.error(f"Error accessing Goals sheet: {e}")
-        goals_sheet = None
-    
-    if goals_sheet:
-        # Load active goals
-        try:
-            goals_data = goals_sheet.get_all_records()
-            goals_df = pd.DataFrame(goals_data)
-        except Exception as e:
-            st.error(f"Error loading goals: {e}")
-            goals_df = pd.DataFrame()
-        
-        # Filter active goals - handle empty dataframe and different data types
+        # Filter active goals
         if len(goals_df) > 0 and 'Completed' in goals_df.columns:
-            # Convert Completed to string and check for various "false" values
-            goals_df['Completed_str'] = goals_df['Completed'].astype(str).str.lower()
-            active_goals = goals_df[(goals_df['User'] == selected_user) & 
-                                    (goals_df['Completed_str'].isin(['false', '0', '', 'no']))]
+            active_goals = goals_df[goals_df['Completed'] == False]
         else:
             active_goals = pd.DataFrame()
         
         # Display active goals with progress
         if len(active_goals) > 0:
             for idx, goal in active_goals.iterrows():
+                goal_id = goal['id']
                 exercise = goal['Exercise']
                 arm = goal['Arm']
                 target_kg = float(goal['Target_Weight'])
                 
                 # Get current 1RM (in kg)
-                current_kg = get_user_1rm(spreadsheet, selected_user, exercise, arm)
+                current_kg = get_user_1rm(selected_user, exercise, arm)
                 
                 # Calculate progress
                 if current_kg >= target_kg:
@@ -397,14 +317,11 @@ if workout_sheet:
                     """, unsafe_allow_html=True)
                     
                     # Dismiss button
-                    if st.button(f"✅ Mark as Complete & Celebrate", key=f"complete_{idx}"):
-                        # Update goal as completed
-                        row_num = idx + 2  # +2 because of header and 0-indexing
-                        goals_sheet.update_cell(row_num, 5, "TRUE")  # Completed column (as string)
-                        goals_sheet.update_cell(row_num, 7, datetime.now().strftime("%Y-%m-%d"))  # Date completed
-                        st.balloons()
-                        time.sleep(1)  # Brief delay before rerun
-                        st.rerun()
+                    if st.button(f"✅ Mark as Complete & Celebrate", key=f"complete_{goal_id}"):
+                        if complete_goal(goal_id):
+                            st.balloons()
+                            time.sleep(1)
+                            st.rerun()
                 else:
                     # Still working towards goal
                     progress_pct = (current_kg / target_kg) * 100
@@ -445,57 +362,46 @@ if workout_sheet:
                     """, unsafe_allow_html=True)
                     
                     # Delete goal button
-                    if st.button(f"🗑️ Remove Goal", key=f"delete_{idx}"):
-                        row_num = idx + 2
-                        goals_sheet.delete_rows(row_num)
-                        time.sleep(1)
-                        st.rerun()
+                    if st.button(f"🗑️ Remove Goal", key=f"delete_{goal_id}"):
+                        if delete_goal(goal_id):
+                            time.sleep(1)
+                            st.rerun()
         else:
             st.info("📝 No active goals set. Create one below!")
+    except Exception as e:
+        st.error(f"Error loading goals: {e}")
         
-        st.markdown("---")
+    st.markdown("---")
+    
+    # ==================== CREATE NEW GOAL ====================
+    st.markdown("### ➕ Set a New Goal")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        goal_exercise = st.selectbox("Exercise:", ["20mm Edge", "Pinch", "Wrist Roller"], key="goal_exercise")
+    
+    with col2:
+        goal_arm = st.selectbox("Arm:", ["L", "R"], key="goal_arm")
+    
+    with col3:
+        current_1rm_kg = get_user_1rm(selected_user, goal_exercise, goal_arm)
         
-        # ==================== CREATE NEW GOAL ====================
-        st.markdown("### ➕ Set a New Goal")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            goal_exercise = st.selectbox("Exercise:", ["20mm Edge", "Pinch", "Wrist Roller"], key="goal_exercise")
-        
-        with col2:
-            goal_arm = st.selectbox("Arm:", ["L", "R"], key="goal_arm")
-        
-        with col3:
-            current_1rm_kg = get_user_1rm(spreadsheet, selected_user, goal_exercise, goal_arm)
-            
-            # Input in kg
-            goal_weight_kg = st.number_input(
-                f"Target Weight (kg) - Current: {current_1rm_kg:.1f} kg",
-                min_value=float(current_1rm_kg),
-                max_value=200.0,
-                value=float(current_1rm_kg) + 5.0,
-                step=0.25,
-                key="goal_weight"
-            )
-        
-        if st.button("🎯 Create Goal", type="primary", use_container_width=True):
-            # Add goal to sheet (always store in kg)
-            try:
-                goals_sheet.append_row([
-                    selected_user,
-                    goal_exercise,
-                    goal_arm,
-                    goal_weight_kg,
-                    "FALSE",  # Not completed (as string)
-                    datetime.now().strftime("%Y-%m-%d"),
-                    ""  # Date completed (empty)
-                ])
-                st.success(f"✅ Goal created! Target: {goal_weight_kg:.1f} kg on {goal_exercise} ({goal_arm} arm)")
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error creating goal: {e}")
+        # Input in kg
+        goal_weight_kg = st.number_input(
+            f"Target Weight (kg) - Current: {current_1rm_kg:.1f} kg",
+            min_value=float(current_1rm_kg),
+            max_value=200.0,
+            value=float(current_1rm_kg) + 5.0,
+            step=0.25,
+            key="goal_weight"
+        )
+    
+    if st.button("🎯 Create Goal", type="primary", use_container_width=True):
+        if save_goal(selected_user, goal_exercise, goal_arm, goal_weight_kg):
+            st.success(f"✅ Goal created! Target: {goal_weight_kg:.1f} kg on {goal_exercise} ({goal_arm} arm)")
+            time.sleep(1)
+            st.rerun()
     
     st.markdown("---")
     
@@ -513,8 +419,8 @@ if workout_sheet:
     
     for idx, (col, exercise, color) in enumerate(zip([col1, col2, col3], exercises_display, colors)):
         with col:
-            edge_L_kg = get_user_1rm(spreadsheet, selected_user, exercise, "L")
-            edge_R_kg = get_user_1rm(spreadsheet, selected_user, exercise, "R")
+            edge_L_kg = get_user_1rm(selected_user, exercise, "L")
+            edge_R_kg = get_user_1rm(selected_user, exercise, "R")
             
             st.markdown(f"""
                 <div style='background: {color}; 
@@ -536,26 +442,30 @@ if workout_sheet:
     st.markdown("---")
     
     # ==================== COMPLETED GOALS HISTORY ====================
-    if goals_sheet and len(goals_df) > 0 and 'Completed_str' in goals_df.columns:
-        # Filter completed goals - handle different true values
-        completed_goals = goals_df[(goals_df['User'] == selected_user) & 
-                                   (goals_df['Completed_str'].isin(['true', '1', 'yes', 'TRUE']))]
-        
-        if len(completed_goals) > 0:
-            st.markdown("### 🏆 Completed Goals")
+    try:
+        # Load all goals and filter completed ones
+        all_goals = load_goals(selected_user)
+        if len(all_goals) > 0 and 'Completed' in all_goals.columns:
+            completed_goals = all_goals[all_goals['Completed'] == True]
             
-            for idx, goal in completed_goals.iterrows():
-                st.markdown(f"""
-                    <div style='background: rgba(74,222,128,0.1); border-left: 4px solid #4ade80; 
-                    padding: 15px; border-radius: 8px; margin-bottom: 10px;'>
-                        <div style='font-size: 16px; font-weight: bold; color: #4ade80;'>
-                            ✅ {goal['Exercise']} - {goal['Arm']} Arm: {goal['Target_Weight']} kg
+            if len(completed_goals) > 0:
+                st.markdown("### 🏆 Completed Goals")
+                
+                for idx, goal in completed_goals.iterrows():
+                    date_completed = goal.get('Date_Completed', 'N/A')
+                    st.markdown(f"""
+                        <div style='background: rgba(74,222,128,0.1); border-left: 4px solid #4ade80; 
+                        padding: 15px; border-radius: 8px; margin-bottom: 10px;'>
+                            <div style='font-size: 16px; font-weight: bold; color: #4ade80;'>
+                                ✅ {goal['Exercise']} - {goal['Arm']} Arm: {goal['Target_Weight']} kg
+                            </div>
+                            <div style='font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 5px;'>
+                                Completed: {date_completed}
+                            </div>
                         </div>
-                        <div style='font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 5px;'>
-                            Completed: {goal['Date_Completed']}
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Error loading completed goals: {e}")
 
 else:
-    st.error("⚠️ Could not connect to Google Sheets.")
+    st.error("⚠️ Could not connect to database.")

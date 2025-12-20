@@ -9,9 +9,7 @@ from utils.helpers import (
     inject_global_styles,
     USER_PLACEHOLDER,
     USER_LIST,
-    INACTIVITY_THRESHOLD_DAYS,
-    get_google_sheet,
-    load_users_from_sheets,
+    INACTIVITY_THRESHOLD_DAYS, load_users_from_sheets,
     load_user_pins_from_sheets,
     user_selectbox_with_pin,
     load_data_from_sheets,
@@ -59,17 +57,9 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Connect to Google Sheets
-spreadsheet = get_google_sheet()
-workout_sheet = spreadsheet.worksheet("Sheet1") if spreadsheet else None
-
 # Load users
-if spreadsheet:
-    available_users = load_users_from_sheets(spreadsheet)
-    user_pins = load_user_pins_from_sheets(spreadsheet)
-else:
-    available_users = USER_LIST.copy()
-    user_pins = {user: "0000" for user in available_users}
+available_users = load_users_from_sheets()
+user_pins = load_user_pins_from_sheets()
 
 # User selector in sidebar
 st.sidebar.header("👤 User")
@@ -113,12 +103,13 @@ if selected_user == USER_PLACEHOLDER:
 # ==================== PERSONALIZED WELCOME ====================
 
 # ==================== QUICK STATS OVERVIEW ====================
-if workout_sheet:
-    df = load_data_from_sheets(workout_sheet, user=selected_user)
+# All data comes from Supabase now
+if True:
+    df = load_data_from_sheets(None, user=selected_user)
     
     # Check if user has ANY activity (gym workouts, custom workouts, or activity log)
-    activity_df = load_activity_log(spreadsheet, selected_user) if spreadsheet else pd.DataFrame()
-    custom_workout_df = load_custom_workout_logs(spreadsheet, selected_user) if spreadsheet else pd.DataFrame()
+    activity_df = load_activity_log(selected_user)
+    custom_workout_df = load_custom_workout_logs(selected_user)
     has_any_data = (len(df) > 0) or (len(activity_df) > 0) or (len(custom_workout_df) > 0)
     
     if len(df) > 0:
@@ -210,11 +201,11 @@ if workout_sheet:
         st.markdown("---")
     
     # ==================== TRAINING CALENDAR (ALWAYS SHOW IF ANY DATA EXISTS) ====================
-    if spreadsheet and has_any_data:
+    if has_any_data:
         st.markdown("### 📅 Training Activity Calendar")
         
         # Load all activities
-        activity_df_cal = load_activity_log(spreadsheet, selected_user)
+        activity_df_cal = load_activity_log(selected_user)
         workout_df = df if len(df) > 0 else pd.DataFrame()
             
         calendar_data = {}
@@ -321,10 +312,10 @@ if workout_sheet:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            edge_L_kg = get_working_max(spreadsheet, selected_user, "20mm Edge", "L")
-            edge_R_kg = get_working_max(spreadsheet, selected_user, "20mm Edge", "R")
-            stored_edge_L_kg = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "L")
-            stored_edge_R_kg = get_user_1rm(spreadsheet, selected_user, "20mm Edge", "R")
+            edge_L_kg = get_working_max(selected_user, "20mm Edge", "L")
+            edge_R_kg = get_working_max(selected_user, "20mm Edge", "R")
+            stored_edge_L_kg = get_user_1rm(selected_user, "20mm Edge", "L")
+            stored_edge_R_kg = get_user_1rm(selected_user, "20mm Edge", "R")
             
             if edge_L_kg > stored_edge_L_kg + 1:
                 indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(edge_L_kg - stored_edge_L_kg):.1f}kg from baseline</div>'
@@ -357,10 +348,10 @@ if workout_sheet:
             """, unsafe_allow_html=True)
         
         with col2:
-            pinch_L_kg = get_working_max(spreadsheet, selected_user, "Pinch", "L")
-            pinch_R_kg = get_working_max(spreadsheet, selected_user, "Pinch", "R")
-            stored_pinch_L_kg = get_user_1rm(spreadsheet, selected_user, "Pinch", "L")
-            stored_pinch_R_kg = get_user_1rm(spreadsheet, selected_user, "Pinch", "R")
+            pinch_L_kg = get_working_max(selected_user, "Pinch", "L")
+            pinch_R_kg = get_working_max(selected_user, "Pinch", "R")
+            stored_pinch_L_kg = get_user_1rm(selected_user, "Pinch", "L")
+            stored_pinch_R_kg = get_user_1rm(selected_user, "Pinch", "R")
             
             if pinch_L_kg > stored_pinch_L_kg + 1:
                 indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(pinch_L_kg - stored_pinch_L_kg):.1f}kg from baseline</div>'
@@ -393,10 +384,10 @@ if workout_sheet:
             """, unsafe_allow_html=True)
         
         with col3:
-            wrist_L_kg = get_working_max(spreadsheet, selected_user, "Wrist Roller", "L")
-            wrist_R_kg = get_working_max(spreadsheet, selected_user, "Wrist Roller", "R")
-            stored_wrist_L_kg = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "L")
-            stored_wrist_R_kg = get_user_1rm(spreadsheet, selected_user, "Wrist Roller", "R")
+            wrist_L_kg = get_working_max(selected_user, "Wrist Roller", "L")
+            wrist_R_kg = get_working_max(selected_user, "Wrist Roller", "R")
+            stored_wrist_L_kg = get_user_1rm(selected_user, "Wrist Roller", "L")
+            stored_wrist_R_kg = get_user_1rm(selected_user, "Wrist Roller", "R")
             
             if wrist_L_kg > stored_wrist_L_kg + 1:
                 indicator_L = f'<div style="font-size: 11px; color: rgba(255,255,255,0.95); margin-top: 8px; background: rgba(74,222,128,0.35); padding: 6px 10px; border-radius: 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">📈 +{(wrist_L_kg - stored_wrist_L_kg):.1f}kg from baseline</div>'
