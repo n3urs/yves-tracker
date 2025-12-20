@@ -2,15 +2,134 @@ import streamlit as st
 import sys
 sys.path.append('.')
 from utils.helpers import *
-from utils.helpers import USER_PLACEHOLDER
+from utils.helpers import USER_PLACEHOLDER, _load_sheet_data
 import pandas as pd
 from datetime import datetime, timedelta
 import time
+import gspread
 
 st.set_page_config(page_title="Goals", page_icon="🎯", layout="wide")
 
 init_session_state()
 inject_global_styles()
+
+# ==================== SETTINGS MODAL ====================
+@st.dialog("⚙️ Weekly Goals Settings", width="large")
+def goals_settings_modal(spreadsheet, selected_user):
+    """Modal for customizing weekly training goals"""
+    st.markdown("Customize your weekly training targets")
+    
+    # Activity types available
+    activity_types = {
+        "Gym": {"emoji": "🏋️", "name": "Finger Training", "type": "gym"},
+        "Board": {"emoji": "🎯", "name": "Board Session", "type": "Board"},
+        "Climbing": {"emoji": "🧗", "name": "Climbing", "type": "Climbing"},
+        "Custom": {"emoji": "💪", "name": "Custom Workout", "type": "custom"},
+        "Work": {"emoji": "🏃", "name": "Work Pullups", "type": "Work"}
+    }
+    
+    # Load current settings
+    goal1_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_1_type", "Gym")
+    goal1_target = get_user_setting(spreadsheet, selected_user, "weekly_goal_1_target", 3)
+    
+    goal2_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_2_type", "Board")
+    goal2_target = get_user_setting(spreadsheet, selected_user, "weekly_goal_2_target", 1)
+    
+    goal3_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_3_type", "Climbing")
+    goal3_target = get_user_setting(spreadsheet, selected_user, "weekly_goal_3_target", 3)
+    
+    st.markdown("#### Goal 1")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        new_goal1_type = st.selectbox(
+            "Activity Type",
+            list(activity_types.keys()),
+            index=list(activity_types.keys()).index(goal1_type) if goal1_type in activity_types else 0,
+            key="goal1_type"
+        )
+    with col2:
+        new_goal1_target = st.number_input("Target", min_value=0, max_value=10, value=int(goal1_target), key="goal1_target")
+    
+    st.markdown("#### Goal 2")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        new_goal2_type = st.selectbox(
+            "Activity Type",
+            list(activity_types.keys()),
+            index=list(activity_types.keys()).index(goal2_type) if goal2_type in activity_types else 1,
+            key="goal2_type"
+        )
+    with col2:
+        new_goal2_target = st.number_input("Target", min_value=0, max_value=10, value=int(goal2_target), key="goal2_target")
+    
+    st.markdown("#### Goal 3")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        new_goal3_type = st.selectbox(
+            "Activity Type",
+            list(activity_types.keys()),
+            index=list(activity_types.keys()).index(goal3_type) if goal3_type in activity_types else 2,
+            key="goal3_type"
+        )
+    with col2:
+        new_goal3_target = st.number_input("Target", min_value=0, max_value=10, value=int(goal3_target), key="goal3_target")
+    
+    if st.button("💾 Save Settings", use_container_width=True, type="primary"):
+        with st.spinner("Saving settings..."):
+            try:
+                # Get or create UserSettings sheet
+                try:
+                    settings_sheet = spreadsheet.worksheet("UserSettings")
+                except gspread.exceptions.WorksheetNotFound:
+                    settings_sheet = spreadsheet.add_worksheet(title="UserSettings", rows=1000, cols=3)
+                    settings_sheet.append_row(["User", "SettingKey", "SettingValue"])
+                    time.sleep(0.5)
+                
+                # Load all settings for this user
+                records = settings_sheet.get_all_records()
+                
+                # Settings to update
+                settings_to_save = {
+                    "weekly_goal_1_type": new_goal1_type,
+                    "weekly_goal_1_target": new_goal1_target,
+                    "weekly_goal_2_type": new_goal2_type,
+                    "weekly_goal_2_target": new_goal2_target,
+                    "weekly_goal_3_type": new_goal3_type,
+                    "weekly_goal_3_target": new_goal3_target,
+                }
+                
+                # Update existing rows or collect new ones
+                cells_to_update = []
+                new_rows = []
+                
+                for setting_key, setting_value in settings_to_save.items():
+                    found = False
+                    for idx, record in enumerate(records):
+                        if record.get("User") == selected_user and record.get("SettingKey") == setting_key:
+                            # Collect cell updates for batch operation
+                            cells_to_update.append(gspread.cell.Cell(idx + 2, 3, str(setting_value)))
+                            found = True
+                            break
+                    if not found:
+                        new_rows.append([selected_user, setting_key, str(setting_value)])
+                
+                # Batch update all existing cells in one API call
+                if cells_to_update:
+                    settings_sheet.update_cells(cells_to_update)
+                
+                # Batch append all new rows in one API call
+                if new_rows:
+                    settings_sheet.append_rows(new_rows)
+                
+                # Clear cache
+                _load_sheet_data.clear()
+                
+                st.success("✅ Settings saved!")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error saving settings: {e}")
+                st.info("💡 If you see a quota error, wait a minute and try again")
 
 # ==================== HEADER ====================
 st.markdown("""
@@ -50,6 +169,12 @@ if selected_user == USER_PLACEHOLDER:
     st.info("🔒 Select a profile from the sidebar to view training goals.")
     st.stop()
 
+# Settings button in the top right (after user is selected)
+col_left, col_right = st.columns([6, 1])
+with col_right:
+    if st.button("⚙️", key="goals_settings_btn", help="Weekly Goals Settings"):
+        goals_settings_modal(spreadsheet, selected_user)
+
 if workout_sheet:
     # Load data
     df = load_data_from_sheets(workout_sheet, user=selected_user)
@@ -66,98 +191,126 @@ if workout_sheet:
         </div>
     """, unsafe_allow_html=True)
     
-    st.info("💪 **Your weekly targets:** 2-3 Finger Training sessions • 1 Board Session • 2-3 Climbing Sessions")
+    # Load user's goal settings
+    goal1_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_1_type", "Gym")
+    goal1_target = int(get_user_setting(spreadsheet, selected_user, "weekly_goal_1_target", 3))
     
+    goal2_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_2_type", "Board")
+    goal2_target = int(get_user_setting(spreadsheet, selected_user, "weekly_goal_2_target", 1))
+    
+    goal3_type = get_user_setting(spreadsheet, selected_user, "weekly_goal_3_type", "Climbing")
+    goal3_target = int(get_user_setting(spreadsheet, selected_user, "weekly_goal_3_target", 3))
+    
+    # Activity type metadata
+    activity_types = {
+        "Gym": {"emoji": "🏋️", "name": "Finger Training", "color": "#667eea"},
+        "Board": {"emoji": "🎯", "name": "Board Session", "color": "#a855f7"},
+        "Climbing": {"emoji": "🧗", "name": "Climbing", "color": "#4ade80"},
+        "Custom": {"emoji": "💪", "name": "Custom Workout", "color": "#14b8a6"},
+        "Work": {"emoji": "🏃", "name": "Work Pullups", "color": "#fb923c"}
+    }
+    
+    st.info(f"💪 **Your weekly targets:** {goal1_target} {activity_types[goal1_type]['name']} • {goal2_target} {activity_types[goal2_type]['name']} • {goal3_target} {activity_types[goal3_type]['name']}")
     
     # Calculate this week's progress
     today = datetime.now().date()
     week_start = today - timedelta(days=today.weekday())  # Monday
     
-    # Gym sessions (finger training)
+    # Count sessions for each goal type
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
     df_week = df[(df["Date"] >= week_start) & (df["Date"] <= today)]
-    gym_sessions = len(df_week["Date"].unique()) if len(df_week) > 0 else 0
     
-    # Activity sessions
-    board_sessions = 0
-    climb_sessions = 0
-    if len(activity_df) > 0:
-        activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
-        activity_week = activity_df[(activity_df["Date"] >= week_start) & (activity_df["Date"] <= today)]
-        board_sessions = len(activity_week[activity_week["ActivityType"] == "Board"])
-        climb_sessions = len(activity_week[activity_week["ActivityType"] == "Climbing"])
+    custom_workout_df = load_custom_workout_logs(spreadsheet, selected_user) if spreadsheet else pd.DataFrame()
     
-    # Weekly goals
-    gym_target = (2, 3)  # 2-3 sessions
-    board_target = 1
-    climb_target = (2, 3)  # 2-3 sessions
+    def count_sessions(goal_type):
+        """Count sessions for a specific goal type this week"""
+        if goal_type == "Gym":
+            return len(df_week["Date"].unique()) if len(df_week) > 0 else 0
+        elif goal_type == "Custom":
+            if len(custom_workout_df) > 0:
+                custom_workout_df["Date"] = pd.to_datetime(custom_workout_df["Date"], errors="coerce").dt.date
+                custom_week = custom_workout_df[(custom_workout_df["Date"] >= week_start) & (custom_workout_df["Date"] <= today)]
+                return len(custom_week["Date"].unique()) if len(custom_week) > 0 else 0
+            return 0
+        else:  # Board, Climbing, Work
+            if len(activity_df) > 0:
+                activity_df["Date"] = pd.to_datetime(activity_df["Date"], errors="coerce").dt.date
+                activity_week = activity_df[(activity_df["Date"] >= week_start) & (activity_df["Date"] <= today)]
+                return len(activity_week[activity_week["ActivityType"] == goal_type])
+            return 0
+    
+    goal1_sessions = count_sessions(goal1_type)
+    goal2_sessions = count_sessions(goal2_type)
+    goal3_sessions = count_sessions(goal3_type)
     
     # Create goal cards
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        gym_status = "✅" if gym_sessions >= gym_target[1] else "⏳"
-        gym_color = "#4ade80" if gym_sessions >= gym_target[1] else "#fbbf24" if gym_sessions >= gym_target[0] else "#667eea"
+        goal1_meta = activity_types[goal1_type]
+        goal1_status = "✅" if goal1_sessions >= goal1_target else "⏳"
+        goal1_color = "#4ade80" if goal1_sessions >= goal1_target else goal1_meta["color"]
         st.markdown(f"""
-            <div style='background: linear-gradient(135deg, {gym_color}20, {gym_color}10); 
-            padding: 24px; border-radius: 16px; border: 2px solid {gym_color}40; text-align: center;
+            <div style='background: linear-gradient(135deg, {goal1_color}20, {goal1_color}10); 
+            padding: 24px; border-radius: 16px; border: 2px solid {goal1_color}40; text-align: center;
             transition: all 0.3s ease;'>
-                <div style='font-size: 48px; margin-bottom: 10px;'>🏋️</div>
-                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Finger Training</div>
-                <div style='font-size: 42px; font-weight: 800; color: {gym_color};'>{gym_sessions}/{gym_target[1]}</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {gym_target[0]}-{gym_target[1]} sessions</div>
-                <div style='font-size: 24px; margin-top: 10px;'>{gym_status}</div>
+                <div style='font-size: 48px; margin-bottom: 10px;'>{goal1_meta['emoji']}</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>{goal1_meta['name']}</div>
+                <div style='font-size: 42px; font-weight: 800; color: {goal1_color};'>{goal1_sessions}/{goal1_target}</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {goal1_target} session{"s" if goal1_target != 1 else ""}</div>
+                <div style='font-size: 24px; margin-top: 10px;'>{goal1_status}</div>
             </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        board_status = "✅" if board_sessions >= board_target else "⏳"
-        board_color = "#a855f7" if board_sessions >= board_target else "#667eea"
+        goal2_meta = activity_types[goal2_type]
+        goal2_status = "✅" if goal2_sessions >= goal2_target else "⏳"
+        goal2_color = "#4ade80" if goal2_sessions >= goal2_target else goal2_meta["color"]
         st.markdown(f"""
-            <div style='background: linear-gradient(135deg, {board_color}20, {board_color}10); 
-            padding: 24px; border-radius: 16px; border: 2px solid {board_color}40; text-align: center;
+            <div style='background: linear-gradient(135deg, {goal2_color}20, {goal2_color}10); 
+            padding: 24px; border-radius: 16px; border: 2px solid {goal2_color}40; text-align: center;
             transition: all 0.3s ease;'>
-                <div style='font-size: 48px; margin-bottom: 10px;'>🎯</div>
-                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Board Session</div>
-                <div style='font-size: 42px; font-weight: 800; color: {board_color};'>{board_sessions}/{board_target}</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {board_target} session</div>
-                <div style='font-size: 24px; margin-top: 10px;'>{board_status}</div>
+                <div style='font-size: 48px; margin-bottom: 10px;'>{goal2_meta['emoji']}</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>{goal2_meta['name']}</div>
+                <div style='font-size: 42px; font-weight: 800; color: {goal2_color};'>{goal2_sessions}/{goal2_target}</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {goal2_target} session{"s" if goal2_target != 1 else ""}</div>
+                <div style='font-size: 24px; margin-top: 10px;'>{goal2_status}</div>
             </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        climb_status = "✅" if climb_sessions >= climb_target[1] else "⏳"
-        climb_color = "#4ade80" if climb_sessions >= climb_target[1] else "#fbbf24" if climb_sessions >= climb_target[0] else "#667eea"
+        goal3_meta = activity_types[goal3_type]
+        goal3_status = "✅" if goal3_sessions >= goal3_target else "⏳"
+        goal3_color = "#4ade80" if goal3_sessions >= goal3_target else goal3_meta["color"]
         st.markdown(f"""
-            <div style='background: linear-gradient(135deg, {climb_color}20, {climb_color}10); 
-            padding: 24px; border-radius: 16px; border: 2px solid {climb_color}40; text-align: center;
+            <div style='background: linear-gradient(135deg, {goal3_color}20, {goal3_color}10); 
+            padding: 24px; border-radius: 16px; border: 2px solid {goal3_color}40; text-align: center;
             transition: all 0.3s ease;'>
-                <div style='font-size: 48px; margin-bottom: 10px;'>🧗</div>
-                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>Climbing</div>
-                <div style='font-size: 42px; font-weight: 800; color: {climb_color};'>{climb_sessions}/{climb_target[1]}</div>
-                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {climb_target[0]}-{climb_target[1]} sessions</div>
-                <div style='font-size: 24px; margin-top: 10px;'>{climb_status}</div>
+                <div style='font-size: 48px; margin-bottom: 10px;'>{goal3_meta['emoji']}</div>
+                <div style='font-size: 20px; font-weight: 700; color: white; margin-bottom: 8px;'>{goal3_meta['name']}</div>
+                <div style='font-size: 42px; font-weight: 800; color: {goal3_color};'>{goal3_sessions}/{goal3_target}</div>
+                <div style='font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 8px;'>Target: {goal3_target} session{"s" if goal3_target != 1 else ""}</div>
+                <div style='font-size: 24px; margin-top: 10px;'>{goal3_status}</div>
             </div>
         """, unsafe_allow_html=True)
     
     # Overall progress
-    total_sessions = gym_sessions + board_sessions + climb_sessions
-    total_min = gym_target[0] + board_target + climb_target[0]
-    total_max = gym_target[1] + board_target + climb_target[1]
+    total_sessions = goal1_sessions + goal2_sessions + goal3_sessions
+    total_target = goal1_target + goal2_target + goal3_target
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    if total_sessions >= total_min:
-        overall_status = "🔥 Crushing it! You've hit your minimum weekly targets!"
+    if total_sessions >= total_target:
+        overall_status = "🔥 Crushing it! You've hit your weekly targets!"
         overall_color = "#4ade80"
-    elif total_sessions >= total_min - 2:
-        overall_status = "💪 Almost there! Just a few more sessions to hit your goals!"
+    elif total_sessions >= total_target - 1:
+        overall_status = "💪 Almost there! Just one more session to hit your goals!"
         overall_color = "#fbbf24"
     else:
         overall_status = "📈 Keep going! You've got this week!"
         overall_color = "#667eea"
     
-    progress_pct = min(total_sessions / total_max * 100, 100)
+    progress_pct = min(total_sessions / total_target * 100, 100) if total_target > 0 else 0
     
     st.markdown(f"""
         <div style='background: rgba(255,255,255,0.05); padding: 28px; border-radius: 16px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1);'>
@@ -166,7 +319,7 @@ if workout_sheet:
                     <div style='font-size: 22px; font-weight: 700; color: white;'>Total Weekly Sessions</div>
                     <div style='font-size: 15px; color: rgba(255,255,255,0.7); margin-top: 6px;'>{overall_status}</div>
                 </div>
-                <div style='font-size: 44px; font-weight: 800; color: {overall_color};'>{total_sessions}/{total_max}</div>
+                <div style='font-size: 44px; font-weight: 800; color: {overall_color};'>{total_sessions}/{total_target}</div>
             </div>
             <div style='background: rgba(255,255,255,0.1); border-radius: 12px; height: 24px; overflow: hidden;'>
                 <div style='background: {overall_color}; height: 100%; width: {progress_pct}%; transition: width 0.5s ease;'></div>
