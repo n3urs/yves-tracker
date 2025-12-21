@@ -1316,6 +1316,7 @@ def generate_instagram_story(user, stats_dict):
 
 def add_new_user(username, bodyweight=78.0, pin=None):
     """Add a new user with required PIN to Supabase."""
+    created_tables = []
     try:
         supabase = get_supabase_client()
         
@@ -1329,59 +1330,87 @@ def add_new_user(username, bodyweight=78.0, pin=None):
             'username': username,
             'pin': pin
         }).execute()
+        created_tables.append('users')
         
         # Insert initial bodyweight
         supabase.table('bodyweights').insert({
             'username': username,
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'weight_kg': bodyweight
+            'bodyweight_kg': bodyweight
         }).execute()
+        created_tables.append('bodyweights')
         
-        # Initialize user profile with default 1RMs
-        default_1rms = {
-            'bench_press_left': 60.0,
-            'bench_press_right': 60.0,
-            'shoulder_press_left': 40.0,
-            'shoulder_press_right': 40.0,
-            'chest_fly_left': 30.0,
-            'chest_fly_right': 30.0,
-            'tricep_extension_left': 30.0,
-            'tricep_extension_right': 30.0,
-            'bicep_curl_left': 30.0,
-            'bicep_curl_right': 30.0,
-            'lat_pulldown_left': 50.0,
-            'lat_pulldown_right': 50.0,
-            'back_row_left': 50.0,
-            'back_row_right': 50.0,
-            'leg_press': 100.0,
-            'leg_curl': 50.0,
-            'leg_extension': 50.0
-        }
+        # Initialize user profile with default values for edge/pinch exercises
         supabase.table('user_profile').insert({
             'username': username,
-            **default_1rms
+            'bodyweight_kg': bodyweight,
+            'left_20mm_current': 0.0,
+            'right_20mm_current': 0.0,
+            'left_14mm_current': 0.0,
+            'right_14mm_current': 0.0,
+            'left_20mm_goal': 0.0,
+            'right_20mm_goal': 0.0,
+            'left_14mm_goal': 0.0,
+            'right_14mm_goal': 0.0,
+            'l_pinch_current': 0.0,
+            'r_pinch_current': 0.0,
+            'l_wrist_roller_current': 0.0,
+            'r_wrist_roller_current': 0.0
         }).execute()
+        created_tables.append('user_profile')
         
-        return True, f"User '{username}' created successfully"
+        # Initialize user settings (using key-value structure)
+        supabase.table('user_settings').insert({
+            'username': username,
+            'setting_key': 'endurance_training_enabled',
+            'setting_value': 'False'
+        }).execute()
+        created_tables.append('user_settings')
+        
+        return True, f"User '{username}' created successfully! ✅ Profile added to: {', '.join(created_tables)}"
     except Exception as e:
+        # Clean up any tables that were created
+        for table in created_tables:
+            try:
+                supabase.table(table).delete().eq('username', username).execute()
+            except:
+                pass
         return False, f"Error creating user: {str(e)}"
 
 def delete_user(username):
     """Delete a user from all Supabase tables"""
+    deleted_from = []
     try:
         supabase = get_supabase_client()
         
-        # Delete from all tables
-        supabase.table('workouts').delete().eq('username', username).execute()
-        supabase.table('bodyweights').delete().eq('username', username).execute()
-        supabase.table('user_profile').delete().eq('username', username).execute()
-        supabase.table('user_settings').delete().eq('username', username).execute()
-        supabase.table('custom_workout_logs').delete().eq('username', username).execute()
-        supabase.table('custom_workout_templates').delete().eq('username', username).execute()
-        supabase.table('activity_log').delete().eq('username', username).execute()
-        supabase.table('users').delete().eq('username', username).execute()
+        # Delete from all tables (track which ones had data)
+        tables = [
+            'workouts',
+            'bodyweight_history',
+            'bodyweights',
+            'goals',
+            'user_profile',
+            'user_settings',
+            'custom_workout_logs',
+            'custom_workout_templates',
+            'activity_log',
+            'users'
+        ]
         
-        return True, f"User '{username}' deleted successfully"
+        for table in tables:
+            try:
+                result = supabase.table(table).delete().eq('username', username).execute()
+                if result.data and len(result.data) > 0:
+                    deleted_from.append(f"{table} ({len(result.data)} rows)")
+                elif hasattr(result, 'count') and result.count > 0:
+                    deleted_from.append(f"{table}")
+            except Exception as table_error:
+                # Continue even if a table doesn't exist or has no data
+                pass
+        
+        if deleted_from:
+            return True, f"User '{username}' deleted successfully! 🗑️ Removed from: {', '.join(deleted_from)}"
+        else:
+            return True, f"User '{username}' deleted (no data found in tables)"
     except Exception as e:
         return False, f"Error deleting user: {str(e)}"
 

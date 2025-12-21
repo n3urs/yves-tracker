@@ -490,6 +490,13 @@ with header_col2:
 
 st.markdown("<div style='margin-bottom: 24px;'></div>", unsafe_allow_html=True)
 
+# Show success message after user creation if it exists
+if 'user_creation_success' in st.session_state:
+    st.success(f"✅ {st.session_state.user_creation_success}")
+    st.balloons()
+    st.info("👈 Go to the sidebar, select your username from the dropdown, and enter your PIN to log in!")
+    del st.session_state.user_creation_success
+
 # Allow create new user even when locked
 if selected_user == USER_PLACEHOLDER:
     st.markdown("## 🆕 Create Your Profile")
@@ -526,10 +533,8 @@ if selected_user == USER_PLACEHOLDER:
                 else:
                         ok, msg = add_new_user(cleaned_username, initial_bw, pin=new_user_pin)
                         if ok:
-                            st.success(f"✅ {msg}")
-                            st.success(f"🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely.")
-                            st.balloons()
-                            st.info("🔄 Profile created! Now select your profile from the sidebar and enter your PIN to log in.")
+                            # Store success message in session state
+                            st.session_state.user_creation_success = f"{msg}\n\n🎉 Welcome **{cleaned_username}**! Bodyweight **{initial_bw} kg**, PIN saved securely."
                             st.rerun()
                         else:
                             st.error(f"❌ {msg}")
