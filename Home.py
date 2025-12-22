@@ -73,44 +73,6 @@ selected_user = user_selectbox_with_pin(
 )
 st.session_state.current_user = selected_user
 
-# ==================== ENDURANCE MODE BANNER ====================
-if selected_user != USER_PLACEHOLDER:
-    endurance_enabled = get_endurance_training_enabled(selected_user)
-    
-    if endurance_enabled:
-        workout_count_edge = get_workout_count(selected_user, "20mm Edge")
-        cycle_position = (workout_count_edge % 3) + 1
-        next_is_endurance = (workout_count_edge % 3) == 2
-        
-        if next_is_endurance:
-            banner_gradient = "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-            banner_emoji = "🏃"
-            banner_title = "Next Session: Endurance"
-            banner_subtitle = f"Session {cycle_position}/3 in cycle • Repeaters protocol"
-        else:
-            banner_gradient = "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
-            banner_emoji = "💪"
-            banner_title = "Next Session: Strength"
-            banner_subtitle = f"Session {cycle_position}/3 in cycle • 80% max load"
-        
-        st.markdown(f"""
-            <div style='background: {banner_gradient}; 
-            padding: 16px 24px; border-radius: 12px; margin-bottom: 20px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-            display: flex; align-items: center; gap: 16px;'>
-                <div style='font-size: 36px;'>{banner_emoji}</div>
-                <div style='flex: 1;'>
-                    <div style='font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'>
-                        {banner_title}
-                    </div>
-                    <div style='font-size: 13px; color: rgba(255,255,255,0.9); margin-top: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
-                        {banner_subtitle}
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
 # Bug report form in sidebar
 render_bug_report_form()
 
@@ -199,7 +161,50 @@ if True:
         next_label = next_workout if next_workout else "Recovery Day"
         next_hint = "Auto-suggested rotation" if next_workout else "Take it easy today"
         hero_subtitle = f"{total_sessions} sessions • {active_weeks} active weeks"
-        hero_html = f'<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 20px; padding: 28px 32px; margin: 20px 0 30px; box-shadow: 0 8px 24px rgba(240,147,251,0.4); border: 1px solid rgba(255,255,255,0.1);"><div style="display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;"><div><div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Welcome back</div><div style="font-size: 32px; font-weight: 700; margin: 8px 0 12px; color: white;">{selected_user}! 👋</div><div style="font-size: 15px; line-height: 1.5; color: rgba(255,255,255,0.95);">{hero_status}</div><div style="margin-top: 10px; opacity: 0.85; font-size: 13px; color: rgba(255,255,255,0.9);">{hero_subtitle}</div></div><div style="text-align: right;"><div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Next focus</div><div style="font-size: 26px; font-weight: 700; margin: 8px 0 8px; color: white;">{next_label}</div><div style="font-size: 13px; opacity: 0.85; color: rgba(255,255,255,0.9);">{next_hint}</div></div></div></div>'
+        
+        # Get endurance mode info
+        endurance_enabled = get_endurance_training_enabled(selected_user)
+        endurance_section = ""
+        if endurance_enabled:
+            workout_count_edge = get_workout_count(selected_user, "20mm Edge")
+            cycle_position = (workout_count_edge % 3) + 1
+            next_is_endurance = (workout_count_edge % 3) == 2
+            
+            if next_is_endurance:
+                endurance_emoji = "🏃"
+                endurance_title = "Endurance"
+                endurance_subtitle = f"Session {cycle_position}/3 • Repeaters"
+            else:
+                endurance_emoji = "💪"
+                endurance_title = "Strength"
+                endurance_subtitle = f"Session {cycle_position}/3 • 80% max"
+            
+            endurance_section = f"""
+                <div style="text-align: left;">
+                    <div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Next Edge Session</div>
+                    <div style="font-size: 26px; font-weight: 700; margin: 8px 0; color: white;">{endurance_emoji} {endurance_title}</div>
+                    <div style="font-size: 13px; opacity: 0.85; color: rgba(255,255,255,0.9);">{endurance_subtitle}</div>
+                </div>
+            """
+        
+        hero_html = f"""
+            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 20px; padding: 28px 32px; margin: 20px 0 30px; box-shadow: 0 8px 24px rgba(240,147,251,0.4); border: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: center;">
+                    {f'<div style="flex: 0 0 200px;">{endurance_section}</div>' if endurance_section else '<div style="flex: 0 0 200px;"></div>'}
+                    <div style="flex: 1; text-align: center;">
+                        <div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Welcome back</div>
+                        <div style="font-size: 32px; font-weight: 700; margin: 8px 0 12px; color: white;">{selected_user}! 👋</div>
+                        <div style="font-size: 15px; line-height: 1.5; color: rgba(255,255,255,0.95);">{hero_status}</div>
+                        <div style="margin-top: 10px; opacity: 0.85; font-size: 13px; color: rgba(255,255,255,0.9);">{hero_subtitle}</div>
+                    </div>
+                    <div style="text-align: right; flex: 0 0 200px;">
+                        <div style="text-transform: uppercase; letter-spacing: 1px; font-size: 11px; opacity: 0.8; color: rgba(255,255,255,0.8);">Next focus</div>
+                        <div style="font-size: 26px; font-weight: 700; margin: 8px 0 8px; color: white;">{next_label}</div>
+                        <div style="font-size: 13px; opacity: 0.85; color: rgba(255,255,255,0.9);">{next_hint}</div>
+                    </div>
+                </div>
+            </div>
+        """
         st.markdown(hero_html, unsafe_allow_html=True)
 
         st.markdown("### 📊 Performance Dashboard")
