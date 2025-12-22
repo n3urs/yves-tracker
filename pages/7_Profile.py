@@ -14,7 +14,6 @@ from utils.helpers import (
     PIN_LENGTH,
     USER_PLACEHOLDER,
     inject_global_styles,
-    generate_instagram_story,
     get_endurance_training_enabled,
     set_endurance_training_enabled,
     get_workout_count,
@@ -86,7 +85,7 @@ def show_settings_dialog(selected_user):
                     </div>
                     <div style='background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;'>
                         <div style='font-size: 12px; color: rgba(255,255,255,0.85); line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
-                            📊 <strong>Endurance (Repeaters):</strong> 55% max, 7s on/3s off, 6 hangs<br>
+                            📊 <strong>Endurance (Repeaters):</strong> 55% max, 7s on/3s off, 6 lifts<br>
                             💪 <strong>Strength workouts:</strong> 80% max load, 5 reps (normal)
                         </div>
                     </div>

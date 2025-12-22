@@ -2,7 +2,7 @@ import streamlit as st
 import sys
 sys.path.append('.')
 from utils.helpers import *
-from utils.helpers import USER_PLACEHOLDER, generate_instagram_story
+from utils.helpers import USER_PLACEHOLDER
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -141,35 +141,86 @@ if True:
         # Progress charts with vibrant styling
         st.markdown("### 💪 Load Over Time - Watch Those Gains!")
         
-        # Group by date and exercise
-        df_chart = df_filtered.groupby(['Date', 'Exercise', 'Arm'])['Actual_Load_kg'].mean().reset_index()
+        # Add checkbox to exclude endurance sessions (above the chart)
+        show_endurance_style = st.checkbox(
+            "🏃 Show endurance sessions differently",
+            value=True,
+            help="Endurance sessions (55% max, repeaters) will be shown with dotted lines and smaller markers to distinguish them from strength sessions (80% max)."
+        )
+        
+        # Identify endurance sessions
+        endurance_mask = pd.Series(False, index=df_filtered.index)
+        if 'Notes' in df_filtered.columns:
+            df_filtered['_notes_lower'] = df_filtered['Notes'].fillna('').astype(str).str.lower()
+            endurance_mask = df_filtered['_notes_lower'].str.contains('endurance|repeater')
+            df_filtered = df_filtered.drop(columns=['_notes_lower'])
+        
+        # Split data into strength and endurance
+        df_strength = df_filtered[~endurance_mask].copy() if show_endurance_style else df_filtered.copy()
+        df_endurance = df_filtered[endurance_mask].copy() if show_endurance_style else pd.DataFrame()
+        
+        # Group by date and exercise for both datasets
+        df_chart_strength = df_strength.groupby(['Date', 'Exercise', 'Arm'])['Actual_Load_kg'].mean().reset_index()
+        df_chart_endurance = df_endurance.groupby(['Date', 'Exercise', 'Arm'])['Actual_Load_kg'].mean().reset_index() if not df_endurance.empty else pd.DataFrame()
         
         # Use kg values directly
-        df_chart['Actual_Load_Display'] = df_chart['Actual_Load_kg']
+        df_chart_strength['Actual_Load_Display'] = df_chart_strength['Actual_Load_kg']
+        if not df_chart_endurance.empty:
+            df_chart_endurance['Actual_Load_Display'] = df_chart_endurance['Actual_Load_kg']
         
         # Create beautiful plotly chart with custom colors
         fig = go.Figure()
         
-        # Define vibrant colors for each combination
-        colors = {
-            'L': '#4facfe',  # Blue for left
-            'R': '#f093fb',  # Pink for right
+        # Define vibrant colors for each exercise-arm combination
+        color_map = {
+            '20mm Edge_L': '#4facfe',  # Bright blue
+            '20mm Edge_R': '#00c9ff',  # Cyan
+            'Pinch_L': '#f093fb',      # Pink
+            'Pinch_R': '#f5576c',      # Red-pink
+            'Wrist Roller_L': '#a8e063',  # Light green
+            'Wrist Roller_R': '#56ab2f',  # Dark green
         }
         
-        for exercise in df_chart['Exercise'].unique():
-            for arm in df_chart['Arm'].unique():
-                df_subset = df_chart[(df_chart['Exercise'] == exercise) & (df_chart['Arm'] == arm)]
+        # Add strength sessions (solid lines)
+        for exercise in df_chart_strength['Exercise'].unique():
+            for arm in df_chart_strength['Arm'].unique():
+                df_subset = df_chart_strength[(df_chart_strength['Exercise'] == exercise) & (df_chart_strength['Arm'] == arm)]
                 
                 if len(df_subset) > 0:
+                    color_key = f'{exercise}_{arm}'
+                    color = color_map.get(color_key, '#ffffff')
+                    
                     fig.add_trace(go.Scatter(
                         x=df_subset['Date'],
                         y=df_subset['Actual_Load_Display'],
                         mode='lines+markers',
                         name=f'{exercise} - {arm}',
-                        line=dict(color=colors.get(arm, '#ffffff'), width=3),
-                        marker=dict(size=10, color=colors.get(arm, '#ffffff'), 
+                        line=dict(color=color, width=3),
+                        marker=dict(size=10, color=color, 
                                   line=dict(color='white', width=2))
                     ))
+        
+        # Add endurance sessions (dotted lines, smaller markers)
+        if show_endurance_style and not df_chart_endurance.empty:
+            for exercise in df_chart_endurance['Exercise'].unique():
+                for arm in df_chart_endurance['Arm'].unique():
+                    df_subset = df_chart_endurance[(df_chart_endurance['Exercise'] == exercise) & (df_chart_endurance['Arm'] == arm)]
+                    
+                    if len(df_subset) > 0:
+                        color_key = f'{exercise}_{arm}'
+                        base_color = color_map.get(color_key, '#ffffff')
+                        
+                        fig.add_trace(go.Scatter(
+                            x=df_subset['Date'],
+                            y=df_subset['Actual_Load_Display'],
+                            mode='lines+markers',
+                            name=f'{exercise} - {arm} (Endurance)',
+                            line=dict(color=base_color, width=2, dash='dot'),
+                            marker=dict(size=7, color=base_color, opacity=0.6,
+                                      line=dict(color='white', width=1),
+                                      symbol='square'),
+                            opacity=0.7
+                        ))
         
         fig.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
@@ -582,61 +633,6 @@ if True:
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        
-        # ==================== INSTAGRAM STORY GENERATOR ====================
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        
-        with st.expander("📸 Share Your Progress on Instagram", expanded=False):
-            st.markdown("Create a professional Instagram Story (1080x1920) to showcase your gains!")
-            
-            if st.button("Generate Story Image", use_container_width=True, type="primary"):
-                with st.spinner("Creating your story..."):
-                    # Calculate stats
-                    total_sessions = len(df['Date'].dt.date.unique())
-                    total_volume = (pd.to_numeric(df['Actual_Load_kg'], errors='coerce') *
-                                   pd.to_numeric(df['Reps_Per_Set'], errors='coerce') *
-                                   pd.to_numeric(df['Sets_Completed'], errors='coerce')).sum()
-                    
-                    dates = sorted(df['Date'].dt.date.unique())
-                    current_streak = 1
-                    for i in range(len(dates)-1, 0, -1):
-                        if (dates[i] - dates[i-1]).days <= 7:
-                            current_streak += 1
-                        else:
-                            break
-                    
-                    days_training = (datetime.now() - df['Date'].min()).days
-                    
-                    # Prepare stats
-                    stats_dict = {
-                        'total_sessions': total_sessions,
-                        'total_volume': total_volume,
-                        'current_streak': current_streak,
-                        'days_training': days_training
-                    }
-                    
-                    # Generate image
-                    story_img = generate_instagram_story(selected_user, stats_dict)
-                    
-                    # Convert to bytes for download
-                    buf = io.BytesIO()
-                    story_img.save(buf, format='PNG')
-                    byte_im = buf.getvalue()
-                    
-                    # Display preview in smaller size
-                    st.success("✅ Story created!")
-                    col1, col2, col3 = st.columns([1, 2, 1])
-                    with col2:
-                        st.image(story_img, caption="Preview (1080x1920)", use_container_width=True)
-                    
-                    # Download button
-                    st.download_button(
-                        label="⬇️ Download Story Image",
-                        data=byte_im,
-                        file_name=f"yves_tracker_{selected_user}_{datetime.now().strftime('%Y%m%d')}.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
 
 else:
     st.error("⚠️ Could not connect to Google Sheets.")

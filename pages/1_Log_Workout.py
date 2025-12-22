@@ -271,7 +271,7 @@ def show_standard_workout_modal():
                         ENDURANCE SESSION - REPEATERS
                     </div>
                     <div style='font-size: 12px; color: rgba(255,255,255,0.95);'>
-                        55% max load • 7s on, 3s off • 6 hangs per set
+                        55% max load • 7s on, 3s off • 6 lifts per set
                     </div>
                 </div>
             </div>
@@ -422,7 +422,14 @@ def show_standard_workout_modal():
     
     final_notes = (notes + " " + st.session_state.modal_quick_note).strip() if st.session_state.modal_quick_note else notes
     
-    if st.session_state.modal_quick_note:
+    # Add endurance marker to notes if it's an endurance session
+    if is_endurance:
+        if final_notes:
+            final_notes = f"[ENDURANCE] {final_notes}"
+        else:
+            final_notes = "[ENDURANCE]"
+    
+    if st.session_state.modal_quick_note or is_endurance:
         st.info(f"📌 {final_notes}")
         if st.button("🗑️ Clear tags", key="modal_clear_tags"):
             st.session_state.modal_quick_note = ""
@@ -917,4 +924,126 @@ elif st.session_state.show_activity_modal:
     show_activity_modal()
 elif st.session_state.show_1rm_modal:
     show_1rm_modal()
+
+# ==================== WEIGHT RECOMMENDATIONS ====================
+st.markdown("---")
+st.markdown("## 💡 Recommended Weights")
+st.caption("Based on your most recent training loads")
+
+# Check if endurance mode is enabled and determine next workout type
+endurance_enabled = get_endurance_training_enabled(selected_user)
+workout_count_edge = get_workout_count(selected_user, "20mm Edge")
+is_next_endurance = endurance_enabled and (workout_count_edge % 3) == 2
+
+# Load recent workout data for the user
+df_recent = load_data_from_sheets(None, selected_user)
+
+if not df_recent.empty:
+    # Filter for standard exercises only (not 1RM tests)
+    df_recent = df_recent[~df_recent['Exercise'].str.contains('1RM Test', na=False)]
+    
+    # Get most recent loads for each exercise and arm
+    exercises_to_check = ["20mm Edge", "Pinch", "Wrist Roller"]
+    
+    # Create columns for each exercise
+    cols = st.columns(len(exercises_to_check))
+    
+    for idx, exercise in enumerate(exercises_to_check):
+        with cols[idx]:
+            # Get most recent workout for this exercise
+            df_ex = df_recent[df_recent['Exercise'] == exercise].copy()
+            
+            if not df_ex.empty:
+                df_ex['Date'] = pd.to_datetime(df_ex['Date'], errors='coerce')
+                df_ex_sorted = df_ex.sort_values('Date', ascending=False)
+                
+                # Get most recent load for each arm
+                recent_L = df_ex_sorted[df_ex_sorted['Arm'] == 'L']['Actual_Load_kg'].iloc[0] if not df_ex_sorted[df_ex_sorted['Arm'] == 'L'].empty else 0
+                recent_R = df_ex_sorted[df_ex_sorted['Arm'] == 'R']['Actual_Load_kg'].iloc[0] if not df_ex_sorted[df_ex_sorted['Arm'] == 'R'].empty else 0
+                
+                # Determine if this is the exercise affected by endurance mode
+                is_edge_exercise = exercise == "20mm Edge"
+                show_endurance_weights = is_edge_exercise and is_next_endurance
+                
+                # Calculate weights to display
+                if show_endurance_weights:
+                    # Calculate endurance weights (55% of max vs 80% of max)
+                    # If normal weight is 80% of max, then endurance weight is (55/80) * normal
+                    endurance_multiplier = 55.0 / 80.0
+                    display_L = recent_L * endurance_multiplier if recent_L > 0 else 0
+                    display_R = recent_R * endurance_multiplier if recent_R > 0 else 0
+                else:
+                    # Show normal weights
+                    display_L = recent_L
+                    display_R = recent_R
+                
+                # Choose gradient based on exercise
+                if exercise == "20mm Edge":
+                    gradient = "linear-gradient(135deg, #10b981 0%, #059669 100%)" if show_endurance_weights else "linear-gradient(135deg, #2d7dd2 0%, #1fc8db 100%)"
+                    workout_type = "🏃 Endurance" if show_endurance_weights else "💪 Strength"
+                elif exercise == "Pinch":
+                    gradient = "linear-gradient(135deg, #e1306c 0%, #f77737 100%)"
+                    workout_type = "💪 Strength"
+                else:  # Wrist Roller
+                    gradient = "linear-gradient(135deg, #30cfd0 0%, #330867 100%)"
+                    workout_type = "💪 Strength"
+                
+                # Build workout type display
+                if is_edge_exercise:
+                    workout_type_div = f"<div style='font-size: 12px; color: rgba(255,255,255,0.9); text-align: center; margin-bottom: 12px;'>{workout_type}</div>"
+                else:
+                    workout_type_div = ""
+                
+                # Build normal weights footer
+                if show_endurance_weights:
+                    normal_footer_div = f"<div style='margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.85); text-align: center;'>Normal: L {recent_L:.1f} kg • R {recent_R:.1f} kg</div>"
+                else:
+                    normal_footer_div = ""
+                
+                # Display card - build HTML string carefully
+                st.markdown(
+                    f"<div style='background: {gradient}; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);'>" +
+                    f"<div style='font-size: 16px; color: white; font-weight: 700; text-align: center; margin-bottom: 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'>{exercise}</div>" +
+                    workout_type_div +
+                    f"<div style='background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;'>" +
+                    f"<div style='display: flex; justify-content: space-between; margin-bottom: 8px;'>" +
+                    f"<span style='color: rgba(255,255,255,0.9); font-size: 13px;'>👈 Left:</span>" +
+                    f"<span style='color: white; font-weight: 700; font-size: 16px;'>{display_L:.1f} kg</span>" +
+                    f"</div>" +
+                    f"<div style='display: flex; justify-content: space-between;'>" +
+                    f"<span style='color: rgba(255,255,255,0.9); font-size: 13px;'>👉 Right:</span>" +
+                    f"<span style='color: white; font-weight: 700; font-size: 16px;'>{display_R:.1f} kg</span>" +
+                    f"</div>" +
+                    f"</div>" +
+                    normal_footer_div +
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                # No data for this exercise yet
+                gradient = "linear-gradient(135deg, #4a5568 0%, #2d3748 100%)"
+                st.markdown(f"""
+                    <div style='background: {gradient}; 
+                    padding: 20px; border-radius: 12px; 
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                    border: 1px solid rgba(255,255,255,0.1);'>
+                        <div style='font-size: 16px; color: white; font-weight: 700; 
+                        text-align: center; margin-bottom: 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'>
+                            {exercise}
+                        </div>
+                        <div style='background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; text-align: center;'>
+                            <span style='color: rgba(255,255,255,0.6); font-size: 13px;'>
+                                No data yet
+                            </span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+    
+    # Add explanation
+    if is_next_endurance:
+        st.info("🏃 **Next session is Endurance**: Use lighter loads (55% of max) for the 20mm Edge repeaters protocol")
+    else:
+        st.caption("💡 These weights are based on your most recent logged sessions (assuming 80% of 1RM for strength training)")
+else:
+    st.info("📊 Log your first workout to see weight recommendations!")
 

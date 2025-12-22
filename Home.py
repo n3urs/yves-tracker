@@ -22,7 +22,9 @@ from utils.helpers import (
     estimate_1rm_epley,
     calculate_plates,
     load_custom_workout_logs,
-    render_bug_report_form
+    render_bug_report_form,
+    get_endurance_training_enabled,
+    get_workout_count
 )
 
 st.set_page_config(page_title="Yves Climbing Tracker", page_icon="🧗", layout="wide")
@@ -70,6 +72,44 @@ selected_user = user_selectbox_with_pin(
     label="Select User:"
 )
 st.session_state.current_user = selected_user
+
+# ==================== ENDURANCE MODE BANNER ====================
+if selected_user != USER_PLACEHOLDER:
+    endurance_enabled = get_endurance_training_enabled(selected_user)
+    
+    if endurance_enabled:
+        workout_count_edge = get_workout_count(selected_user, "20mm Edge")
+        cycle_position = (workout_count_edge % 3) + 1
+        next_is_endurance = (workout_count_edge % 3) == 2
+        
+        if next_is_endurance:
+            banner_gradient = "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+            banner_emoji = "🏃"
+            banner_title = "Next Session: Endurance"
+            banner_subtitle = f"Session {cycle_position}/3 in cycle • Repeaters protocol"
+        else:
+            banner_gradient = "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+            banner_emoji = "💪"
+            banner_title = "Next Session: Strength"
+            banner_subtitle = f"Session {cycle_position}/3 in cycle • 80% max load"
+        
+        st.markdown(f"""
+            <div style='background: {banner_gradient}; 
+            padding: 16px 24px; border-radius: 12px; margin-bottom: 20px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex; align-items: center; gap: 16px;'>
+                <div style='font-size: 36px;'>{banner_emoji}</div>
+                <div style='flex: 1;'>
+                    <div style='font-size: 18px; color: white; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.3);'>
+                        {banner_title}
+                    </div>
+                    <div style='font-size: 13px; color: rgba(255,255,255,0.9); margin-top: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);'>
+                        {banner_subtitle}
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
 # Bug report form in sidebar
 render_bug_report_form()
