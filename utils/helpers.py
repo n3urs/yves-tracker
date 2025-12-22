@@ -671,6 +671,7 @@ def save_workout_to_sheets(row_data):
             "sets": row_data.get("Sets_Completed") or row_data.get("Sets"),
             "reps": row_data.get("Reps_Per_Set") or row_data.get("Reps"),
             "weight": row_data.get("Actual_Load_kg") or row_data.get("Weight"),
+            "rpe": row_data.get("RPE"),
             "notes": row_data.get("Notes", "")
         }
         
@@ -1142,7 +1143,7 @@ def get_working_max(user, exercise, arm, weeks=8):
             df_filtered = df[
                 (df['exercise'].str.contains(exercise, na=False)) &
                 (~df['exercise'].str.contains('1RM Test', na=False))
-            ]
+            ].copy()
             
             if len(df_filtered) > 0:
                 # Convert to numeric - use Supabase column names
