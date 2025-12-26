@@ -1090,10 +1090,10 @@ def set_user_1rm(user, exercise, arm, new_1rm):
         
         # Map exercise name to profile column
         key_map = {
-            '20mm Edge': ('20mm', arm.lower()),
-            '14mm Edge': ('14mm', arm.lower()),
-            'Pinch': ('pinch', arm.lower()),
-            'Wrist Roller': ('wrist_roller', arm.lower()),
+            '20mm Edge': ('20mm', 'left' if arm.upper() == 'L' else 'right'),
+            '14mm Edge': ('14mm', 'left' if arm.upper() == 'L' else 'right'),
+            'Pinch': ('pinch', 'l' if arm.upper() == 'L' else 'r'),
+            'Wrist Roller': ('wrist_roller', 'l' if arm.upper() == 'L' else 'r'),
         }
         
         if exercise not in key_map:
