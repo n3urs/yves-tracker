@@ -96,7 +96,7 @@ if selected_user == USER_PLACEHOLDER:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("🆕 Create Your Profile", use_container_width=True, type="primary"):
-            st.switch_page("pages/5_Profile.py")
+            st.switch_page("pages/7_Profile.py")
     
     st.markdown("<div style='margin: 20px 0;'></div>", unsafe_allow_html=True)
     st.info("🔒 Already have a profile? Select it from the sidebar and enter your PIN.")
