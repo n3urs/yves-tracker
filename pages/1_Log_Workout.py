@@ -9,7 +9,8 @@ from utils.helpers import (
     is_endurance_workout,
     increment_workout_count,
     get_endurance_training_enabled,
-    get_workout_count
+    get_workout_count,
+    get_last_workout_by_type
 )
 
 st.set_page_config(page_title="Log Workout", page_icon="📝", layout="wide")
@@ -210,12 +211,34 @@ def show_standard_workout_modal():
     
     st.markdown("---")
     
-    # Get last workout data
-    last_workout_L = get_last_workout(selected_user, exercise, "L")
-    last_workout_R = get_last_workout(selected_user, exercise, "R")
+    # Manual endurance override for 20mm Edge
+    force_endurance = False
+    if exercise == "20mm Edge" and get_endurance_training_enabled(selected_user):
+        st.markdown("### 🎯 Workout Type Override")
+        force_endurance = st.checkbox(
+            "🏃 Force Endurance Workout (Repeaters)",
+            value=False,
+            key="force_endurance_checkbox",
+            help="Override the automatic cycle and force this workout to be an endurance session (55% max, 7s on/3s off, 6 lifts)"
+        )
+        st.markdown("---")
     
-    # Check if endurance workout
-    is_endurance = is_endurance_workout(selected_user, exercise)
+    # Check if endurance workout (automatic cycle or manual override)
+    is_endurance = force_endurance or is_endurance_workout(selected_user, exercise)
+    
+    # Get last workout data - fetch the correct type based on is_endurance
+    if exercise == "20mm Edge":
+        last_workout_L = get_last_workout_by_type(selected_user, exercise, "L", is_endurance)
+        last_workout_R = get_last_workout_by_type(selected_user, exercise, "R", is_endurance)
+        
+        # If no workout of this type exists, fall back to any last workout
+        if not last_workout_L:
+            last_workout_L = get_last_workout(selected_user, exercise, "L")
+        if not last_workout_R:
+            last_workout_R = get_last_workout(selected_user, exercise, "R")
+    else:
+        last_workout_L = get_last_workout(selected_user, exercise, "L")
+        last_workout_R = get_last_workout(selected_user, exercise, "R")
     
     # Generate suggestions
     suggestion_L = generate_workout_suggestion(last_workout_L, is_endurance)
@@ -262,13 +285,14 @@ def show_standard_workout_modal():
     
     # Show endurance banner if applicable
     if is_endurance:
+        banner_title = "ENDURANCE SESSION - REPEATERS" + (" (MANUAL OVERRIDE)" if force_endurance else "")
         st.markdown(f"""
             <div style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
             padding: 16px; border-radius: 10px; margin-bottom: 16px; border: 2px solid rgba(255,255,255,0.2);'>
                 <div style='text-align: center;'>
                     <div style='font-size: 28px; margin-bottom: 6px;'>🏃</div>
                     <div style='font-size: 18px; color: white; font-weight: 700; margin-bottom: 6px;'>
-                        ENDURANCE SESSION - REPEATERS
+                        {banner_title}
                     </div>
                     <div style='font-size: 12px; color: rgba(255,255,255,0.95);'>
                         55% max load • 7s on, 3s off • 6 lifts per set
@@ -932,10 +956,25 @@ st.markdown("## 💡 Recommended Weights for Next Session")
 # Check if endurance mode is enabled and determine next workout type
 endurance_enabled = get_endurance_training_enabled(selected_user)
 workout_count_edge = get_workout_count(selected_user, "20mm Edge")
-is_next_endurance = endurance_enabled and (workout_count_edge % 3) == 2
+is_next_endurance_actual = endurance_enabled and (workout_count_edge % 3) == 2
+
+# Add preview toggle for endurance
+preview_endurance = False
+if endurance_enabled:
+    preview_endurance = st.checkbox(
+        "🏃 Preview Endurance Weights",
+        value=False,
+        key="preview_endurance_weights",
+        help="Toggle to see what the weights would be if the next session was an endurance workout (55% max)"
+    )
+
+# Determine final display mode
+is_next_endurance = preview_endurance or is_next_endurance_actual
 
 # Display info banner
-if endurance_enabled and is_next_endurance:
+if preview_endurance:
+    st.warning("👁️ **Preview Mode** - Showing endurance weights (55% of max)")
+elif endurance_enabled and is_next_endurance_actual:
     st.info("🏃 **Next Edge session is Endurance** - Use 55% of max (repeaters protocol)")
 elif endurance_enabled:
     st.info(f"💪 **Next Edge session is Strength** - Use 80% of max (session {(workout_count_edge % 3) + 1}/3)")

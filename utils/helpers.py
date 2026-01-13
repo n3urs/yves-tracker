@@ -708,6 +708,39 @@ def get_last_workout(user, exercise, arm):
     except Exception as e:
         return None
 
+def get_last_workout_by_type(user, exercise, arm, is_endurance):
+    """Get the most recent workout of a specific type (strength or endurance)"""
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            return None
+        
+        # Get all workouts for this exercise/arm
+        response = supabase.table("workouts").select("*").eq("username", user).eq("exercise", exercise).eq("arm", arm).order("date", desc=True).execute()
+        
+        if not response.data or len(response.data) == 0:
+            return None
+        
+        # Filter by workout type based on notes
+        for workout in response.data:
+            notes_lower = str(workout.get('notes', '')).lower()
+            workout_is_endurance = 'endurance' in notes_lower or 'repeater' in notes_lower
+            
+            # Return first match of the requested type
+            if workout_is_endurance == is_endurance:
+                return {
+                    'date': workout.get('date', 'Unknown'),
+                    'weight': float(workout.get('weight', 0.0)),
+                    'reps': int(workout.get('reps', 0)),
+                    'sets': int(workout.get('sets', 0)),
+                    'rpe': int(workout.get('rpe', 0)),
+                    'notes': str(workout.get('notes', ''))
+                }
+        
+        return None
+    except Exception as e:
+        return None
+
 def generate_workout_suggestion(last_workout_data, is_endurance=False):
     """Generate a suggestion based on previous workout performance"""
     if not last_workout_data:
