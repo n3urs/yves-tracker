@@ -213,18 +213,33 @@ def show_standard_workout_modal():
     
     # Manual endurance override for 20mm Edge
     force_endurance = False
+    override_endurance = False
     if exercise == "20mm Edge" and get_endurance_training_enabled(selected_user):
         st.markdown("### 🎯 Workout Type Override")
-        force_endurance = st.checkbox(
-            "🏃 Force Endurance Workout (Repeaters)",
-            value=False,
-            key="force_endurance_checkbox",
-            help="Override the automatic cycle and force this workout to be an endurance session (55% max, 7s on/3s off, 6 lifts)"
-        )
+        
+        # Check if this would automatically be an endurance workout
+        auto_is_endurance = is_endurance_workout(selected_user, exercise)
+        
+        if auto_is_endurance:
+            # Allow user to override the automatic endurance requirement
+            override_endurance = st.checkbox(
+                "💪 Override to Strength Workout (80% max)",
+                value=False,
+                key="override_endurance_checkbox",
+                help="Do a strength workout instead of the scheduled endurance session"
+            )
+        else:
+            # Allow user to force an endurance workout
+            force_endurance = st.checkbox(
+                "🏃 Force Endurance Workout (Repeaters)",
+                value=False,
+                key="force_endurance_checkbox",
+                help="Override the automatic cycle and force this workout to be an endurance session (55% max, 7s on/3s off, 6 lifts)"
+            )
         st.markdown("---")
     
-    # Check if endurance workout (automatic cycle or manual override)
-    is_endurance = force_endurance or is_endurance_workout(selected_user, exercise)
+    # Check if endurance workout (automatic cycle or manual override, but not if overridden)
+    is_endurance = (force_endurance or is_endurance_workout(selected_user, exercise)) and not override_endurance
     
     # Get last workout data - fetch the correct type based on is_endurance
     if exercise == "20mm Edge":
@@ -296,6 +311,21 @@ def show_standard_workout_modal():
                     </div>
                     <div style='font-size: 12px; color: rgba(255,255,255,0.95);'>
                         55% max load • 7s on, 3s off • 6 lifts per set
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    elif override_endurance:
+        st.markdown("""
+            <div style='background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); 
+            padding: 16px; border-radius: 10px; margin-bottom: 16px; border: 2px solid rgba(255,255,255,0.2);'>
+                <div style='text-align: center;'>
+                    <div style='font-size: 28px; margin-bottom: 6px;'>💪</div>
+                    <div style='font-size: 18px; color: white; font-weight: 700; margin-bottom: 6px;'>
+                        STRENGTH SESSION (OVERRIDE)
+                    </div>
+                    <div style='font-size: 12px; color: rgba(255,255,255,0.95);'>
+                        You've overridden the scheduled endurance session to do strength training instead
                     </div>
                 </div>
             </div>
